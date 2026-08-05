@@ -551,44 +551,33 @@ export default function AdminDashboard() {
                         <input type="text" dir="ltr" value={adForm.link_url} onChange={e => setAdForm({ ...adForm, link_url: e.target.value })} className="f-input text-left" placeholder="https://..." />
                       </div>
                       <div className="flex-1">
-                        <label className="f-label mb-1">المنطقة المستهدفة للإعلان</label>
+                        <label className="f-label mb-1">استهداف العرض (GPS / عام)</label>
                         <select
-                          value={
-                            adForm.latitude && adForm.longitude && adForm.radius_km
-                              ? (adForm.target_region === 'شايروفا / كيبزة' ? 'شايروفا / كيبزة' : adForm.target_region === 'إسطنبول' ? 'إسطنبول' : 'map')
-                              : 'جميع المناطق'
-                          }
+                          value={adForm.latitude !== null && adForm.longitude !== null && adForm.radius_km !== null ? 'gps' : 'all'}
                           onChange={e => {
-                            const val = e.target.value
-                            if (val === 'جميع المناطق') {
+                            if (e.target.value === 'all') {
                               setAdForm({ ...adForm, target_region: 'جميع المناطق', latitude: null, longitude: null, radius_km: null })
-                            } else if (val === 'شايروفا / كيبزة') {
-                              setAdForm({ ...adForm, target_region: 'شايروفا / كيبزة', latitude: 40.8167, longitude: 29.3750, radius_km: 15 })
-                            } else if (val === 'إسطنبول') {
-                              setAdForm({ ...adForm, target_region: 'إسطنبول', latitude: 41.0082, longitude: 28.9784, radius_km: 30 })
                             } else {
-                              setAdForm({ ...adForm, target_region: 'منطقة مخصصة', latitude: 40.8167, longitude: 29.3750, radius_km: 15 })
+                              setAdForm({ ...adForm, target_region: 'GPS Geofence', latitude: 40.825378, longitude: 29.384052, radius_km: 15 })
                             }
                           }}
                           className="f-input mb-3"
                         >
-                          <option value="جميع المناطق">🌐 جميع المناطق (عام للجميع)</option>
-                          <option value="شايروفا / كيبزة">📍 شايروفا / كيبزة (دائرة 15 كم بـ GPS)</option>
-                          <option value="إسطنبول">📍 إسطنبول (دائرة 30 كم بـ GPS)</option>
-                          <option value="map">🗺️ تحدد بالخرائط (رابط Google Maps أو الإحداثيات)</option>
+                          <option value="all">🌐 عام (يظهر لجميع الزبائن والمناطق)</option>
+                          <option value="gps">📍 استهداف جغرافي بالـ GPS (إحداثيات ونصف قطر كم)</option>
                         </select>
 
-                        {/* If Map/Custom Geofence Selected */}
+                        {/* GPS Geofence Settings */}
                         {adForm.latitude !== null && (
                           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3 animate-fade-in text-xs font-bold text-slate-800">
                             <div>
                               <label className="block text-[11px] text-slate-500 mb-1">
-                                🔗 لصق رابط Google Maps أو الإحداثيات (Lat, Lng)
+                                🔗 لصق الإحداثيات مباشرة أو رابط Google Maps
                               </label>
                               <input
                                 type="text"
                                 dir="ltr"
-                                placeholder="مثال: https://maps.app.goo.gl/... أو 40.8167, 29.3750"
+                                placeholder="40.82537830733318, 29.38405265291033"
                                 onChange={e => {
                                   const val = e.target.value
                                   const match = val.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/)
@@ -625,7 +614,7 @@ export default function AdminDashboard() {
                                 <label className="block text-[10px] text-slate-400 mb-1">نصف القطر (كم)</label>
                                 <input
                                   type="number"
-                                  step="1"
+                                  step="0.5"
                                   placeholder="15"
                                   value={adForm.radius_km ?? ''}
                                   onChange={e => setAdForm({ ...adForm, radius_km: parseFloat(e.target.value) || null })}
@@ -633,20 +622,10 @@ export default function AdminDashboard() {
                                 />
                               </div>
                             </div>
-
-                            <div>
-                              <label className="block text-[10px] text-slate-400 mb-1">اسم المنطقة التوضيحي</label>
-                              <input
-                                type="text"
-                                value={adForm.target_region}
-                                onChange={e => setAdForm({ ...adForm, target_region: e.target.value })}
-                                className="f-input"
-                                placeholder="مثال: شايروفا أو مركز المدينة"
-                              />
-                            </div>
                           </div>
                         )}
                       </div>
+
 
 
                     </div>

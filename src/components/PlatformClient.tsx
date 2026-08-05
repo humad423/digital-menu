@@ -253,27 +253,22 @@ export default function PlatformClient({
   const filteredOffers = (offers || []).filter(o => allowedIds.has(o.restaurants?.id || o.restaurant_id))
 
   const filteredAds = (ads || []).filter(ad => {
-    if (!ad.target_region || ad.target_region === 'جميع المناطق' || ad.target_region === 'عام') return true
+    // 1. General ads (no lat/lng/radius specified) -> Show to ALL
+    if (!ad.latitude || !ad.longitude || !ad.radius_km || ad.radius_km === 0) {
+      return true
+    }
 
-    // 1. Exact Mathematical GPS Geofencing (Haversine Formula)
-    if (ad.latitude && ad.longitude && ad.radius_km && userLoc?.lat && userLoc?.lng) {
+    // 2. Pure GPS Distance Geofencing (Haversine Formula)
+    if (userLoc?.lat && userLoc?.lng) {
       const dist = calculateDistance(userLoc.lat, userLoc.lng, ad.latitude, ad.longitude)
       return dist <= ad.radius_km
     }
 
-    // 2. District Name Matching Fallback
-    const target = ad.target_region.toLowerCase().trim()
-    if (userArea) {
-      const area = userArea.toLowerCase().trim()
-      if (target.includes(area) || area.includes(target)) return true
-      if (target.includes('شايروفا') && (area.includes('شايروفا') || area.includes('كيبزة'))) return true
-      if (target.includes('كيبزة') && (area.includes('شايروفا') || area.includes('كيبزة'))) return true
-      return false
-    }
-
-    if (target.includes('شايروفا') || target.includes('كيبزة')) return true
-    return false
+    // Fallback for default zone (40.8167, 29.3750)
+    const defaultDist = calculateDistance(40.8167, 29.3750, ad.latitude, ad.longitude)
+    return defaultDist <= ad.radius_km
   })
+
 
 
 
