@@ -146,6 +146,30 @@ export default function PlatformClient({
     }
   }
 
+  // Mouse Drag-to-Scroll for PC / Desktop
+  const [isMouseDown, setIsMouseDown] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeftState, setScrollLeftState] = useState(0)
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!offersSliderRef.current) return
+    setIsMouseDown(true)
+    setStartX(e.pageX - offersSliderRef.current.offsetLeft)
+    setScrollLeftState(offersSliderRef.current.scrollLeft)
+  }
+
+  const handleMouseLeaveOrUp = () => {
+    setIsMouseDown(false)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isMouseDown || !offersSliderRef.current) return
+    e.preventDefault()
+    const x = e.pageX - offersSliderRef.current.offsetLeft
+    const walk = (x - startX) * 1.5
+    offersSliderRef.current.scrollLeft = scrollLeftState - walk
+  }
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--background)' }}>
 
@@ -253,8 +277,14 @@ export default function PlatformClient({
 
             <div
               ref={offersSliderRef}
-              className="flex gap-4 overflow-x-auto pb-3 pt-1 -mx-5 px-5 hide-scrollbar touch-pan-x snap-x snap-mandatory scroll-smooth"
-              style={{ WebkitOverflowScrolling: 'touch' }}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeaveOrUp}
+              onMouseUp={handleMouseLeaveOrUp}
+              onMouseMove={handleMouseMove}
+              className={`flex gap-4 overflow-x-auto pb-3 pt-1 -mx-5 px-5 hide-scrollbar scroll-smooth snap-x snap-mandatory ${
+                isMouseDown ? 'cursor-grabbing' : 'cursor-grab'
+              }`}
+              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y' }}
             >
               {locationFilteredOffers.map(offer => {
                 const res = offer.restaurants
@@ -324,7 +354,10 @@ export default function PlatformClient({
                 </button>
               )}
             </div>
-            <div className="flex overflow-x-auto hide-scrollbar gap-3 -mx-5 px-5 pb-3">
+            <div
+              className="flex overflow-x-auto hide-scrollbar gap-3 -mx-5 px-5 pb-3"
+              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y' }}
+            >
               {categories.map(cat => {
                 const isActive = activeCat === cat.id
                 return (
