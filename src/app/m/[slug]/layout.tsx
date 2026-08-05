@@ -40,73 +40,107 @@ export default async function RestaurantLayout({
 
   if (!restaurant) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center dir-rtl">
-        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center text-2xl font-black mb-4">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
+        <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center text-4xl mb-5 shadow-sm">
           🏪
         </div>
-        <h1 className="text-xl font-black text-gray-900 mb-2">المطعم غير موجود</h1>
-        <p className="text-xs text-gray-500 max-w-xs mb-6 font-medium leading-relaxed">
+        <h1 className="text-xl font-black text-slate-800 mb-2">المطعم غير موجود</h1>
+        <p className="text-sm text-slate-400 max-w-xs mb-6 font-medium leading-relaxed">
           عذراً، هذا المطعم غير موجود أو قد يكون الرابط غير صحيح.
         </p>
-        <Link href="/" className="px-6 py-3.5 bg-orange-500 text-white font-black text-xs rounded-2xl shadow-lg shadow-orange-500/25 active:scale-95 transition">
+        <Link
+          href="/"
+          className="px-6 py-3.5 text-white font-black text-sm rounded-2xl shadow-lg transition active:scale-95"
+          style={{ background: restaurant ? `${(restaurant as any).primary_color}` : '#F97316' }}
+        >
           العودة للمنصة الرئيسية 🏠
         </Link>
       </div>
     )
   }
 
+  const primaryColor = restaurant.primary_color || '#F97316'
+
   return (
     <div
-      className="min-h-screen pb-28 relative"
+      className="min-h-screen pb-32 relative"
       dir="rtl"
       style={{
-        '--color-primary': restaurant.primary_color || '#FF5C00',
-        background: 'var(--background)'
+        '--color-primary': primaryColor,
+        '--brand-secondary': '#1A1A2E',
+        '--brand-accent': `${primaryColor}18`,
+        '--background': '#F8FAFC',
+        background: '#F8FAFC'
       } as React.CSSProperties}
     >
-      {/* Hero Section */}
+      {/* ── Hero Section ── */}
       <div className="relative">
-        {/* Cover Image */}
-        <div className="h-52 w-full relative overflow-hidden">
+        {/* Cover */}
+        <div className="relative w-full overflow-hidden" style={{ height: 230 }}>
           {restaurant.cover_url ? (
-            <img src={restaurant.cover_url} alt="" className="w-full h-full object-cover" />
+            <img
+              src={restaurant.cover_url}
+              alt=""
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div
               className="w-full h-full"
-              style={{ background: `linear-gradient(135deg, ${restaurant.primary_color || '#FF5C00'}ee, ${restaurant.primary_color || '#FF5C00'}66)` }}
+              style={{
+                background: `linear-gradient(145deg, ${primaryColor}ff 0%, ${primaryColor}99 50%, ${primaryColor}44 100%)`
+              }}
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+          {/* Gradient overlay */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)' }}
+          />
 
           {/* Back Button */}
           <Link
             href="/"
-            className="absolute top-4 right-4 w-9 h-9 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/30 hover:bg-white/30 transition z-20"
+            className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full flex items-center justify-center border transition active:scale-90"
+            style={{
+              background: 'rgba(255,255,255,0.18)',
+              backdropFilter: 'blur(12px)',
+              borderColor: 'rgba(255,255,255,0.25)'
+            }}
           >
-            <ArrowRight size={18} />
+            <ArrowRight size={20} className="text-white" />
           </Link>
 
-          {/* User Auth Account Icon Button */}
+          {/* User Auth */}
           <div className="absolute top-4 left-4 z-20">
             <UserAuthButton />
+          </div>
+
+          {/* Restaurant name overlay on cover */}
+          <div className="absolute bottom-0 right-0 left-0 px-4 pb-3 z-10">
+            <h1 className="text-2xl font-black text-white drop-shadow-md leading-tight">
+              {restaurant.name}
+            </h1>
           </div>
         </div>
 
         {/* Profile Card */}
-        <div className="relative mx-5 -mt-12 z-10">
-          <div className="bg-white rounded-[1.75rem] shadow-sm border border-gray-100 px-5 py-4 flex items-center gap-4" style={{ boxShadow: '0 4px 24px rgba(26,26,46,0.10)' }}>
+        <div className="relative mx-4 -mt-5 z-10">
+          <div className="restaurant-profile-card flex items-center gap-3">
             {/* Logo */}
-            <div className="w-[72px] h-[72px] rounded-2xl bg-gray-50 p-1.5 border border-gray-100 shrink-0 shadow-sm overflow-hidden">
+            <div
+              className="w-16 h-16 rounded-2xl shrink-0 overflow-hidden border-2 shadow-sm"
+              style={{ borderColor: `${primaryColor}30`, background: '#F8FAFC' }}
+            >
               {restaurant.logo_url ? (
                 <img
                   src={restaurant.logo_url}
                   alt={restaurant.name}
-                  className="w-full h-full object-contain rounded-xl"
+                  className="w-full h-full object-contain"
                 />
               ) : (
                 <div
-                  className="w-full h-full rounded-xl flex items-center justify-center text-2xl font-black text-white"
-                  style={{ background: `var(--color-primary)` }}
+                  className="w-full h-full flex items-center justify-center text-2xl font-black text-white"
+                  style={{ background: primaryColor }}
                 >
                   {restaurant.name.charAt(0)}
                 </div>
@@ -115,17 +149,25 @@ export default async function RestaurantLayout({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-black truncate" style={{ color: 'var(--brand-secondary)' }}>
-                {restaurant.name}
-              </h1>
-              <div className="flex items-center gap-2 mt-1.5">
+              <p className="text-xs font-bold text-slate-400 truncate">{restaurant.name}</p>
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" style={{ boxShadow: '0 0 6px rgba(34,197,94,0.7)' }} />
-                  <span className="text-xs text-gray-500 font-bold">مفتوح الآن</span>
+                  <span
+                    className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"
+                    style={{ boxShadow: '0 0 5px rgba(16,185,129,0.7)' }}
+                  />
+                  <span className="text-xs text-slate-500 font-bold">مفتوح الآن</span>
                 </div>
-                <span className="text-gray-300">•</span>
                 <RestaurantRating restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
               </div>
+            </div>
+
+            {/* Primary color dot accent */}
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0"
+              style={{ background: `${primaryColor}15` }}
+            >
+              🍽️
             </div>
           </div>
         </div>

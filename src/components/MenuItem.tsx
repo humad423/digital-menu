@@ -1,7 +1,7 @@
 'use client'
 
+import { useState } from 'react'
 import { useCartStore } from '@/store/cartStore'
-import { CldImage } from 'next-cloudinary'
 import { Plus, Minus } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import SmartOfferImage from '@/components/SmartOfferImage'
@@ -19,20 +19,33 @@ export default function MenuItem({ item, restaurantId }: { item: Item, restauran
   const updateQuantity = useCartStore(state => state.updateQuantity)
   const cartItems = useCartStore(state => state.items)
   const cartRestaurantId = useCartStore(state => state.restaurantId)
+  const [added, setAdded] = useState(false)
 
-  // Get quantity of this item in cart (only if same restaurant)
   const quantity = cartRestaurantId === restaurantId
     ? (cartItems.find(i => i.id === item.id)?.quantity ?? 0)
     : 0
 
+  const handleAdd = () => {
+    addItem(item, restaurantId)
+    setAdded(true)
+    setTimeout(() => setAdded(false), 400)
+  }
+
+  const hasImage = !!(item.image_url || item.primary_image_url)
+  const isSpecialOffer = item.is_offer
+
   return (
-    <div
-      className="bg-white rounded-2xl flex gap-3 overflow-hidden border border-gray-100 transition-all duration-200 hover:shadow-md active:scale-[0.99] relative"
-      style={{ boxShadow: '0 1px 8px rgba(26,26,46,0.06)' }}
-    >
+    <div className="menu-item-card">
+      {/* Offer Badge */}
+      {isSpecialOffer && (
+        <div className="offer-badge">
+          {item.offer_title || '🔥 عرض خاص'}
+        </div>
+      )}
+
       {/* Image */}
-      {(item.image_url || item.primary_image_url) && (
-        <div className="w-28 h-28 shrink-0 relative bg-gray-100 overflow-hidden">
+      {hasImage && (
+        <div className="relative shrink-0" style={{ width: 110, height: 110, background: '#F8FAFC' }}>
           {item.primary_image_url || item.bonus_image_url ? (
             <SmartOfferImage
               primaryImage={item.primary_image_url}
@@ -47,29 +60,25 @@ export default function MenuItem({ item, restaurantId }: { item: Item, restauran
               src={item.image_url!}
               alt={item.name}
               className="w-full h-full object-cover"
+              loading="lazy"
             />
           )}
-          {item.is_offer && (
-            <div className="absolute top-1.5 right-1.5 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-10">
-              {item.offer_title || '🔥 عرض خاص'}
-            </div>
+          {/* Image shimmer overlay if offer */}
+          {isSpecialOffer && (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
           )}
         </div>
       )}
 
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-between py-3.5 pl-3.5 pr-4">
+      <div className="flex-1 flex flex-col justify-between p-3.5 min-w-0">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-black text-base leading-snug" style={{ color: 'var(--brand-secondary, #1A1A2E)' }}>
-              {item.name}
-            </h3>
-            {item.is_offer && !item.image_url && (
-              <span className="bg-orange-100 text-orange-700 text-[10px] font-black px-2 py-0.5 rounded-full">
-                🔥 {item.offer_title || 'عرض خاصة'}
-              </span>
-            )}
-          </div>
+          <h3
+            className="font-black text-[15px] leading-snug truncate"
+            style={{ color: 'var(--brand-secondary, #1A1A2E)' }}
+          >
+            {item.name}
+          </h3>
           {item.description && (
             <p className="text-xs text-gray-400 mt-1 leading-relaxed line-clamp-2 font-medium">
               {item.description}
@@ -77,52 +86,44 @@ export default function MenuItem({ item, restaurantId }: { item: Item, restauran
           )}
         </div>
 
-        <div className="flex items-center justify-between mt-3">
+        {/* Price + Qty */}
+        <div className="flex items-center justify-between mt-3 gap-2">
           {/* Price */}
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-lg font-black" style={{ color: 'var(--color-primary)' }}>
-              {item.price}
-            </span>
-            <span className="text-xs text-gray-400 font-medium">₺</span>
-            {item.is_offer && item.original_price && (
-              <span className="text-xs text-gray-400 line-through font-bold">
-                {item.original_price} ₺
-              </span>
+          <div className="price-badge">
+            <span className="text-lg">{item.price}</span>
+            <span className="currency">₺</span>
+            {isSpecialOffer && item.original_price && (
+              <span className="original">{item.original_price} ₺</span>
             )}
           </div>
 
-          {/* Quantity Control */}
+          {/* Add / Qty Control */}
           {quantity === 0 ? (
-            // Add button
             <button
-              onClick={() => addItem(item, restaurantId)}
-              className="w-9 h-9 rounded-full text-white flex items-center justify-center shadow-sm active:scale-95 transition-all duration-150"
-              style={{ background: 'var(--color-primary)' }}
+              onClick={handleAdd}
+              className={`add-btn ${added ? 'qty-pop' : ''}`}
+              aria-label="أضف للسلة"
             >
-              <Plus size={19} strokeWidth={2.5} />
+              <Plus size={18} strokeWidth={2.8} />
             </button>
           ) : (
-            // Quantity control with animation
-            <div
-              className="flex items-center gap-1.5 rounded-2xl px-1 py-1"
-              style={{ background: 'var(--color-primary)' }}
-            >
+            <div className="qty-control">
               <button
                 onClick={() => updateQuantity(item.id, quantity - 1)}
-                className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center active:scale-90 transition-all"
+                className="qty-btn"
+                aria-label="تقليل"
               >
-                <Minus size={14} strokeWidth={2.5} />
+                <Minus size={13} strokeWidth={2.5} />
               </button>
-
-              <span className="text-white font-black text-sm min-w-[18px] text-center">
+              <span className="text-white font-black text-sm min-w-[18px] text-center tabular-nums">
                 {quantity}
               </span>
-
               <button
-                onClick={() => addItem(item, restaurantId)}
-                className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center active:scale-90 transition-all"
+                onClick={handleAdd}
+                className="qty-btn"
+                aria-label="زيادة"
               >
-                <Plus size={14} strokeWidth={2.5} />
+                <Plus size={13} strokeWidth={2.5} />
               </button>
             </div>
           )}

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import MenuItem from '@/components/MenuItem'
-import RestaurantRating from '@/components/RestaurantRating'
 import { Search, X } from 'lucide-react'
 
 export default function MenuClient({
@@ -23,12 +22,13 @@ export default function MenuClient({
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCat, setActiveCat] = useState(categories[0]?.id)
   const observer = useRef<IntersectionObserver | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     observer.current = new IntersectionObserver((entries) => {
       const visible = entries.find(entry => entry.isIntersecting)
       if (visible) setActiveCat(visible.target.id.replace('category-', ''))
-    }, { rootMargin: '-100px 0px -60% 0px' })
+    }, { rootMargin: '-90px 0px -55% 0px' })
 
     const sections = document.querySelectorAll('section[id^="category-"]')
     sections.forEach(section => observer.current?.observe(section))
@@ -40,7 +40,7 @@ export default function MenuClient({
     setActiveCat(id)
     const el = document.getElementById(`category-${id}`)
     if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 65
+      const y = el.getBoundingClientRect().top + window.scrollY - 70
       window.scrollTo({ top: y, behavior: 'smooth' })
     }
   }
@@ -78,65 +78,69 @@ export default function MenuClient({
   ]
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="pb-6" dir="rtl">
 
-      {/* Search */}
-      <div className="relative">
+      {/* ── Search Bar ── */}
+      <div className="relative mb-1">
         <input
+          ref={searchRef}
           type="text"
-          placeholder="ابحث عن وجبة..."
+          placeholder={`ابحث في منيو ${restaurantName}...`}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 px-11 focus:outline-none focus:ring-2 focus:border-transparent transition-all text-base font-medium"
-          style={{ '--tw-ring-color': 'var(--color-primary)', '--tw-ring-opacity': '0.3' } as any}
+          className="menu-search"
+          style={{ paddingRight: '44px', paddingLeft: searchQuery ? '44px' : '16px' }}
         />
-        <Search className="absolute right-3.5 top-3.5 text-gray-400" size={20} />
+        <Search className="absolute top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} style={{ right: 14 }} />
         {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className="absolute left-3.5 top-3.5 text-gray-400 hover:text-gray-600">
-            <X size={20} />
+          <button
+            onClick={() => { setSearchQuery(''); searchRef.current?.focus() }}
+            className="absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            style={{ left: 14 }}
+          >
+            <X size={18} />
           </button>
         )}
       </div>
 
-      {/* Category Tabs */}
-      {!searchQuery && (
-        <div
-          className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-3 flex gap-2 overflow-x-auto hide-scrollbar border-b border-gray-100"
-          style={{ background: 'var(--background)', backdropFilter: 'blur(12px)' }}
-        >
+      {/* ── Category Tabs ── */}
+      {!searchQuery && displayCategories.length > 1 && (
+        <div className="menu-cat-tabs -mx-4 px-4">
           {displayCategories.map(cat => (
             <button
               key={cat.id}
               onClick={() => scrollToCategory(cat.id)}
-              className="shrink-0 px-4 py-2 rounded-2xl text-sm font-black transition-all duration-200 border whitespace-nowrap flex items-center gap-1.5"
-              style={
-                activeCat === cat.id
-                  ? { background: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)', boxShadow: '0 4px 12px color-mix(in srgb, var(--color-primary) 30%, transparent)' }
-                  : cat.id === 'offers-special'
-                  ? { background: '#FFF7ED', color: '#EA580C', borderColor: '#FFEDD5' }
-                  : { background: '#fff', color: '#6B7280', borderColor: '#E5E7EB' }
-              }
+              className={`menu-cat-tab ${activeCat === cat.id ? 'active' : ''} ${cat.id === 'offers-special' && activeCat !== cat.id ? 'offer-tab' : ''}`}
             >
               {cat.icon && <span>{cat.icon}</span>}
-              {cat.name}
+              <span>{cat.name}</span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Menu Sections */}
-      <div className="space-y-8">
+      {/* ── Menu Sections ── */}
+      <div className="space-y-8 mt-5">
         {displayCategories.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <div className="text-4xl mb-3">🔍</div>
-            <p className="font-bold text-gray-600">لا توجد نتائج</p>
-            <p className="text-sm">جرّب كلمة بحث مختلفة</p>
+          <div className="text-center py-20">
+            <div className="text-5xl mb-3">🔍</div>
+            <p className="font-black text-gray-700 text-lg">لا توجد نتائج</p>
+            <p className="text-sm text-gray-400 mt-1 font-medium">جرّب كلمة بحث مختلفة</p>
           </div>
         ) : (
           displayCategories.map(category => (
-            <section key={category.id} id={`category-${category.id}`} className="scroll-mt-[65px]">
-              <h2 className="text-lg font-black mb-4 flex items-center gap-2" style={{ color: 'var(--brand-secondary, #1A1A2E)' }}>
-                {category.name}
+            <section key={category.id} id={`category-${category.id}`} className="scroll-mt-[70px]">
+              <h2 className="menu-section-header">
+                {category.id === 'offers-special' && (
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-base">🔥</span>
+                )}
+                <span className="truncate">{category.id === 'offers-special' ? 'العروض والبكجات' : category.name}</span>
+                <span
+                  className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+                  style={{ background: 'rgba(0,0,0,0.06)', color: '#6B7280' }}
+                >
+                  {category.items.length}
+                </span>
               </h2>
               <div className="space-y-3">
                 {category.items.map((item: any) => (

@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Search, MapPin, Clock, ChevronLeft, ChevronRight, MapPinOff, Navigation, User as UserIcon, LogOut, Settings } from 'lucide-react'
+import { Search, MapPin, Clock, ChevronLeft, ChevronRight, MapPinOff, Navigation, X } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import UserAuthButton from '@/components/UserAuthButton'
 import BrandLogo from '@/components/BrandLogo'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 
-// ── Ads Slider Component ────────────────────────────────────────────────────
+// ── Ads Slider Component ─────────────────────────────────────────────────────
 function AdsSlider({ ads }: { ads: any[] }) {
   const [current, setCurrent] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -26,8 +26,7 @@ function AdsSlider({ ads }: { ads: any[] }) {
 
   return (
     <div className="relative -mx-5 px-5">
-      {/* Slides */}
-      <div className="relative rounded-[1.5rem] overflow-hidden shadow-md" style={{ paddingBottom: '43.75%' /* 16:7 ratio */ }}>
+      <div className="relative rounded-[1.5rem] overflow-hidden shadow-md" style={{ paddingBottom: '43.75%' }}>
         {ads.map((ad, i) => (
           <div
             key={ad.id}
@@ -41,12 +40,9 @@ function AdsSlider({ ads }: { ads: any[] }) {
             ) : (
               <img src={ad.image_url} alt="" className="w-full h-full object-cover" />
             )}
-            {/* Gradient overlay for polish */}
-            <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 60%)' }} />
+            <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.22) 0%, transparent 55%)' }} />
           </div>
         ))}
-
-        {/* Dots */}
         {ads.length > 1 && (
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
             {ads.map((_, i) => (
@@ -83,33 +79,27 @@ export default function PlatformClient({
   const [activeCat, setActiveCat] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const offersSliderRef = useRef<HTMLDivElement | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const { isLoggedIn, profile, openAuthModal, logout } = useAuth()
 
-  // Location State (Default to Çayırova / Gebze center so all restaurants render instantly)
   const [locationStatus, setLocationStatus] = useState<'granted' | 'granted_ip' | 'default'>('default')
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number }>({ lat: 40.8167, lng: 29.3750 })
 
   const requestLocation = () => {
     if (!navigator.geolocation) return
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
         setLocationStatus('granted')
       },
-      (err) => {
-        console.error("Location error:", err)
-      },
+      (err) => { console.error("Location error:", err) },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     )
   }
 
-  useEffect(() => {
-    requestLocation()
-  }, [])
+  useEffect(() => { requestLocation() }, [])
 
-  // ── FILTER RESTAURANTS BY LOCATION AND SEARCH ─────────────────────────────
   const restaurantsWithDistance = restaurants.map(r => {
     let dist = null
     if (userLocation && r.latitude && r.longitude) {
@@ -118,22 +108,14 @@ export default function PlatformClient({
     return { ...r, distance: dist }
   })
 
-  // Allowed Restaurant IDs for offers
   const allowedRestaurantIds = new Set(restaurantsWithDistance.map(r => r.id))
 
   const filteredRestaurants = restaurantsWithDistance.filter(r => {
-    // Check category
-    const matchesCat = activeCat
-      ? (r.platform_category_ids || []).includes(activeCat)
-      : true
-      
-    // Check search
+    const matchesCat = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
     const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase())
-    
     return matchesCat && matchesSearch
-  }).sort((a, b) => (a.distance !== null && b.distance !== null) ? a.distance - b.distance : 0) // Sort by closest first
+  }).sort((a, b) => (a.distance !== null && b.distance !== null) ? a.distance - b.distance : 0)
 
-  // Filter offers by location (only restaurants within delivery range)
   const locationFilteredOffers = (offers || []).filter(o => {
     const resId = o.restaurants?.id || o.restaurant_id
     return allowedRestaurantIds.has(resId)
@@ -141,12 +123,10 @@ export default function PlatformClient({
 
   const scrollOffers = (direction: 'left' | 'right') => {
     if (offersSliderRef.current) {
-      const scrollAmount = direction === 'left' ? -260 : 260
-      offersSliderRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+      offersSliderRef.current.scrollBy({ left: direction === 'left' ? -260 : 260, behavior: 'smooth' })
     }
   }
 
-  // Mouse Drag-to-Scroll for PC / Desktop
   const [isMouseDown, setIsMouseDown] = useState(false)
   const [startX, setStartX] = useState(0)
   const [scrollLeftState, setScrollLeftState] = useState(0)
@@ -157,83 +137,74 @@ export default function PlatformClient({
     setStartX(e.pageX - offersSliderRef.current.offsetLeft)
     setScrollLeftState(offersSliderRef.current.scrollLeft)
   }
-
-  const handleMouseLeaveOrUp = () => {
-    setIsMouseDown(false)
-  }
-
+  const handleMouseLeaveOrUp = () => setIsMouseDown(false)
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isMouseDown || !offersSliderRef.current) return
     e.preventDefault()
     const x = e.pageX - offersSliderRef.current.offsetLeft
-    const walk = (x - startX) * 1.5
-    offersSliderRef.current.scrollLeft = scrollLeftState - walk
+    offersSliderRef.current.scrollLeft = scrollLeftState - (x - startX) * 1.5
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--background)' }}>
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }} dir="rtl">
 
       {/* ── HEADER ── */}
-      <div
-        className="relative px-5 pt-6 pb-7 overflow-hidden bg-slate-900 border-b border-slate-800"
-      >
-        {/* Decorative circles */}
-        <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full opacity-25 bg-orange-500 blur-2xl" />
-        <div className="absolute top-2 -right-8 w-28 h-28 rounded-full opacity-20 bg-amber-400 blur-xl" />
-
-        {/* Brand Logo + User Auth Button in top row */}
+      <div className="platform-header">
         <div className="relative z-10 flex items-center justify-between mb-5">
           <BrandLogo size="md" variant="light" />
-          <div className="flex items-center gap-2 shrink-0">
-            <UserAuthButton />
-          </div>
+          <UserAuthButton />
         </div>
 
-        {/* Title tagline */}
         <div className="relative z-10 mb-4">
           <h1 className="text-xl font-black text-white tracking-tight leading-tight">
-            سوقك الأول لاكتشاف أشهى <span className="text-orange-500">المأكولات والعروض</span>
+            سوقك الأول لاكتشاف أشهى{' '}
+            <span style={{ color: '#F97316' }}>المأكولات والعروض</span>
           </h1>
         </div>
 
-        {/* Search Input */}
+        {/* Search */}
         <div className="relative z-10">
           <input
+            ref={searchRef}
             type="text"
-            placeholder="ابحث عن مطعم أو أكلة في ألف سوق..."
+            placeholder="ابحث عن مطعم في ألف سوق..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-white/10 border border-white/20 text-white placeholder-white/50 rounded-2xl py-3 px-11 focus:outline-none focus:bg-white/20 focus:border-orange-500/50 transition-all text-sm font-medium"
+            className="w-full rounded-2xl py-3 px-11 text-sm font-medium outline-none transition-all"
+            style={{
+              background: 'rgba(255,255,255,0.12)',
+              border: '1.5px solid rgba(255,255,255,0.18)',
+              color: '#fff',
+              backdropFilter: 'blur(8px)',
+            }}
           />
           <Search className="absolute right-3.5 top-3 text-white/50" size={19} />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute left-3.5 top-3 text-white/60 hover:text-white transition"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── CONTENT ── */}
-      <div className="px-5 space-y-8 pb-24 mt-6">
+      <div className="px-5 space-y-7 pb-24 mt-6">
 
-        {locationStatus === 'granted_ip' && (
-          <div className="bg-orange-50 border border-orange-100 p-3 rounded-2xl flex items-start gap-2">
-            <MapPinOff className="text-orange-500 shrink-0 mt-0.5" size={16} />
-            <p className="text-xs text-orange-700 font-bold leading-relaxed">
-              لم نتمكن من تحديد موقعك الدقيق. نستخدم الآن موقعك التقريبي لعرض المطاعم، وسيُطلب منك الموقع الدقيق عند الطلب.
-            </p>
-          </div>
-        )}
-
+        {/* Location notice */}
         {locationStatus === 'default' && (
           <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-sm">
             <div className="flex items-center gap-2">
-              <MapPinOff className="text-amber-600 shrink-0" size={18} />
-              <p className="text-xs font-bold leading-relaxed text-amber-900">
-                تتصفح بموقع المنطقة الافتراضي (شايروفا وكيبزة).
-              </p>
+              <MapPinOff className="text-amber-500 shrink-0" size={18} />
+              <p className="text-xs font-bold text-amber-800">تصفح بموقع المنطقة الافتراضي (شايروفا/كيبزة)</p>
             </div>
             <button
               onClick={requestLocation}
               className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shrink-0 transition shadow-sm"
             >
-              تحديد الموقع الدقيق 📍
+              تحديد موقعي 📍
             </button>
           </div>
         )}
@@ -243,35 +214,26 @@ export default function PlatformClient({
           <AdsSlider ads={ads} />
         )}
 
-        {/* OFFERS SECTION - Location Filtered */}
+        {/* OFFERS SECTION */}
         {locationFilteredOffers && locationFilteredOffers.length > 0 && !searchQuery && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🔥</span>
-                <h2 className="text-lg font-black" style={{ color: 'var(--brand-secondary)' }}>
-                  عروض اليوم المميزة
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Scroll Navigation Buttons */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => scrollOffers('right')}
-                    className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-700 flex items-center justify-center shadow-sm hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 transition"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                  <button
-                    onClick={() => scrollOffers('left')}
-                    className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-700 flex items-center justify-center shadow-sm hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 transition"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                </div>
-                <span className="text-xs text-orange-600 font-black bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100 hidden sm:inline-block">
-                  تخفيضات محددة بموقعك
-                </span>
+              <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                <span className="text-xl">🔥</span> عروض اليوم
+              </h2>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => scrollOffers('right')}
+                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 flex items-center justify-center shadow-sm hover:border-orange-300 hover:text-orange-500 transition"
+                >
+                  <ChevronRight size={16} />
+                </button>
+                <button
+                  onClick={() => scrollOffers('left')}
+                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 flex items-center justify-center shadow-sm hover:border-orange-300 hover:text-orange-500 transition"
+                >
+                  <ChevronLeft size={16} />
+                </button>
               </div>
             </div>
 
@@ -281,9 +243,7 @@ export default function PlatformClient({
               onMouseLeave={handleMouseLeaveOrUp}
               onMouseUp={handleMouseLeaveOrUp}
               onMouseMove={handleMouseMove}
-              className={`flex gap-4 overflow-x-auto pb-3 pt-1 -mx-5 px-5 hide-scrollbar scroll-smooth snap-x snap-mandatory ${
-                isMouseDown ? 'cursor-grabbing' : 'cursor-grab'
-              }`}
+              className={`flex gap-3.5 overflow-x-auto pb-3 pt-1 -mx-5 px-5 hide-scrollbar scroll-smooth snap-x snap-mandatory ${isMouseDown ? 'cursor-grabbing' : 'cursor-grab'}`}
               style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y' }}
             >
               {locationFilteredOffers.map(offer => {
@@ -293,13 +253,12 @@ export default function PlatformClient({
                   <Link
                     key={offer.id}
                     href={`/m/${res.slug}`}
-                    className="w-64 shrink-0 bg-white rounded-2xl p-3 border border-orange-100 shadow-sm hover:shadow-md transition-all active:scale-95 block relative overflow-hidden snap-start"
+                    className="w-60 shrink-0 bg-white rounded-2xl p-3 border border-orange-100/60 overflow-hidden snap-start transition-all active:scale-95 block relative"
+                    style={{ boxShadow: '0 2px 12px rgba(249,115,22,0.10)' }}
                   >
-                    {/* Badge */}
                     <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md z-10">
-                      {offer.min_quantity > 1 ? `🔥 عرض ${offer.min_quantity}X` : offer.bonus_item ? '🎁 مع هدية' : '🏷️ خصم'}
+                      {offer.min_quantity > 1 ? `🔥 ${offer.min_quantity}X` : offer.bonus_item ? '🎁 هدية' : '🏷️ خصم'}
                     </div>
-
                     <div className="h-32 w-full mb-2.5">
                       <SmartOfferImage
                         primaryImage={offer.primary_item?.image_url}
@@ -310,26 +269,12 @@ export default function PlatformClient({
                         className="w-full h-full rounded-xl"
                       />
                     </div>
-
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1 font-bold">
-                      <span className="truncate text-gray-900 font-black">{res.name}</span>
-                    </div>
-
-                    <h3 className="font-black text-sm text-gray-900 truncate mb-1">
-                      {offer.title}
-                    </h3>
-                    {offer.description && (
-                      <p className="text-xs text-gray-400 line-clamp-1 mb-2 font-medium">{offer.description}</p>
-                    )}
-
-                    <div className="flex items-baseline gap-2 pt-1 border-t border-gray-50">
-                      <span className="text-base font-black text-orange-600">
-                        {offer.offer_price} ₺
-                      </span>
+                    <p className="text-xs text-slate-500 font-bold truncate mb-0.5">{res.name}</p>
+                    <h3 className="font-black text-sm text-slate-900 truncate mb-2">{offer.title}</h3>
+                    <div className="flex items-baseline gap-2 pt-1.5 border-t border-slate-50">
+                      <span className="text-base font-black text-orange-500">{offer.offer_price} ₺</span>
                       {offer.original_price && (
-                        <span className="text-xs text-gray-400 line-through font-bold">
-                          {offer.original_price} ₺
-                        </span>
+                        <span className="text-xs text-slate-400 line-through font-bold">{offer.original_price} ₺</span>
                       )}
                     </div>
                   </Link>
@@ -342,21 +287,21 @@ export default function PlatformClient({
         {/* CATEGORIES */}
         {!searchQuery && categories && categories.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black" style={{ color: 'var(--brand-secondary)' }}>التصنيفات</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-black text-slate-800">التصنيفات</h2>
               {activeCat && (
                 <button
                   onClick={() => setActiveCat(null)}
                   className="text-xs font-bold px-3 py-1.5 rounded-full border transition"
-                  style={{ color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)', background: 'var(--brand-accent)' }}
+                  style={{ color: '#F97316', borderColor: '#FFEDD5', background: '#FFF7ED' }}
                 >
                   عرض الكل
                 </button>
               )}
             </div>
             <div
-              className="flex overflow-x-auto hide-scrollbar gap-3 -mx-5 px-5 pb-3"
-              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y' }}
+              className="flex overflow-x-auto hide-scrollbar gap-3 -mx-5 px-5 pb-2"
+              style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {categories.map(cat => {
                 const isActive = activeCat === cat.id
@@ -364,11 +309,11 @@ export default function PlatformClient({
                   <button
                     key={cat.id}
                     onClick={() => setActiveCat(isActive ? null : cat.id)}
-                    className="shrink-0 flex flex-col items-center justify-center gap-2 px-5 py-4 rounded-3xl min-w-[80px] transition-all duration-300 border"
+                    className="shrink-0 flex flex-col items-center justify-center gap-1.5 px-4 py-3.5 rounded-3xl min-w-[76px] transition-all duration-200 border"
                     style={
                       isActive
-                        ? { background: 'var(--brand-primary)', borderColor: 'var(--brand-primary)', color: '#fff', boxShadow: '0 8px 24px rgba(255,92,0,0.25)', transform: 'translateY(-2px)' }
-                        : { background: '#fff', borderColor: '#EAECF0', color: 'var(--brand-secondary)' }
+                        ? { background: '#F97316', borderColor: '#F97316', color: '#fff', boxShadow: '0 6px 20px rgba(249,115,22,0.28)', transform: 'translateY(-2px)' }
+                        : { background: '#fff', borderColor: '#E5E7EB', color: '#374151' }
                     }
                   >
                     <span className="text-2xl">{cat.icon}</span>
@@ -382,25 +327,24 @@ export default function PlatformClient({
 
         {/* RESTAURANTS */}
         <div>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-black" style={{ color: 'var(--brand-secondary)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-black text-slate-800">
               {searchQuery ? 'نتائج البحث' : activeCat ? 'مطاعم هذا التصنيف' : 'مطاعم قريبة منك'}
             </h2>
-            <span className="text-sm font-bold text-gray-400">{filteredRestaurants.length} مطعم</span>
+            <span className="text-sm font-bold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
+              {filteredRestaurants.length}
+            </span>
           </div>
 
           {filteredRestaurants.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-[2rem] border border-dashed border-gray-200">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--brand-accent)' }}>
-                <span className="text-2xl">🍽️</span>
-              </div>
-              <p className="font-black text-gray-900 mb-1">لا توجد مطاعم قريبة</p>
-              <p className="text-gray-400 text-sm font-medium">للأسف لا توجد مطاعم توصل لموقعك الحالي</p>
+            <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-slate-200">
+              <div className="text-5xl mb-3">🍽️</div>
+              <p className="font-black text-slate-700 mb-1">لا توجد مطاعم قريبة</p>
+              <p className="text-slate-400 text-sm font-medium">حاول تغيير التصنيف أو موقعك</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filteredRestaurants.map(restaurant => {
-                // Get all platform categories for this restaurant
                 const restaurantCats = (restaurant.platform_category_ids || []).map(
                   (cid: string) => categories.find(c => c.id === cid)
                 ).filter(Boolean)
@@ -408,11 +352,10 @@ export default function PlatformClient({
                   <Link
                     key={restaurant.id}
                     href={`/m/${restaurant.slug}`}
-                    className="bg-white rounded-[1.75rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group block relative"
-                    style={{ boxShadow: '0 2px 12px rgba(26,26,46,0.06)' }}
+                    className="restaurant-card group"
                   >
                     {/* Cover */}
-                    <div className="h-36 w-full bg-gray-100 relative overflow-hidden">
+                    <div className="h-36 w-full bg-slate-100 relative overflow-hidden">
                       {restaurant.cover_url ? (
                         <img
                           src={restaurant.cover_url}
@@ -422,84 +365,90 @@ export default function PlatformClient({
                       ) : (
                         <div
                           className="w-full h-full"
-                          style={{ background: `linear-gradient(135deg, ${restaurant.primary_color || '#FF5C00'}ee, ${restaurant.primary_color || '#FF5C00'}88)` }}
+                          style={{ background: `linear-gradient(135deg, ${restaurant.primary_color || '#F97316'}ee, ${restaurant.primary_color || '#F97316'}66)` }}
                         />
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
 
-                      {/* Distance Tag on top left */}
+                      {/* Distance */}
                       {restaurant.distance !== null && (
-                        <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border border-white/10">
-                          <MapPin size={12} className="text-orange-400" />
+                        <div className="absolute top-3 left-3 glass-dark text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
+                          <MapPin size={11} className="text-orange-400" />
                           <span>{restaurant.distance < 1 ? 'أقل من 1 كم' : `${restaurant.distance.toFixed(1)} كم`}</span>
                         </div>
                       )}
 
-                      {/* Category tags on cover right */}
+                      {/* Category tags */}
                       {restaurantCats.length > 0 && (
                         <div className="absolute top-3 right-3 flex flex-wrap gap-1">
                           {restaurantCats.slice(0, 2).map((c: any) => (
-                            <div key={c.id} className="bg-white/95 backdrop-blur-sm px-2 py-0.5 rounded-full text-xs font-black flex items-center gap-1" style={{ color: 'var(--brand-secondary)' }}>
+                            <div key={c.id} className="bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full text-xs font-black text-slate-800 flex items-center gap-0.5">
                               <span>{c.icon}</span><span>{c.name}</span>
                             </div>
                           ))}
-                          {restaurantCats.length > 2 && (
-                            <div className="bg-white/95 backdrop-blur-sm px-2 py-0.5 rounded-full text-xs font-black" style={{ color: 'var(--brand-secondary)' }}>+{restaurantCats.length - 2}</div>
-                          )}
                         </div>
                       )}
+
+                      {/* Name on cover */}
+                      <div className="absolute bottom-0 right-0 left-0 px-4 pb-3">
+                        <h3 className="text-base font-black text-white drop-shadow-sm">{restaurant.name}</h3>
+                      </div>
                     </div>
 
-                    {/* Content */}
+                    {/* Body */}
                     <div className="relative px-4 pb-4">
                       {/* Floating logo */}
-                      <div className="w-16 h-16 rounded-[1rem] bg-white p-1.5 shadow-md absolute -top-8 right-4 border-4 border-white z-10 transition-transform group-hover:-translate-y-1 duration-300">
+                      <div
+                        className="w-14 h-14 rounded-2xl bg-white p-1.5 shadow-md absolute -top-7 right-4 border-4 border-white z-10 transition-transform group-hover:-translate-y-1 duration-300 overflow-hidden"
+                      >
                         {restaurant.logo_url ? (
                           <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-xl" />
                         ) : (
-                          <div className="w-full h-full rounded-xl flex items-center justify-center text-xs font-bold" style={{ background: 'var(--brand-accent)', color: 'var(--brand-primary)' }}>
+                          <div
+                            className="w-full h-full rounded-xl flex items-center justify-center text-xs font-black text-white"
+                            style={{ background: restaurant.primary_color || '#F97316' }}
+                          >
                             {restaurant.name.charAt(0)}
                           </div>
                         )}
                       </div>
 
-                      <div className="pt-10">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-base font-black" style={{ color: 'var(--brand-secondary)' }}>{restaurant.name}</h3>
-                            <div className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-xs font-black border border-amber-200 flex items-center gap-1 shrink-0">
-                              <span className="text-amber-500">⭐</span>
-                              <span>{restaurant.avg_rating || 'جديد'}</span>
-                              {restaurant.ratings_count > 0 && <span className="text-[10px] text-amber-600 font-bold">({restaurant.ratings_count})</span>}
-                            </div>
+                      <div className="pt-9">
+                        {/* Rating + Arrow */}
+                        <div className="flex items-center justify-between">
+                          <div className="bg-amber-50 text-amber-700 px-2.5 py-0.5 rounded-full text-xs font-black border border-amber-200 flex items-center gap-1">
+                            <span>⭐</span>
+                            <span>{restaurant.avg_rating || 'جديد'}</span>
+                            {restaurant.ratings_count > 0 && (
+                              <span className="text-[10px] text-amber-600">({restaurant.ratings_count})</span>
+                            )}
                           </div>
                           <div
                             className="w-7 h-7 rounded-full flex items-center justify-center transition-all group-hover:scale-110"
-                            style={{ background: 'var(--brand-accent)' }}
+                            style={{ background: `${restaurant.primary_color || '#F97316'}15` }}
                           >
-                            <ChevronLeft size={16} style={{ color: 'var(--brand-primary)' }} />
+                            <ChevronLeft size={16} style={{ color: restaurant.primary_color || '#F97316' }} />
                           </div>
                         </div>
 
+                        {/* Delivery info */}
                         {(() => {
                           const deliveryInfo = restaurant.distance !== null
                             ? getDeliveryFeeForDistance(restaurant.distance, restaurant.delivery_tiers)
                             : null
-
                           return (
-                            <div className="flex flex-wrap items-center gap-2 text-xs font-bold mt-2">
+                            <div className="flex flex-wrap items-center gap-2 text-xs font-bold mt-2.5">
                               {deliveryInfo && deliveryInfo.available ? (
-                                <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200/80 font-black">
-                                  <span>🛵 أجرة التوصيل: {deliveryInfo.fee} TL</span>
-                                  <span className="text-[10px] text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full font-bold">({deliveryInfo.tierName})</span>
+                                <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-100 font-black">
+                                  🛵 {deliveryInfo.fee} TL
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1 bg-red-50 text-red-600 px-2.5 py-1 rounded-lg border border-red-200/80 font-bold">
-                                  <span>🚫 {deliveryInfo?.reason || 'التوصيل غير متاح لموقك'}</span>
+                                <span className="flex items-center gap-1 bg-red-50 text-red-600 px-2.5 py-1 rounded-lg border border-red-100 font-bold text-[11px]">
+                                  🚫 {deliveryInfo?.reason || 'لا توصيل لموقعك'}
                                 </span>
                               )}
-                              <span className="flex items-center gap-1 bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-bold">
-                                <Clock size={12} /> 25-45 دقيقة
+                              <span className="flex items-center gap-1 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">
+                                <Clock size={11} /> 25-45 د
                               </span>
                             </div>
                           )
@@ -512,6 +461,7 @@ export default function PlatformClient({
             </div>
           )}
         </div>
+
       </div>
     </div>
   )
