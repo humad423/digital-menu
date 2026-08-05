@@ -43,12 +43,10 @@ export default function MenuItem({ item, restaurantId }: { item: Item, restauran
               className="w-full h-full"
             />
           ) : (
-            <CldImage
+            <img
               src={item.image_url!}
               alt={item.name}
-              fill
-              className="object-cover"
-              sizes="112px"
+              className="w-full h-full object-cover"
             />
           )}
           {item.is_offer && (
