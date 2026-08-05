@@ -4,28 +4,35 @@ import PlatformClient from '@/components/PlatformClient'
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-  const { data: restaurants } = await supabase
-    .from('restaurants')
-    .select('*, restaurant_platform_categories(platform_category_id), ratings(rating)')
-    .order('created_at', { ascending: false })
+  const [
+    { data: restaurants },
+    { data: categories },
+    { data: ads },
+    { data: offers }
+  ] = await Promise.all([
+    supabase
+      .from('restaurants')
+      .select('*, restaurant_platform_categories(platform_category_id), ratings(rating)')
+      .order('created_at', { ascending: false }),
 
-  const { data: categories } = await supabase
-    .from('platform_categories')
-    .select('*')
-    .order('created_at', { ascending: true })
+    supabase
+      .from('platform_categories')
+      .select('*')
+      .order('created_at', { ascending: true }),
 
-  const { data: ads } = await supabase
-    .from('platform_ads')
-    .select('*')
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true })
+    supabase
+      .from('platform_ads')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
 
-  const { data: offers } = await supabase
-    .from('offers')
-    .select('*, restaurants!inner(id, name, slug, latitude, longitude, delivery_radius_km), primary_item:menu_items!primary_item_id(image_url, name), bonus_item:menu_items!bonus_item_id(image_url, name)')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(10)
+    supabase
+      .from('offers')
+      .select('*, restaurants(id, name, slug, latitude, longitude, delivery_radius_km)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(10)
+  ])
 
   // Flatten: add platform_category_ids array and average rating to each restaurant
   const restaurantsWithCats = (restaurants || []).map(r => {
