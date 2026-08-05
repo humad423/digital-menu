@@ -551,9 +551,13 @@ export default function AdminDashboard() {
                         <input type="text" dir="ltr" value={adForm.link_url} onChange={e => setAdForm({ ...adForm, link_url: e.target.value })} className="f-input text-left" placeholder="https://..." />
                       </div>
                       <div className="flex-1">
-                        <label className="f-label">المنطقة المستهدفة للإعلان</label>
+                        <label className="f-label mb-1">المنطقة المستهدفة للإعلان</label>
                         <select
-                          value={['جميع المناطق', 'شايروفا / كيبزة', 'إسطنبول', 'كوجالي'].includes(adForm.target_region) ? adForm.target_region : 'custom'}
+                          value={
+                            adForm.latitude && adForm.longitude && adForm.radius_km
+                              ? (adForm.target_region === 'شايروفا / كيبزة' ? 'شايروفا / كيبزة' : adForm.target_region === 'إسطنبول' ? 'إسطنبول' : 'map')
+                              : 'جميع المناطق'
+                          }
                           onChange={e => {
                             const val = e.target.value
                             if (val === 'جميع المناطق') {
@@ -562,32 +566,88 @@ export default function AdminDashboard() {
                               setAdForm({ ...adForm, target_region: 'شايروفا / كيبزة', latitude: 40.8167, longitude: 29.3750, radius_km: 15 })
                             } else if (val === 'إسطنبول') {
                               setAdForm({ ...adForm, target_region: 'إسطنبول', latitude: 41.0082, longitude: 28.9784, radius_km: 30 })
-                            } else if (val === 'كوجالي') {
-                              setAdForm({ ...adForm, target_region: 'كوجالي', latitude: 40.7654, longitude: 29.9408, radius_km: 25 })
                             } else {
-                              setAdForm({ ...adForm, target_region: '', latitude: null, longitude: null, radius_km: null })
+                              setAdForm({ ...adForm, target_region: 'منطقة مخصصة', latitude: 40.8167, longitude: 29.3750, radius_km: 15 })
                             }
                           }}
-                          className="f-input mb-2"
+                          className="f-input mb-3"
                         >
-                          <option value="جميع المناطق">جميع المناطق (عام للجميع)</option>
+                          <option value="جميع المناطق">🌐 جميع المناطق (عام للجميع)</option>
                           <option value="شايروفا / كيبزة">📍 شايروفا / كيبزة (دائرة 15 كم بـ GPS)</option>
                           <option value="إسطنبول">📍 إسطنبول (دائرة 30 كم بـ GPS)</option>
-                          <option value="كوجالي">📍 كوجالي (دائرة 25 كم بـ GPS)</option>
-                          <option value="custom">✍️ إدخال منطقة مخصصة بالاسم...</option>
+                          <option value="map">🗺️ تحدد بالخرائط (رابط Google Maps أو الإحداثيات)</option>
                         </select>
 
+                        {/* If Map/Custom Geofence Selected */}
+                        {adForm.latitude !== null && (
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3 animate-fade-in text-xs font-bold text-slate-800">
+                            <div>
+                              <label className="block text-[11px] text-slate-500 mb-1">
+                                🔗 لصق رابط Google Maps أو الإحداثيات (Lat, Lng)
+                              </label>
+                              <input
+                                type="text"
+                                dir="ltr"
+                                placeholder="مثال: https://maps.app.goo.gl/... أو 40.8167, 29.3750"
+                                onChange={e => {
+                                  const val = e.target.value
+                                  const match = val.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/)
+                                  if (match) {
+                                    setAdForm(prev => ({ ...prev, latitude: parseFloat(match[1]), longitude: parseFloat(match[2]) }))
+                                  }
+                                }}
+                                className="f-input text-left"
+                              />
+                            </div>
 
-                        {!['جميع المناطق', 'شايروفا / كيبزة', 'إسطنبول', 'كوجالي'].includes(adForm.target_region) && (
-                          <input
-                            type="text"
-                            value={adForm.target_region}
-                            onChange={e => setAdForm({ ...adForm, target_region: e.target.value })}
-                            className="f-input"
-                            placeholder="اكتب اسم المنطقة المخصصة هنا..."
-                          />
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1">خط العرض Lat</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={adForm.latitude ?? ''}
+                                  onChange={e => setAdForm({ ...adForm, latitude: parseFloat(e.target.value) || null })}
+                                  className="f-input"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1">خط الطول Lng</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={adForm.longitude ?? ''}
+                                  onChange={e => setAdForm({ ...adForm, longitude: parseFloat(e.target.value) || null })}
+                                  className="f-input"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1">نصف القطر (كم)</label>
+                                <input
+                                  type="number"
+                                  step="1"
+                                  placeholder="15"
+                                  value={adForm.radius_km ?? ''}
+                                  onChange={e => setAdForm({ ...adForm, radius_km: parseFloat(e.target.value) || null })}
+                                  className="f-input"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-1">اسم المنطقة التوضيحي</label>
+                              <input
+                                type="text"
+                                value={adForm.target_region}
+                                onChange={e => setAdForm({ ...adForm, target_region: e.target.value })}
+                                className="f-input"
+                                placeholder="مثال: شايروفا أو مركز المدينة"
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
+
 
                     </div>
                     <div className="w-28">
