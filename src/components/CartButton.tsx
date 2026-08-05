@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useCartStore } from '@/store/cartStore'
-import { ShoppingBag, X, Plus, Minus, Trash2, MessageCircle, MapPin, CheckCircle } from 'lucide-react'
+import { ShoppingBag, X, Plus, Minus, Trash2, MessageCircle, MapPin } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import { supabase } from '@/lib/supabase'
 import { calculateDistance } from '@/utils/distance'
@@ -12,187 +12,113 @@ type Restaurant = Pick<Database['public']['Tables']['restaurants']['Row'], 'id' 
 
 export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
   const { isLoggedIn, openAuthModal } = useAuth()
-  const [isOpen, setIsOpen] = useState(false)
-  const [isCheckingOut, setIsCheckingOut] = useState(false)
-  const [checkoutError, setCheckoutError] = useState('')
+  const [isOpen, setIsOpen]         = useState(false)
+  const [isCheckingOut, setChecking] = useState(false)
+  const [checkoutError, setError]    = useState('')
   const cartStore = useCartStore()
 
-  const items = cartStore.restaurantId === restaurant.id ? cartStore.items : []
-  const totalItems = items.reduce((acc, item) => acc + item.quantity, 0)
-  const totalPrice = items.reduce((acc, item) => acc + (item.price * item.quantity), 0)
+  const items      = cartStore.restaurantId === restaurant.id ? cartStore.items : []
+  const totalItems = items.reduce((a, i) => a + i.quantity, 0)
+  const totalPrice = items.reduce((a, i) => a + i.price * i.quantity, 0)
 
-  if (items.length === 0) return null
+  if (!items.length) return null
 
   const handleCheckout = async () => {
-    setCheckoutError('')
-    setIsCheckingOut(true)
-
-    if (!navigator.geolocation) {
-      setCheckoutError('المتصفح الخاص بك لا يدعم تحديد الموقع.')
-      setIsCheckingOut(false)
-      return
-    }
+    setError(''); setChecking(true)
+    if (!navigator.geolocation) { setError('المتصفح لا يدعم تحديد الموقع.'); setChecking(false); return }
 
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+      async pos => {
         try {
-          const lat = pos.coords.latitude
-          const lng = pos.coords.longitude
-
+          const { latitude: lat, longitude: lng } = pos.coords
           if (restaurant.latitude && restaurant.longitude && restaurant.delivery_radius_km) {
             const dist = calculateDistance(lat, lng, restaurant.latitude, restaurant.longitude)
-            if (dist > restaurant.delivery_radius_km) {
-              setCheckoutError('عذراً، موقعك خارج نطاق التوصيل لهذا المطعم.')
-              setIsCheckingOut(false)
-              return
-            }
+            if (dist > restaurant.delivery_radius_km) { setError('موقعك خارج نطاق التوصيل لهذا المطعم.'); setChecking(false); return }
           }
-
           const locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
-
-          const { error } = await supabase.from('orders').insert({
-            restaurant_id: restaurant.id,
-            total_price: totalPrice,
-            items: items as any,
-            location_url: locationUrl,
-            status: 'pending'
-          })
-
-          if (error) {
-            setCheckoutError('حدث خطأ أثناء حفظ الطلب. يرجى المحاولة مرة أخرى.')
-            setIsCheckingOut(false)
-            return
-          }
-
-          const text = items.map(item => `${item.quantity}x ${item.name} (${(item.price * item.quantity).toFixed(2)} ₺)`).join('\n')
-          const message = `مرحباً مطعم ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺\n\n📍 موقع التوصيل:\n${locationUrl}`
-          const encodedMessage = encodeURIComponent(message)
-
-          const cleanPhone = restaurant.whatsapp_number.replace(/\D/g, '')
-          window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMessage}`, '_blank')
-          cartStore.clearCart()
-          setIsOpen(false)
-        } catch (err) {
-          setCheckoutError('حدث خطأ غير متوقع.')
-        } finally {
-          setIsCheckingOut(false)
-        }
+          const { error } = await supabase.from('orders').insert({ restaurant_id: restaurant.id, total_price: totalPrice, items: items as any, location_url: locationUrl, status: 'pending' })
+          if (error) { setError('حدث خطأ أثناء حفظ الطلب.'); setChecking(false); return }
+          const text = items.map(i => `${i.quantity}x ${i.name} (${(i.price * i.quantity).toFixed(2)} ₺)`).join('\n')
+          const msg  = `مرحباً مطعم ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺\n\n📍 موقعي:\n${locationUrl}`
+          window.open(`https://api.whatsapp.com/send?phone=${restaurant.whatsapp_number.replace(/\D/g, '')}&text=${encodeURIComponent(msg)}`, '_blank')
+          cartStore.clearCart(); setIsOpen(false)
+        } catch { setError('حدث خطأ غير متوقع.') }
+        finally { setChecking(false) }
       },
-      (err) => {
-        setCheckoutError('يرجى السماح بالوصول إلى موقعك الجغرافي لتوصيل طلبك.')
-        setIsCheckingOut(false)
-      },
+      () => { setError('يرجى السماح بالوصول إلى موقعك لإتمام الطلب.'); setChecking(false) },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     )
   }
 
   return (
     <>
-      {/* ── Floating Cart Button ── */}
-      <div className="fixed bottom-5 left-4 right-4 flex justify-center z-40">
-        <button
-          onClick={() => setIsOpen(true)}
-          className="cart-float-btn shadow-2xl"
-          style={{
-            boxShadow: '0 8px 32px color-mix(in srgb, var(--color-primary) 42%, transparent)'
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 backdrop-blur-sm rounded-2xl w-10 h-10 flex items-center justify-center font-black text-sm flex-shrink-0">
-              {totalItems}
-            </div>
-            <div className="flex items-center gap-2">
+      {/* ── Floating Button ── */}
+      <div className="cart-float">
+        <button onClick={() => setIsOpen(true)} className="cart-float-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="cart-badge">{totalItems}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <ShoppingBag size={18} />
-              <span className="text-base font-black">عرض السلة</span>
+              <span style={{ fontSize: 15 }}>عرض السلة</span>
             </div>
           </div>
-          <span className="text-base font-black">{totalPrice.toFixed(2)} ₺</span>
+          <span style={{ fontSize: 16 }}>{totalPrice.toFixed(2)} ₺</span>
         </button>
       </div>
 
-      {/* ── Cart Drawer Modal ── */}
+      {/* ── Drawer ── */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex justify-center items-end sm:items-center"
-          style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(8px)' }}
+          className="cart-backdrop"
           onClick={e => { if (e.target === e.currentTarget && !isCheckingOut) setIsOpen(false) }}
         >
-          <div
-            className="bg-white w-full max-w-md flex flex-col overflow-hidden animate-slide-down"
-            style={{
-              borderRadius: '28px 28px 0 0',
-              maxHeight: '92vh',
-              boxShadow: '0 -8px 48px rgba(0,0,0,0.18)'
-            }}
-          >
+          <div className="cart-drawer">
             {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1.5 bg-slate-200 rounded-full" />
-            </div>
+            <div className="cart-handle" />
 
             {/* Header */}
-            <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'var(--brand-accent, #FFF7ED)' }}
-                >
-                  <ShoppingBag size={18} style={{ color: 'var(--color-primary)' }} />
+            <div className="cart-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="cart-header-icon">
+                  <ShoppingBag size={18} style={{ color: 'var(--color-primary,#F97316)' }} />
                 </div>
                 <div>
-                  <h2 className="font-black text-slate-800 text-base">سلة الطلب</h2>
-                  <p className="text-xs text-slate-400 font-medium">{totalItems} عنصر</p>
+                  <p style={{ fontWeight: 900, fontSize: 15, color: '#0F172A', margin: 0 }}>سلة الطلب</p>
+                  <p style={{ fontSize: 12, color: '#94A3B8', fontWeight: 600, margin: 0 }}>{totalItems} عنصر</p>
                 </div>
               </div>
-              <button
-                onClick={() => !isCheckingOut && setIsOpen(false)}
-                disabled={isCheckingOut}
-                className="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition disabled:opacity-50"
-              >
-                <X size={17} />
+              <button className="cart-close" onClick={() => !isCheckingOut && setIsOpen(false)} disabled={isCheckingOut}>
+                <X size={16} />
               </button>
             </div>
 
-            {/* Items List */}
-            <div className="px-4 py-4 overflow-y-auto flex-1 space-y-2.5">
+            {/* Items */}
+            <div className="cart-items">
               {items.map(item => (
-                <div
-                  key={item.id}
-                  className="flex gap-3 items-center bg-slate-50 rounded-2xl p-3 border border-slate-100"
-                >
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-black text-sm text-slate-800 truncate">{item.name}</h4>
-                    <p
-                      className="text-sm font-black mt-0.5"
-                      style={{ color: 'var(--color-primary)' }}
-                    >
-                      {(item.price * item.quantity).toFixed(2)} ₺
-                    </p>
+                <div key={item.id} className="cart-item">
+                  <div className="cart-item-info">
+                    <div className="cart-item-name">{item.name}</div>
+                    <div className="cart-item-price">{(item.price * item.quantity).toFixed(2)} ₺</div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="cart-item-qty">
                     <button
+                      className="cart-item-btn"
                       onClick={() => cartStore.updateQuantity(item.id, item.quantity - 1)}
                       disabled={isCheckingOut}
-                      className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 disabled:opacity-50 transition"
                     >
                       {item.quantity === 1
-                        ? <Trash2 size={14} className="text-red-500" />
-                        : <Minus size={14} className="text-slate-600" />
+                        ? <Trash2 size={13} style={{ color: '#EF4444' }} />
+                        : <Minus size={13} style={{ color: '#64748B' }} />
                       }
                     </button>
-                    <span
-                      className="font-black w-6 text-center text-base tabular-nums"
-                      style={{ color: 'var(--brand-secondary, #1A1A2E)' }}
-                    >
-                      {item.quantity}
-                    </span>
+                    <span style={{ fontWeight: 900, fontSize: 15, minWidth: 20, textAlign: 'center', color: '#0F172A' }}>{item.quantity}</span>
                     <button
+                      className="cart-item-btn"
                       onClick={() => cartStore.updateQuantity(item.id, item.quantity + 1)}
                       disabled={isCheckingOut}
-                      className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm disabled:opacity-50 transition"
-                      style={{ background: 'var(--color-primary)' }}
+                      style={{ background: 'var(--color-primary,#F97316)', borderColor: 'transparent', color: '#fff' }}
                     >
-                      <Plus size={14} />
+                      <Plus size={13} />
                     </button>
                   </div>
                 </div>
@@ -200,59 +126,44 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 pb-7 pt-4 border-t border-slate-100 bg-white">
-              {/* Error */}
+            <div className="cart-footer">
               {checkoutError && (
-                <div className="mb-4 p-3.5 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-2.5">
-                  <MapPin className="text-red-500 shrink-0 mt-0.5" size={16} />
-                  <p className="text-xs text-red-600 font-bold leading-relaxed">{checkoutError}</p>
+                <div className="cart-error">
+                  <MapPin size={15} style={{ color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 700, lineHeight: 1.5, margin: 0 }}>{checkoutError}</p>
                 </div>
               )}
 
-              {/* Total */}
-              <div className="flex justify-between items-center mb-4 px-1">
-                <span className="text-slate-500 font-bold">الإجمالي</span>
-                <span className="font-black text-2xl" style={{ color: 'var(--brand-secondary, #1A1A2E)' }}>
-                  {totalPrice.toFixed(2)}{' '}
-                  <span className="text-sm font-bold text-slate-400">₺</span>
-                </span>
+              <div className="cart-total-row">
+                <span className="cart-total-label">المجموع</span>
+                <span className="cart-total-val">{totalPrice.toFixed(2)}<span className="cart-total-cur">₺</span></span>
               </div>
 
-              {/* WhatsApp Button */}
               <button
-                onClick={() => {
-                  if (!isLoggedIn) {
-                    openAuthModal(() => { handleCheckout() })
-                  } else {
-                    handleCheckout()
-                  }
-                }}
+                className="cart-wa-btn"
                 disabled={isCheckingOut}
-                className="w-full text-white rounded-2xl p-4 font-black flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg disabled:opacity-70 disabled:active:scale-100"
-                style={{
-                  background: isCheckingOut
-                    ? '#1a9c4a'
-                    : 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
-                  boxShadow: '0 6px 24px rgba(37,211,102,0.4)'
+                onClick={() => {
+                  if (!isLoggedIn) openAuthModal(() => handleCheckout())
+                  else handleCheckout()
                 }}
               >
                 {isCheckingOut ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="text-base">جاري إعداد الطلب...</span>
+                    <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    <span>جاري إعداد الطلب...</span>
                   </>
                 ) : (
                   <>
-                    <MessageCircle size={22} />
-                    <span className="text-base">إرسال الطلب عبر الواتساب</span>
+                    <MessageCircle size={20} />
+                    <span>إرسال الطلب عبر الواتساب</span>
                   </>
                 )}
               </button>
 
               {!checkoutError && !isCheckingOut && (
-                <p className="text-center text-xs text-slate-400 font-medium mt-3 flex items-center justify-center gap-1.5">
+                <p className="cart-hint">
                   <MapPin size={12} />
-                  سيتم طلب موقعك الجغرافي لتأكيد التوصيل
+                  سيتم طلب موقعك لتأكيد التوصيل
                 </p>
               )}
             </div>
