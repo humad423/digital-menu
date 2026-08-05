@@ -254,10 +254,18 @@ export default function PlatformClient({
 
   const filteredAds = (ads || []).filter(ad => {
     if (!ad.target_region || ad.target_region === 'جميع المناطق' || ad.target_region === 'عام') return true
-    if (userArea && (ad.target_region.includes(userArea) || userArea.includes(ad.target_region))) return true
-    if (!userArea && (ad.target_region.includes('شايروفا') || ad.target_region.includes('كيبزة'))) return true
+    const target = ad.target_region.toLowerCase().trim()
+    if (userArea) {
+      const area = userArea.toLowerCase().trim()
+      if (target.includes(area) || area.includes(target)) return true
+      if (target.includes('شايروفا') && (area.includes('شايروفا') || area.includes('كيبزة'))) return true
+      if (target.includes('كيبزة') && (area.includes('شايروفا') || area.includes('كيبزة'))) return true
+      return false
+    }
+    if (target.includes('شايروفا') || target.includes('كيبزة')) return true
     return false
   })
+
 
 
   /* Drag Offers Scroll */

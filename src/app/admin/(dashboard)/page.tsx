@@ -536,14 +536,35 @@ export default function AdminDashboard() {
                       </div>
                       <div className="flex-1">
                         <label className="f-label">المنطقة المستهدفة للإعلان</label>
-                        <input
-                          type="text"
-                          value={adForm.target_region}
-                          onChange={e => setAdForm({ ...adForm, target_region: e.target.value })}
-                          className="f-input"
-                          placeholder="جميع المناطق أو اسم المنطقة (مثل: شايروفا / كيبزة)"
-                        />
+                        <select
+                          value={['جميع المناطق', 'شايروفا / كيبزة', 'إسطنبول', 'كوجالي'].includes(adForm.target_region) ? adForm.target_region : 'custom'}
+                          onChange={e => {
+                            if (e.target.value !== 'custom') {
+                              setAdForm({ ...adForm, target_region: e.target.value })
+                            } else {
+                              setAdForm({ ...adForm, target_region: '' })
+                            }
+                          }}
+                          className="f-input mb-2"
+                        >
+                          <option value="جميع المناطق">جميع المناطق (عام للجميع)</option>
+                          <option value="شايروفا / كيبزة">شايروفا / كيبزة (نطاق 15 كم)</option>
+                          <option value="إسطنبول">إسطنبول</option>
+                          <option value="كوجالي">كوجالي</option>
+                          <option value="custom font-bold">✍️ إدخال منطقة مخصصة أخرى...</option>
+                        </select>
+
+                        {!['جميع المناطق', 'شايروفا / كيبزة', 'إسطنبول', 'كوجالي'].includes(adForm.target_region) && (
+                          <input
+                            type="text"
+                            value={adForm.target_region}
+                            onChange={e => setAdForm({ ...adForm, target_region: e.target.value })}
+                            className="f-input"
+                            placeholder="اكتب اسم المنطقة المخصصة هنا..."
+                          />
+                        )}
                       </div>
+
                     </div>
                     <div className="w-28">
                       <label className="f-label">الترتيب</label>
