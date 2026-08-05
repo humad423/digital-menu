@@ -12,9 +12,10 @@ type Restaurant = Pick<Database['public']['Tables']['restaurants']['Row'], 'id' 
 
 export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
   const { isLoggedIn, openAuthModal } = useAuth()
-  const [isOpen, setIsOpen]         = useState(false)
-  const [isCheckingOut, setChecking] = useState(false)
-  const [checkoutError, setError]    = useState('')
+  const [isOpen, setIsOpen]            = useState(false)
+  const [isCheckingOut, setChecking]    = useState(false)
+  const [shareLocation, setShareLoc]    = useState(true)
+  const [checkoutError, setError]       = useState('')
   const cartStore = useCartStore()
 
   const items      = cartStore.restaurantId === restaurant.id ? cartStore.items : []
@@ -25,29 +26,72 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
 
   const handleCheckout = async () => {
     setError(''); setChecking(true)
-    if (!navigator.geolocation) { setError('المتصفح لا يدعم تحديد الموقع.'); setChecking(false); return }
 
-    navigator.geolocation.getCurrentPosition(
-      async pos => {
-        try {
-          const { latitude: lat, longitude: lng } = pos.coords
-          if (restaurant.latitude && restaurant.longitude && restaurant.delivery_radius_km) {
-            const dist = calculateDistance(lat, lng, restaurant.latitude, restaurant.longitude)
-            if (dist > restaurant.delivery_radius_km) { setError('موقعك خارج نطاق التوصيل لهذا المطعم.'); setChecking(false); return }
+    let locationUrl: string | null = null
+
+    if (shareLocation) {
+      if (!navigator.geolocation) {
+        setError('المتصفح لا يدعم تحديد الموقع.')
+        setChecking(false)
+        return
+      }
+
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          })
+        })
+
+        const { latitude: lat, longitude: lng } = pos.coords
+        if (restaurant.latitude && restaurant.longitude && restaurant.delivery_radius_km) {
+          const dist = calculateDistance(lat, lng, restaurant.latitude, restaurant.longitude)
+          if (dist > restaurant.delivery_radius_km) {
+            setError('موقعك خارج نطاق التوصيل لهذا المطعم.')
+            setChecking(false)
+            return
           }
-          const locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
-          const { error } = await supabase.from('orders').insert({ restaurant_id: restaurant.id, total_price: totalPrice, items: items as any, location_url: locationUrl, status: 'pending' })
-          if (error) { setError('حدث خطأ أثناء حفظ الطلب.'); setChecking(false); return }
-          const text = items.map(i => `${i.quantity}x ${i.name} (${(i.price * i.quantity).toFixed(2)} ₺)`).join('\n')
-          const msg  = `مرحباً مطعم ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺\n\n📍 موقعي:\n${locationUrl}`
-          window.open(`https://api.whatsapp.com/send?phone=${restaurant.whatsapp_number.replace(/\D/g, '')}&text=${encodeURIComponent(msg)}`, '_blank')
-          cartStore.clearCart(); setIsOpen(false)
-        } catch { setError('حدث خطأ غير متوقع.') }
-        finally { setChecking(false) }
-      },
-      () => { setError('يرجى السماح بالوصول إلى موقعك لإتمام الطلب.'); setChecking(false) },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    )
+        }
+        locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
+      } catch (err) {
+        setError('يرجى السماح بالوصول إلى موقعك أو قم بوقف خيار مشاركة الموقع.')
+        setChecking(false)
+        return
+      }
+    }
+
+    try {
+      const { error } = await supabase.from('orders').insert({
+        restaurant_id: restaurant.id,
+        total_price: totalPrice,
+        items: items as any,
+        location_url: locationUrl,
+        status: 'pending'
+      })
+
+      if (error) {
+        setError('حدث خطأ أثناء حفظ الطلب.')
+        setChecking(false)
+        return
+      }
+
+      const text = items.map(i => `${i.quantity}x ${i.name} (${(i.price * i.quantity).toFixed(2)} ₺)`).join('\n')
+      let msg = `مرحباً مطعم ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺`
+
+      if (locationUrl) {
+        msg += `\n\n📍 موقعي:\n${locationUrl}`
+      }
+
+      window.open(`https://api.whatsapp.com/send?phone=${restaurant.whatsapp_number.replace(/\D/g, '')}&text=${encodeURIComponent(msg)}`, '_blank')
+      cartStore.clearCart()
+      setIsOpen(false)
+    } catch {
+      setError('حدث خطأ غير متوقع.')
+    } finally {
+      setChecking(false)
+    }
   }
 
   return (
@@ -142,6 +186,20 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
 
             {/* Footer */}
             <div className="p-5 border-t border-slate-100 bg-white space-y-3">
+              {/* Optional Location Toggle */}
+              <label className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-2xl cursor-pointer select-none transition hover:bg-slate-100/80">
+                <div className="flex items-center gap-2">
+                  <MapPin size={16} className={shareLocation ? 'text-orange-500' : 'text-slate-400'} />
+                  <span className="text-xs font-bold text-slate-700">إرفاق موقعي مع رسالة الطلب</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={shareLocation}
+                  onChange={e => setShareLoc(e.target.checked)}
+                  className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+                />
+              </label>
+
               {checkoutError && (
                 <div className="p-3 bg-red-50 border border-red-200/80 rounded-2xl flex items-start gap-2">
                   <MapPin size={15} className="text-red-500 shrink-0 mt-0.5" />
@@ -180,13 +238,6 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
                   </>
                 )}
               </button>
-
-              {!checkoutError && !isCheckingOut && (
-                <p className="text-center text-[11px] text-slate-400 font-bold flex items-center justify-center gap-1 pt-1">
-                  <MapPin size={12} />
-                  سيتم طلب موقعك الجغرافي لتأكيد التوصيل
-                </p>
-              )}
             </div>
           </div>
         </div>
