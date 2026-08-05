@@ -4,7 +4,7 @@ import UserAuthButton from '@/components/UserAuthButton'
 import RestaurantRating from '@/components/RestaurantRating'
 import { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, MapPin } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,11 +32,20 @@ export default async function RestaurantLayout({
 
   if (!restaurant) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', background: '#F8FAFC' }} dir="rtl">
-        <div style={{ width: 72, height: 72, background: '#FEF2F2', borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, marginBottom: 16 }}>🏪</div>
-        <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1E293B', marginBottom: 8 }}>المطعم غير موجود</h1>
-        <p style={{ fontSize: 14, color: '#94A3B8', fontWeight: 600, maxWidth: 260, lineHeight: 1.6, marginBottom: 24 }}>عذراً، هذا المطعم غير موجود أو الرابط غير صحيح.</p>
-        <Link href="/" style={{ background: '#F97316', color: '#fff', fontWeight: 900, fontSize: 14, padding: '12px 24px', borderRadius: 16, textDecoration: 'none' }}>العودة للرئيسية 🏠</Link>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
+        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-xs">
+          🏪
+        </div>
+        <h1 className="text-lg font-black text-slate-900 mb-1">المطعم غير موجود</h1>
+        <p className="text-xs text-slate-400 font-bold max-w-xs mb-5 leading-relaxed">
+          عذراً، هذا المطعم غير موجود أو الرابط غير صحيح.
+        </p>
+        <Link
+          href="/"
+          className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow-sm transition active:scale-95"
+        >
+          العودة للرئيسية 🏠
+        </Link>
       </div>
     )
   }
@@ -46,100 +55,81 @@ export default async function RestaurantLayout({
   return (
     <div
       dir="rtl"
+      className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-28"
       style={{
-        minHeight: '100vh',
-        paddingBottom: 120,
-        background: '#F8FAFC',
         '--color-primary': primary,
-        '--brand-secondary': '#0F172A',
-        '--brand-accent': `${primary}18`,
-        fontFamily: "'Tajawal','Cairo',sans-serif",
       } as React.CSSProperties}
     >
-      {/* ═══ HERO ════════════════════════════════════════════════ */}
-      <div style={{ position: 'relative' }}>
-
-        {/* Cover Image */}
-        <div style={{ position: 'relative', height: 250, overflow: 'hidden', background: '#E2E8F0' }}>
+      {/* ── HERO COVER ── */}
+      <div className="relative">
+        <div className="h-48 sm:h-56 w-full bg-slate-200 relative overflow-hidden">
           {restaurant.cover_url ? (
-            <img src={restaurant.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={restaurant.cover_url} alt="" className="w-full h-full object-cover" />
           ) : (
-            <div style={{ width: '100%', height: '100%', background: `linear-gradient(145deg, ${primary}ee 0%, ${primary}77 100%)` }} />
+            <div
+              className="w-full h-full"
+              style={{ background: `linear-gradient(135deg, ${primary}ee, ${primary}66)` }}
+            />
           )}
 
-          {/* Gradient overlay — strong at bottom for text readability */}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.06) 40%, rgba(0,0,0,0.78) 100%)' }} />
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-slate-950/40" />
 
-          {/* Back button */}
+          {/* Back Button */}
           <Link
             href="/"
-            style={{
-              position: 'absolute', top: 16, right: 16, zIndex: 20,
-              width: 40, height: 40, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.25)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', textDecoration: 'none',
-            }}
+            className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-black/30 backdrop-blur-md text-white border border-white/20 flex items-center justify-center active:scale-90 transition"
           >
-            <ArrowRight size={20} />
+            <ArrowRight size={18} />
           </Link>
 
-          {/* User auth button */}
-          <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 20 }}>
-            <UserAuthButton />
+          {/* User Auth */}
+          <div className="absolute top-4 left-4 z-20">
+            <UserAuthButton variant="light" />
           </div>
 
-          {/* Restaurant name on image */}
-          <div style={{ position: 'absolute', bottom: 0, right: 0, left: 60, padding: '0 18px 18px', zIndex: 10 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.5)', margin: 0, lineHeight: 1.25 }}>
+          {/* Restaurant Title Overlay */}
+          <div className="absolute bottom-3 right-4 left-20 z-10">
+            <h1 className="text-xl sm:text-2xl font-black text-white drop-shadow-md leading-tight">
               {restaurant.name}
             </h1>
           </div>
-
-          {/* Floating logo */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 14, transform: 'translateY(50%)',
-            width: 54, height: 54, background: '#fff', borderRadius: 16,
-            padding: 5, boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-            border: '2.5px solid #fff', zIndex: 20, overflow: 'hidden',
-          }}>
-            {restaurant.logo_url ? (
-              <img src={restaurant.logo_url} alt={restaurant.name} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 11 }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', borderRadius: 11, background: primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 900 }}>
-                {restaurant.name.charAt(0)}
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Info Card */}
-        <div style={{ margin: '0 16px', marginTop: -1 }}>
-          <div className="restaurant-info-card" style={{ paddingTop: 20, paddingRight: 16, paddingBottom: 14, paddingLeft: 16 }}>
-            {/* Spacer for floating logo */}
-            <div style={{ width: 54, flexShrink: 0 }} />
+        {/* Info Box */}
+        <div className="max-w-xl mx-auto px-4 -mt-4 relative z-20">
+          <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3">
+            {/* Logo */}
+            <div className="w-14 h-14 rounded-2xl bg-white p-1 border-2 border-slate-100 shadow-xs shrink-0 overflow-hidden">
+              {restaurant.logo_url ? (
+                <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-xl" />
+              ) : (
+                <div
+                  className="w-full h-full rounded-xl flex items-center justify-center text-lg font-black text-white"
+                  style={{ background: primary }}
+                >
+                  {restaurant.name.charAt(0)}
+                </div>
+              )}
+            </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', margin: '0 0 6px' }}>{restaurant.name}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 5px rgba(16,185,129,0.7)', flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: '#64748B', fontWeight: 700 }}>مفتوح الآن</span>
+            {/* Meta */}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-400 truncate mb-1">{restaurant.name}</p>
+              <div className="flex items-center gap-3 flex-wrap text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="font-bold text-slate-600">مفتوح الآن</span>
                 </div>
                 <RestaurantRating restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
               </div>
-            </div>
-
-            <div style={{ width: 36, height: 36, borderRadius: 12, background: `${primary}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-              🍽️
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <main style={{ maxWidth: 500, margin: '0 auto', padding: '18px 16px 0' }}>
+      {/* Main Content Container */}
+      <main className="max-w-xl mx-auto px-4 mt-4">
         {children}
       </main>
 

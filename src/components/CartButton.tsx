@@ -52,71 +52,86 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
 
   return (
     <>
-      {/* ── Floating Button ── */}
-      <div className="cart-float">
-        <button onClick={() => setIsOpen(true)} className="cart-float-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div className="cart-badge">{totalItems}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      {/* ── Floating Bottom Cart Bar ── */}
+      <div className="fixed bottom-5 left-4 right-4 z-40 flex justify-center max-w-md mx-auto">
+        <button
+          onClick={() => setIsOpen(true)}
+          className="w-full text-white font-black py-3.5 px-4 rounded-2xl flex items-center justify-between shadow-xl active:scale-98 transition-all"
+          style={{
+            background: 'var(--color-primary, #F97316)',
+            boxShadow: '0 8px 24px color-mix(in srgb, var(--color-primary, #F97316) 40%, transparent)'
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-xs font-black">
+              {totalItems}
+            </div>
+            <div className="flex items-center gap-2">
               <ShoppingBag size={18} />
-              <span style={{ fontSize: 15 }}>عرض السلة</span>
+              <span className="text-sm font-black">عرض السلة</span>
             </div>
           </div>
-          <span style={{ fontSize: 16 }}>{totalPrice.toFixed(2)} ₺</span>
+          <span className="text-base font-black">{totalPrice.toFixed(2)} ₺</span>
         </button>
       </div>
 
-      {/* ── Drawer ── */}
+      {/* ── Drawer Modal ── */}
       {isOpen && (
         <div
-          className="cart-backdrop"
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={e => { if (e.target === e.currentTarget && !isCheckingOut) setIsOpen(false) }}
         >
-          <div className="cart-drawer">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300">
             {/* Handle */}
-            <div className="cart-handle" />
+            <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1 shrink-0" />
 
             {/* Header */}
-            <div className="cart-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div className="cart-header-icon">
-                  <ShoppingBag size={18} style={{ color: 'var(--color-primary,#F97316)' }} />
+            <div className="px-5 py-3 flex items-center justify-between border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: 'color-mix(in srgb, var(--color-primary, #F97316) 12%, transparent)' }}
+                >
+                  <ShoppingBag size={18} style={{ color: 'var(--color-primary, #F97316)' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 900, fontSize: 15, color: '#0F172A', margin: 0 }}>سلة الطلب</p>
-                  <p style={{ fontSize: 12, color: '#94A3B8', fontWeight: 600, margin: 0 }}>{totalItems} عنصر</p>
+                  <h3 className="font-black text-slate-900 text-sm">سلة الطلب</h3>
+                  <p className="text-[11px] text-slate-400 font-bold">{totalItems} عنصر</p>
                 </div>
               </div>
-              <button className="cart-close" onClick={() => !isCheckingOut && setIsOpen(false)} disabled={isCheckingOut}>
+              <button
+                onClick={() => !isCheckingOut && setIsOpen(false)}
+                disabled={isCheckingOut}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"
+              >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Items */}
-            <div className="cart-items">
+            {/* Items List */}
+            <div className="p-4 overflow-y-auto flex-1 space-y-2.5">
               {items.map(item => (
-                <div key={item.id} className="cart-item">
-                  <div className="cart-item-info">
-                    <div className="cart-item-name">{item.name}</div>
-                    <div className="cart-item-price">{(item.price * item.quantity).toFixed(2)} ₺</div>
+                <div key={item.id} className="bg-slate-50 border border-slate-200/70 rounded-2xl p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-black text-xs text-slate-900 truncate">{item.name}</h4>
+                    <p className="text-xs font-black mt-0.5" style={{ color: 'var(--color-primary, #F97316)' }}>
+                      {(item.price * item.quantity).toFixed(2)} ₺
+                    </p>
                   </div>
-                  <div className="cart-item-qty">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      className="cart-item-btn"
                       onClick={() => cartStore.updateQuantity(item.id, item.quantity - 1)}
                       disabled={isCheckingOut}
+                      className="w-7 h-7 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-2xs hover:bg-slate-100 transition"
                     >
-                      {item.quantity === 1
-                        ? <Trash2 size={13} style={{ color: '#EF4444' }} />
-                        : <Minus size={13} style={{ color: '#64748B' }} />
-                      }
+                      {item.quantity === 1 ? <Trash2 size={13} className="text-red-500" /> : <Minus size={13} className="text-slate-600" />}
                     </button>
-                    <span style={{ fontWeight: 900, fontSize: 15, minWidth: 20, textAlign: 'center', color: '#0F172A' }}>{item.quantity}</span>
+                    <span className="font-black text-xs text-slate-900 w-5 text-center">{item.quantity}</span>
                     <button
-                      className="cart-item-btn"
                       onClick={() => cartStore.updateQuantity(item.id, item.quantity + 1)}
                       disabled={isCheckingOut}
-                      style={{ background: 'var(--color-primary,#F97316)', borderColor: 'transparent', color: '#fff' }}
+                      className="w-7 h-7 rounded-xl text-white flex items-center justify-center transition shadow-2xs"
+                      style={{ background: 'var(--color-primary, #F97316)' }}
                     >
                       <Plus size={13} />
                     </button>
@@ -126,44 +141,50 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
             </div>
 
             {/* Footer */}
-            <div className="cart-footer">
+            <div className="p-5 border-t border-slate-100 bg-white space-y-3">
               {checkoutError && (
-                <div className="cart-error">
-                  <MapPin size={15} style={{ color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 700, lineHeight: 1.5, margin: 0 }}>{checkoutError}</p>
+                <div className="p-3 bg-red-50 border border-red-200/80 rounded-2xl flex items-start gap-2">
+                  <MapPin size={15} className="text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-xs font-bold text-red-700 leading-relaxed">{checkoutError}</p>
                 </div>
               )}
 
-              <div className="cart-total-row">
-                <span className="cart-total-label">المجموع</span>
-                <span className="cart-total-val">{totalPrice.toFixed(2)}<span className="cart-total-cur">₺</span></span>
+              <div className="flex justify-between items-center px-1">
+                <span className="text-xs font-bold text-slate-500">المجموع</span>
+                <span className="text-xl font-black text-slate-900">
+                  {totalPrice.toFixed(2)} <span className="text-xs text-slate-400 font-bold">₺</span>
+                </span>
               </div>
 
               <button
-                className="cart-wa-btn"
-                disabled={isCheckingOut}
                 onClick={() => {
                   if (!isLoggedIn) openAuthModal(() => handleCheckout())
                   else handleCheckout()
                 }}
+                disabled={isCheckingOut}
+                className="w-full text-white font-black text-sm py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-98 transition disabled:opacity-70"
+                style={{
+                  background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                  boxShadow: '0 6px 20px rgba(37,211,102,0.35)'
+                }}
               >
                 {isCheckingOut ? (
                   <>
-                    <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>جاري إعداد الطلب...</span>
                   </>
                 ) : (
                   <>
-                    <MessageCircle size={20} />
+                    <MessageCircle size={18} />
                     <span>إرسال الطلب عبر الواتساب</span>
                   </>
                 )}
               </button>
 
               {!checkoutError && !isCheckingOut && (
-                <p className="cart-hint">
+                <p className="text-center text-[11px] text-slate-400 font-bold flex items-center justify-center gap-1 pt-1">
                   <MapPin size={12} />
-                  سيتم طلب موقعك لتأكيد التوصيل
+                  سيتم طلب موقعك الجغرافي لتأكيد التوصيل
                 </p>
               )}
             </div>

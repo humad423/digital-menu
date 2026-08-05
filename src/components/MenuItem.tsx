@@ -32,10 +32,10 @@ export default function MenuItem({ item, restaurantId }: { item: Item, restauran
   }
 
   return (
-    <div className="food-card">
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-3 flex gap-3 shadow-xs hover:shadow-md transition-all">
       {/* Image */}
       {hasImage && (
-        <div className="food-card-img" style={{ minHeight: 110 }}>
+        <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-xl overflow-hidden bg-slate-100 relative">
           {item.primary_image_url || item.bonus_image_url ? (
             <SmartOfferImage
               primaryImage={item.primary_image_url}
@@ -46,49 +46,69 @@ export default function MenuItem({ item, restaurantId }: { item: Item, restauran
               className="w-full h-full"
             />
           ) : (
-            <img src={item.image_url!} alt={item.name} loading="lazy" draggable={false} />
+            <img src={item.image_url!} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
           )}
           {isOffer && (
-            <div className="food-offer-badge">{item.offer_title || '🔥 عرض'}</div>
+            <div className="absolute top-1.5 right-1.5 bg-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs">
+              {item.offer_title || '🔥 عرض'}
+            </div>
           )}
         </div>
       )}
 
       {/* Content */}
-      <div className="food-card-body">
+      <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
-          <h3 className="food-name">{item.name}</h3>
+          <h3 className="font-black text-sm text-slate-900 truncate">{item.name}</h3>
           {item.description && (
-            <p className="food-desc">{item.description}</p>
+            <p className="text-xs text-slate-500 font-medium mt-1 line-clamp-2 leading-relaxed">
+              {item.description}
+            </p>
           )}
         </div>
 
-        <div className="food-footer">
+        <div className="flex items-center justify-between mt-3">
           {/* Price */}
-          <div className="food-price">
-            <span className="amount">{item.price}</span>
-            <span className="currency">₺</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-base font-black" style={{ color: 'var(--color-primary, #F97316)' }}>
+              {item.price}
+            </span>
+            <span className="text-xs font-bold text-slate-400">₺</span>
             {isOffer && item.original_price && (
-              <span className="original">{item.original_price} ₺</span>
+              <span className="text-xs font-bold text-slate-400 line-through mr-1">
+                {item.original_price} ₺
+              </span>
             )}
           </div>
 
-          {/* Add / Qty */}
+          {/* Add / Qty Buttons */}
           {qty === 0 ? (
             <button
               onClick={handleAdd}
-              className={`add-to-cart${popped ? ' popped' : ''}`}
+              className={`w-9 h-9 rounded-full text-white flex items-center justify-center shadow-sm transition active:scale-90 ${
+                popped ? 'scale-110' : ''
+              }`}
+              style={{ background: 'var(--color-primary, #F97316)' }}
               aria-label="أضف للسلة"
             >
-              <Plus size={18} strokeWidth={3} />
+              <Plus size={18} strokeWidth={2.8} />
             </button>
           ) : (
-            <div className="qty-stepper">
-              <button onClick={() => updateQty(item.id, qty - 1)} className="qty-step-btn" aria-label="تقليل">
+            <div
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-white"
+              style={{ background: 'var(--color-primary, #F97316)' }}
+            >
+              <button
+                onClick={() => updateQty(item.id, qty - 1)}
+                className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center active:scale-90 transition"
+              >
                 <Minus size={13} strokeWidth={2.5} />
               </button>
-              <span className="qty-count">{qty}</span>
-              <button onClick={handleAdd} className="qty-step-btn" aria-label="زيادة">
+              <span className="font-black text-xs min-w-[16px] text-center">{qty}</span>
+              <button
+                onClick={handleAdd}
+                className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center active:scale-90 transition"
+              >
                 <Plus size={13} strokeWidth={2.5} />
               </button>
             </div>

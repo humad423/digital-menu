@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, MapPin, Clock, ChevronLeft, X, Bike, Star, Flame } from 'lucide-react'
+import { Search, MapPin, Clock, ChevronLeft, ChevronRight, X, Bike, Star, Sparkles } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import UserAuthButton from '@/components/UserAuthButton'
@@ -10,20 +10,19 @@ import BrandLogo from '@/components/BrandLogo'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 
 // ═══════════════════════════════════════════════════════════
-//  SWIPEABLE ADS SLIDER  (touch + mouse drag + autoplay)
+//  ADS SLIDER (Touch + Mouse Drag + Dots + Arrows)
 // ═══════════════════════════════════════════════════════════
 function AdsSlider({ ads }: { ads: any[] }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [current, setCurrent]   = useState(0)
-  const [isDragging, setDrag]   = useState(false)
-  const [startX, setStartX]     = useState(0)
-  const [dragX, setDragX]       = useState(0)
+  const [current, setCurrent]     = useState(0)
+  const [isDragging, setDrag]     = useState(false)
+  const [startX, setStartX]       = useState(0)
+  const [dragX, setDragX]         = useState(0)
   const autoRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-
-  const goTo = (i: number) => setCurrent((i + ads.length) % ads.length)
-  const next = useCallback(() => goTo(current + 1), [current, ads.length])
-  const prev = useCallback(() => goTo(current - 1), [current, ads.length])
+  const goTo = useCallback((i: number) => setCurrent((i + ads.length) % ads.length), [ads.length])
+  const next = useCallback(() => goTo(current + 1), [current, goTo])
+  const prev = useCallback(() => goTo(current - 1), [current, goTo])
 
   const arm = useCallback(() => {
     clearTimeout(autoRef.current)
@@ -32,70 +31,95 @@ function AdsSlider({ ads }: { ads: any[] }) {
 
   useEffect(() => { arm(); return () => clearTimeout(autoRef.current) }, [current, arm])
 
-  /* Touch */
+  /* Touch Events */
   const onTouchStart = (e: React.TouchEvent) => { setStartX(e.touches[0].clientX); setDrag(true); clearTimeout(autoRef.current) }
   const onTouchMove  = (e: React.TouchEvent) => { if (isDragging) setDragX(e.touches[0].clientX - startX) }
   const onTouchEnd   = () => {
     const w = containerRef.current?.offsetWidth || 300
-    if (dragX < -(w * 0.22)) next(); else if (dragX > (w * 0.22)) prev()
+    if (dragX < -(w * 0.2)) next(); else if (dragX > (w * 0.2)) prev()
     setDragX(0); setDrag(false); arm()
   }
 
-  /* Mouse */
+  /* Mouse Events */
   const onMouseDown  = (e: React.MouseEvent) => { setStartX(e.clientX); setDrag(true); clearTimeout(autoRef.current) }
   const onMouseMove  = (e: React.MouseEvent) => { if (isDragging) { e.preventDefault(); setDragX(e.clientX - startX) } }
   const onMouseEnd   = () => {
     if (isDragging) {
       const w = containerRef.current?.offsetWidth || 300
-      if (dragX < -(w * 0.22)) next(); else if (dragX > (w * 0.22)) prev()
+      if (dragX < -(w * 0.2)) next(); else if (dragX > (w * 0.2)) prev()
     }
     setDragX(0); setDrag(false); arm()
   }
 
-  const w    = containerRef.current?.offsetWidth || 1
-  const pct  = -(current * 100) + (dragX / w) * 100
+  const w   = containerRef.current?.offsetWidth || 1
+  const pct = -(current * 100) + (dragX / w) * 100
 
-  if (!ads.length) return null
+  if (!ads || !ads.length) return null
+
   return (
-    <div className="relative rounded-2xl overflow-hidden select-none" style={{ aspectRatio: '16/7' }}>
+    <div className="relative group rounded-3xl overflow-hidden shadow-lg select-none bg-slate-900" style={{ aspectRatio: '16/7' }}>
       <div
         ref={containerRef}
         className="w-full h-full"
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         onMouseDown={onMouseDown}   onMouseMove={onMouseMove} onMouseUp={onMouseEnd} onMouseLeave={onMouseEnd}
-        style={{ cursor: isDragging ? 'grabbing' : ads.length > 1 ? 'grab' : 'default' }}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       >
-        {/* Track */}
         <div
           className="flex h-full"
           style={{
             transform: `translateX(${pct}%)`,
-            transition: isDragging ? 'none' : 'transform 0.42s cubic-bezier(0.25,1,0.5,1)',
+            transition: isDragging ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
             willChange: 'transform',
           }}
         >
-          {ads.map(ad => (
-            <div key={ad.id} className="flex-none w-full h-full">
-              {ad.link_url
-                ? <a href={ad.link_url} target="_blank" rel="noreferrer" className="block w-full h-full" draggable={false}><img src={ad.image_url} alt="" className="w-full h-full object-cover" draggable={false} /></a>
-                : <img src={ad.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
-              }
+          {ads.map((ad) => (
+            <div key={ad.id} className="flex-none w-full h-full relative">
+              {ad.link_url ? (
+                <a href={ad.link_url} target="_blank" rel="noreferrer" className="block w-full h-full" draggable={false}>
+                  <img src={ad.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
+                </a>
+              ) : (
+                <img src={ad.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Gradient bottom */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.28) 0%, transparent 50%)' }} />
+      {/* Overlay gradient */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/50 via-transparent to-transparent" />
 
-      {/* Dots */}
+      {/* Controls */}
       {ads.length > 1 && (
-        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
-          {ads.map((_, i) => (
-            <div key={i} className="h-1.5 rounded-full transition-all duration-300"
-              style={{ width: i === current ? 22 : 6, background: i === current ? '#fff' : 'rgba(255,255,255,0.45)' }} />
-          ))}
-        </div>
+        <>
+          <button
+            onClick={prev}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60 z-10"
+          >
+            <ChevronRight size={18} />
+          </button>
+          <button
+            onClick={next}
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60 z-10"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          {/* Dots */}
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+            {ads.map((_, i) => (
+              <div
+                key={i}
+                className="h-1.5 rounded-full transition-all duration-300"
+                style={{
+                  width: i === current ? 20 : 6,
+                  background: i === current ? '#FFFFFF' : 'rgba(255,255,255,0.45)'
+                }}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
@@ -105,32 +129,43 @@ function AdsSlider({ ads }: { ads: any[] }) {
 //  MAIN PLATFORM CLIENT
 // ═══════════════════════════════════════════════════════════
 export default function PlatformClient({
-  restaurants, categories, ads, offers = []
+  restaurants,
+  categories,
+  ads,
+  offers = []
 }: {
-  restaurants: any[]; categories: any[]; ads: any[]; offers?: any[]
+  restaurants: any[]
+  categories: any[]
+  ads: any[]
+  offers?: any[]
 }) {
   const [activeCat, setActiveCat]     = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const offersRef   = useRef<HTMLDivElement>(null)
   const searchRef   = useRef<HTMLInputElement>(null)
-  const [isDragOffer, setIsDragOffer] = useState(false)
-  const [offerStartX, setOfferStartX] = useState(0)
+
+  const [isDragOffer, setIsDragOffer]   = useState(false)
+  const [offerStartX, setOfferStartX]   = useState(0)
   const [offerScrollL, setOfferScrollL] = useState(0)
 
-  const [locationStatus, setLocStatus] = useState<'granted'|'default'>('default')
+  const [locationStatus, setLocStatus] = useState<'granted' | 'default'>('default')
   const [userLoc, setUserLoc]          = useState({ lat: 40.8167, lng: 29.3750 })
 
   const requestLocation = () => {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
-      p => { setUserLoc({ lat: p.coords.latitude, lng: p.coords.longitude }); setLocStatus('granted') },
+      p => {
+        setUserLoc({ lat: p.coords.latitude, lng: p.coords.longitude })
+        setLocStatus('granted')
+      },
       () => {},
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     )
   }
+
   useEffect(() => { requestLocation() }, [])
 
-  // Attach distances
+  // Calculate restaurant distances
   const withDist = restaurants.map(r => ({
     ...r,
     distance: (r.latitude && r.longitude)
@@ -140,18 +175,20 @@ export default function PlatformClient({
 
   const allowedIds = new Set(withDist.map(r => r.id))
 
-  const filtered = withDist.filter(r => {
-    const cat    = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
-    const search = r.name.toLowerCase().includes(searchQuery.toLowerCase())
-    return cat && search
+  const filteredRestaurants = withDist.filter(r => {
+    const catMatches    = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
+    const searchMatches = r.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return catMatches && searchMatches
   }).sort((a, b) => (a.distance !== null && b.distance !== null) ? a.distance - b.distance : 0)
 
   const filteredOffers = (offers || []).filter(o => allowedIds.has(o.restaurants?.id || o.restaurant_id))
 
-  /* Offers drag-scroll */
+  /* Drag Offers Scroll */
   const offerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!offersRef.current) return
-    setIsDragOffer(true); setOfferStartX(e.pageX - offersRef.current.offsetLeft); setOfferScrollL(offersRef.current.scrollLeft)
+    setIsDragOffer(true)
+    setOfferStartX(e.pageX - offersRef.current.offsetLeft)
+    setOfferScrollL(offersRef.current.scrollLeft)
   }
   const offerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isDragOffer || !offersRef.current) return
@@ -160,87 +197,121 @@ export default function PlatformClient({
   }
 
   return (
-    <div dir="rtl" style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Tajawal','Cairo',sans-serif" }}>
+    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-28">
 
-      {/* ═══ STICKY HEADER ══════════════════════════════════════ */}
-      <header className="platform-header-sticky">
-        {/* Top row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <BrandLogo size="md" variant="light" />
-          <UserAuthButton />
-        </div>
+      {/* ── TOP HEADER ── */}
+      <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-lg border-b border-slate-800">
+        <div className="max-w-xl mx-auto px-4 py-3.5 space-y-3">
 
-        {/* Tagline */}
-        <p className="platform-tagline">
-          سوقك الأول لاكتشاف أشهى <span style={{ color: '#FB923C' }}>المأكولات والعروض</span>
-        </p>
+          {/* Row 1: Logo + Location + User Auth */}
+          <div className="flex items-center justify-between gap-3">
+            <BrandLogo size="sm" variant="light" showSubtitle={false} />
 
-        {/* Search */}
-        <div style={{ position: 'relative', marginTop: 12 }}>
-          <input
-            ref={searchRef}
-            type="text"
-            placeholder="ابحث عن مطعم أو أكلة..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="platform-search-input"
-          />
-          <Search size={18} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', pointerEvents: 'none' }} />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
-              <X size={17} />
+            {/* Location Pill */}
+            <button
+              onClick={requestLocation}
+              className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[170px]"
+            >
+              <MapPin size={13} className="text-orange-400 shrink-0" />
+              <span className="truncate text-slate-200">
+                {locationStatus === 'granted' ? 'موقعي الحالي' : 'شايروفا / كيبزة'}
+              </span>
             </button>
-          )}
+
+            <UserAuthButton variant="light" />
+          </div>
+
+          {/* Row 2: Search Bar */}
+          <div className="relative">
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="ابحث عن مطعم أو وجبة..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-800/90 border border-slate-700/80 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-white placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition"
+            />
+            <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
         </div>
       </header>
 
-      {/* ═══ CONTENT ════════════════════════════════════════════ */}
-      <div style={{ padding: '20px 16px', paddingBottom: 96, maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
+      {/* ── MAIN CONTAINER ── */}
+      <main className="max-w-xl mx-auto px-4 mt-5 space-y-6">
 
-        {/* Location notice */}
+        {/* Location Notice Banner */}
         {locationStatus === 'default' && (
-          <div className="location-notice">
-            <MapPin size={16} style={{ color: '#D97706', flexShrink: 0 }} />
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', flex: 1 }}>تصفح بموقع منطقة شايروفا / كيبزة الافتراضي</p>
-            <button onClick={requestLocation} className="location-btn">تحديد موقعي 📍</button>
+          <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin size={16} className="text-amber-600 shrink-0" />
+              <p className="text-xs font-bold text-amber-900 truncate">
+                تصفح بموقع منطقة شايروفا / كيبزة الافتراضي
+              </p>
+            </div>
+            <button
+              onClick={requestLocation}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-3 py-1.5 rounded-xl shrink-0 transition shadow-sm"
+            >
+              تحديد موقعي 📍
+            </button>
           </div>
         )}
 
-        {/* ── ADS SLIDER ─────────────────────────────────────── */}
-        {ads.length > 0 && !searchQuery && <AdsSlider ads={ads} />}
+        {/* ── ADS SLIDER ── */}
+        {ads && ads.length > 0 && !searchQuery && (
+          <AdsSlider ads={ads} />
+        )}
 
-        {/* ── OFFERS ─────────────────────────────────────────── */}
-        {filteredOffers.length > 0 && !searchQuery && (
+        {/* ── SPECIAL OFFERS ── */}
+        {filteredOffers && filteredOffers.length > 0 && !searchQuery && (
           <section>
-            <div className="section-title-row">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="section-icon-badge" style={{ background: '#FFF7ED', color: '#EA580C' }}>🔥</div>
-                <h2 className="section-title">عروض اليوم</h2>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
+                  🔥
+                </div>
+                <h2 className="text-base font-black text-slate-900">عروض اليوم</h2>
+                <span className="bg-slate-200 text-slate-700 text-xs font-black px-2 py-0.5 rounded-full">
+                  {filteredOffers.length}
+                </span>
               </div>
-              <span className="section-count">{filteredOffers.length}</span>
             </div>
 
+            {/* Slider */}
             <div
               ref={offersRef}
-              className="offers-scroll"
               onMouseDown={offerMouseDown}
               onMouseMove={offerMouseMove}
               onMouseUp={() => setIsDragOffer(false)}
               onMouseLeave={() => setIsDragOffer(false)}
-              style={{ cursor: isDragOffer ? 'grabbing' : 'grab' }}
+              className={`flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 hide-scrollbar scroll-smooth snap-x snap-mandatory ${isDragOffer ? 'cursor-grabbing' : 'cursor-grab'}`}
+              style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {filteredOffers.map(offer => {
                 const res = offer.restaurants
                 if (!res) return null
                 return (
-                  <Link key={offer.id} href={`/m/${res.slug}`} className="offer-card" draggable={false}>
-                    {/* Badge */}
-                    <div className="offer-type-badge">
+                  <Link
+                    key={offer.id}
+                    href={`/m/${res.slug}`}
+                    className="w-60 sm:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all active:scale-98 overflow-hidden snap-start block relative"
+                  >
+                    {/* Offer Badge */}
+                    <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">
                       {offer.min_quantity > 1 ? `🔥 ${offer.min_quantity}X` : offer.bonus_item ? '🎁 هدية' : '🏷️ خصم'}
                     </div>
 
                     {/* Image */}
-                    <div className="offer-card-img">
+                    <div className="h-32 w-full bg-slate-100 relative">
                       <SmartOfferImage
                         primaryImage={offer.primary_item?.image_url}
                         bonusImage={offer.bonus_item?.image_url}
@@ -252,12 +323,15 @@ export default function PlatformClient({
                     </div>
 
                     {/* Body */}
-                    <div className="offer-card-body">
-                      <p className="offer-rest-name">{res.name}</p>
-                      <h3 className="offer-title">{offer.title}</h3>
-                      <div className="offer-price-row">
-                        <span className="offer-price">{offer.offer_price} ₺</span>
-                        {offer.original_price && <span className="offer-original">{offer.original_price} ₺</span>}
+                    <div className="p-3">
+                      <p className="text-[11px] font-bold text-slate-400 truncate mb-0.5">{res.name}</p>
+                      <h3 className="font-black text-xs text-slate-900 truncate mb-2">{offer.title}</h3>
+
+                      <div className="flex items-baseline gap-2 pt-2 border-t border-slate-100">
+                        <span className="text-sm font-black text-orange-600">{offer.offer_price} ₺</span>
+                        {offer.original_price && (
+                          <span className="text-[11px] font-bold text-slate-400 line-through">{offer.original_price} ₺</span>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -267,51 +341,65 @@ export default function PlatformClient({
           </section>
         )}
 
-        {/* ── CATEGORIES ─────────────────────────────────────── */}
-        {!searchQuery && categories.length > 0 && (
+        {/* ── CATEGORIES ── */}
+        {!searchQuery && categories && categories.length > 0 && (
           <section>
-            <div className="section-title-row">
-              <h2 className="section-title">التصنيفات</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-black text-slate-900">التصنيفات</h2>
               {activeCat && (
-                <button onClick={() => setActiveCat(null)} className="clear-filter-btn">عرض الكل ✕</button>
+                <button
+                  onClick={() => setActiveCat(null)}
+                  className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200 transition"
+                >
+                  عرض الكل ✕
+                </button>
               )}
             </div>
-            <div className="cats-scroll">
-              {categories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCat(activeCat === cat.id ? null : cat.id)}
-                  className={`cat-chip${activeCat === cat.id ? ' active' : ''}`}
-                >
-                  <span className="cat-chip-icon">{cat.icon}</span>
-                  <span>{cat.name}</span>
-                </button>
-              ))}
+
+            <div className="flex gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-1">
+              {categories.map(cat => {
+                const isActive = activeCat === cat.id
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCat(isActive ? null : cat.id)}
+                    className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold border transition-all active:scale-95 ${
+                      isActive
+                        ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
+                        : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-base">{cat.icon}</span>
+                    <span>{cat.name}</span>
+                  </button>
+                )
+              })}
             </div>
           </section>
         )}
 
-        {/* ── RESTAURANTS ────────────────────────────────────── */}
+        {/* ── RESTAURANTS GRID ── */}
         <section>
-          <div className="section-title-row" style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div className="section-icon-badge" style={{ background: '#EFF6FF', color: '#2563EB' }}>🏪</div>
-              <h2 className="section-title">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black text-slate-900">
                 {searchQuery ? 'نتائج البحث' : activeCat ? 'مطاعم التصنيف' : 'مطاعم قريبة منك'}
               </h2>
+              <span className="bg-slate-200 text-slate-700 text-xs font-black px-2.5 py-0.5 rounded-full">
+                {filteredRestaurants.length}
+              </span>
             </div>
-            <span className="section-count">{filtered.length}</span>
           </div>
 
-          {filtered.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🍽️</div>
-              <p className="empty-title">لا توجد مطاعم</p>
-              <p className="empty-sub">جرّب تغيير التصنيف أو موقعك</p>
+          {filteredRestaurants.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 p-6">
+              <div className="text-4xl mb-2">🍽️</div>
+              <p className="font-black text-slate-800 text-sm mb-1">لا توجد مطاعم</p>
+              <p className="text-xs text-slate-400 font-bold">حاول تغيير كلمة البحث أو التصنيف</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {filtered.map(restaurant => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {filteredRestaurants.map(restaurant => {
                 const deliveryInfo = restaurant.distance !== null
                   ? getDeliveryFeeForDistance(restaurant.distance, restaurant.delivery_tiers)
                   : null
@@ -320,75 +408,99 @@ export default function PlatformClient({
                   .filter(Boolean)
 
                 return (
-                  <Link key={restaurant.id} href={`/m/${restaurant.slug}`} className="rest-card">
-                    {/* Cover */}
-                    <div className="rest-cover">
-                      {restaurant.cover_url
-                        ? <img src={restaurant.cover_url} alt="" className="rest-cover-img" draggable={false} />
-                        : <div className="rest-cover-fallback" style={{ background: `linear-gradient(135deg, ${restaurant.primary_color || '#F97316'}dd, ${restaurant.primary_color || '#F97316'}66)` }} />
-                      }
-                      {/* Dark gradient */}
-                      <div className="rest-cover-gradient" />
+                  <Link
+                    key={restaurant.id}
+                    href={`/m/${restaurant.slug}`}
+                    className="group bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-md transition-all active:scale-98 block relative"
+                  >
+                    {/* Cover Header */}
+                    <div className="h-40 w-full bg-slate-100 relative overflow-hidden">
+                      {restaurant.cover_url ? (
+                        <img
+                          src={restaurant.cover_url}
+                          alt=""
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div
+                          className="w-full h-full"
+                          style={{
+                            background: `linear-gradient(135deg, ${restaurant.primary_color || '#F97316'}ee, ${restaurant.primary_color || '#F97316'}66)`
+                          }}
+                        />
+                      )}
 
-                      {/* Distance badge */}
+                      {/* Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+
+                      {/* Distance Badge */}
                       {restaurant.distance !== null && (
-                        <div className="rest-distance-badge">
-                          <MapPin size={10} style={{ color: '#FB923C' }} />
-                          {restaurant.distance < 1 ? 'أقل من 1 كم' : `${restaurant.distance.toFixed(1)} كم`}
+                        <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full border border-white/10 flex items-center gap-1">
+                          <MapPin size={11} className="text-orange-400" />
+                          <span>{restaurant.distance < 1 ? 'أقل من 1 كم' : `${restaurant.distance.toFixed(1)} كم`}</span>
                         </div>
                       )}
 
-                      {/* Category tags */}
+                      {/* Category Tags */}
                       {restaurantCats.length > 0 && (
-                        <div className="rest-cat-tags">
+                        <div className="absolute top-3 right-3 flex flex-wrap gap-1">
                           {restaurantCats.slice(0, 2).map((c: any) => (
-                            <div key={c.id} className="rest-cat-tag">{c.icon} {c.name}</div>
+                            <div key={c.id} className="bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span>{c.icon}</span><span>{c.name}</span>
+                            </div>
                           ))}
                         </div>
                       )}
 
-                      {/* Restaurant name on image */}
-                      <div className="rest-name-overlay">
-                        <h3 className="rest-name">{restaurant.name}</h3>
+                      {/* Restaurant Title Overlay */}
+                      <div className="absolute bottom-3 right-3 left-16">
+                        <h3 className="text-base font-black text-white drop-shadow-md leading-tight line-clamp-1">
+                          {restaurant.name}
+                        </h3>
                       </div>
 
-                      {/* Floating logo */}
-                      <div className="rest-logo-float">
-                        {restaurant.logo_url
-                          ? <img src={restaurant.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 10 }} />
-                          : <div style={{ width: '100%', height: '100%', borderRadius: 10, background: restaurant.primary_color || '#F97316', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 900 }}>{restaurant.name[0]}</div>
-                        }
+                      {/* Floating Logo */}
+                      <div className="absolute bottom-3 left-3 w-12 h-12 rounded-2xl bg-white p-1 shadow-md border-2 border-white overflow-hidden">
+                        {restaurant.logo_url ? (
+                          <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-xl" />
+                        ) : (
+                          <div
+                            className="w-full h-full rounded-xl flex items-center justify-center text-xs font-black text-white"
+                            style={{ background: restaurant.primary_color || '#F97316' }}
+                          >
+                            {restaurant.name.charAt(0)}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Body */}
-                    <div className="rest-body">
-                      {/* Rating */}
-                      <div className="rest-rating-row">
-                        <div className="rest-rating-badge">
-                          ⭐ {restaurant.avg_rating || 'جديد'}
-                          {restaurant.ratings_count > 0 && <span style={{ fontSize: 10, opacity: 0.75 }}>({restaurant.ratings_count})</span>}
+                    {/* Card Footer Details */}
+                    <div className="p-3.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Rating */}
+                        <div className="bg-amber-50 text-amber-800 border border-amber-200/80 px-2.5 py-0.5 rounded-full text-xs font-black flex items-center gap-1">
+                          <Star size={11} className="text-amber-500 fill-amber-500" />
+                          <span>{restaurant.avg_rating || 'جديد'}</span>
+                          {restaurant.ratings_count > 0 && (
+                            <span className="text-[10px] text-amber-700 font-bold">({restaurant.ratings_count})</span>
+                          )}
                         </div>
-                        <div className="rest-time-badge">
-                          <Clock size={11} />
-                          <span>25-40 د</span>
-                        </div>
-                      </div>
 
-                      {/* Delivery */}
-                      <div className="rest-delivery-row">
+                        {/* Delivery Fee */}
                         {deliveryInfo?.available ? (
-                          <div className="delivery-badge delivery-ok">
-                            <Bike size={12} />
-                            <span>توصيل {deliveryInfo.fee} TL</span>
+                          <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-black flex items-center gap-1">
+                            <Bike size={12} className="text-emerald-600" />
+                            <span>توصيل {deliveryInfo.fee} ₺</span>
                           </div>
                         ) : (
-                          <div className="delivery-badge delivery-na">
-                            <span>🚫 {deliveryInfo?.reason || 'خارج نطاق التوصيل'}</span>
+                          <div className="bg-red-50 text-red-700 border border-red-200/80 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                            🚫 خارج النطاق
                           </div>
                         )}
-                        <ChevronLeft size={16} style={{ color: '#CBD5E1', marginRight: 'auto' }} />
                       </div>
+
+                      {/* Arrow */}
+                      <ChevronLeft size={16} className="text-slate-400 group-hover:text-slate-700 transition shrink-0" />
                     </div>
                   </Link>
                 )
@@ -396,7 +508,8 @@ export default function PlatformClient({
             </div>
           )}
         </section>
-      </div>
+
+      </main>
     </div>
   )
 }

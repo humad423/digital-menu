@@ -38,7 +38,7 @@ export default function MenuClient({
   const scrollTo = (id: string) => {
     setActiveCat(id)
     const el = document.getElementById(`cat-sec-${id}`)
-    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' })
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 75, behavior: 'smooth' })
   }
 
   const filteredCats = categories.map(cat => ({
@@ -73,63 +73,78 @@ export default function MenuClient({
   ]
 
   return (
-    <div style={{ paddingBottom: 32 }} dir="rtl">
+    <div className="pb-8" dir="rtl">
 
-      {/* ── Search ── */}
-      <div style={{ position: 'relative', marginBottom: 8 }}>
+      {/* ── Search Input ── */}
+      <div className="relative mb-3">
         <input
           ref={searchRef}
           type="text"
           placeholder={`ابحث في منيو ${restaurantName}...`}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="menu-search-input"
-          style={{ paddingRight: 44, paddingLeft: searchQuery ? 44 : 16 }}
+          className="w-full bg-white border border-slate-200/80 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition shadow-xs"
         />
-        <Search size={17} style={{ position: 'absolute', right: 15, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+        <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         {searchQuery && (
           <button
             onClick={() => { setSearchQuery(''); searchRef.current?.focus() }}
-            style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 2 }}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
           >
-            <X size={17} />
+            <X size={15} />
           </button>
         )}
       </div>
 
-      {/* ── Category Tabs ── */}
+      {/* ── Category Sticky Bar ── */}
       {!searchQuery && displayCats.length > 1 && (
-        <div className="menu-tabs-bar">
-          {displayCats.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => scrollTo(cat.id)}
-              className={`menu-tab${activeCat === cat.id ? ' active' : ''}${cat.id === 'offers-special' && activeCat !== cat.id ? ' offer-tab' : ''}`}
-            >
-              {cat.icon && <span>{cat.icon}</span>}
-              <span>{cat.id === 'offers-special' ? 'العروض' : cat.name}</span>
-            </button>
-          ))}
+        <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 -mx-4 px-4 border-b border-slate-200/60 flex gap-2 overflow-x-auto hide-scrollbar">
+          {displayCats.map(cat => {
+            const isActive = activeCat === cat.id
+            const isOfferTab = cat.id === 'offers-special'
+            return (
+              <button
+                key={cat.id}
+                onClick={() => scrollTo(cat.id)}
+                className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-95 border ${
+                  isActive
+                    ? 'text-white border-transparent shadow-sm'
+                    : isOfferTab
+                    ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
+                    : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-100'
+                }`}
+                style={isActive ? { background: 'var(--color-primary, #F97316)', borderColor: 'var(--color-primary, #F97316)' } : {}}
+              >
+                {cat.icon && <span>{cat.icon}</span>}
+                <span>{isOfferTab ? '🔥 العروض' : cat.name}</span>
+              </button>
+            )
+          })}
         </div>
       )}
 
-      {/* ── Sections ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 28, marginTop: 20 }}>
+      {/* ── Menu Sections ── */}
+      <div className="mt-5 space-y-7">
         {displayCats.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 0' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-            <p style={{ fontWeight: 900, color: '#1E293B', fontSize: 16 }}>لا توجد نتائج</p>
-            <p style={{ color: '#94A3B8', fontSize: 13, fontWeight: 600, marginTop: 6 }}>جرّب كلمة بحث مختلفة</p>
+          <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 p-6">
+            <div className="text-4xl mb-2">🔍</div>
+            <p className="font-black text-slate-800 text-sm mb-1">لا توجد نتائج</p>
+            <p className="text-xs text-slate-400 font-bold">جرّب كلمة بحث مختلفة</p>
           </div>
         ) : (
           displayCats.map(cat => (
-            <section key={cat.id} id={`cat-sec-${cat.id}`} style={{ scrollMarginTop: 72 }}>
-              <div className="menu-section-h">
-                <span>{cat.id === 'offers-special' ? '🔥' : (cat.icon || '🍽️')}</span>
-                <span style={{ flex: 1 }}>{cat.id === 'offers-special' ? 'العروض والبكجات' : cat.name}</span>
-                <span className="count">{cat.items.length}</span>
+            <section key={cat.id} id={`cat-sec-${cat.id}`} className="scroll-mt-20">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">{cat.id === 'offers-special' ? '🔥' : (cat.icon || '🍽️')}</span>
+                <h2 className="text-base font-black text-slate-900 flex-1 truncate">
+                  {cat.id === 'offers-special' ? 'العروض والبكجات' : cat.name}
+                </h2>
+                <span className="bg-slate-200 text-slate-700 text-xs font-black px-2.5 py-0.5 rounded-full">
+                  {cat.items.length}
+                </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              <div className="space-y-3">
                 {cat.items.map((item: any) => (
                   <MenuItem key={item.id} item={item} restaurantId={restaurantId} />
                 ))}
