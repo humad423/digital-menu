@@ -54,39 +54,51 @@ export default function RestaurantAdmin({ params }: { params: Promise<{ id: stri
   const [savingOffer, setSavingOffer] = useState(false)
 
   const fetchData = async () => {
-    setLoading(true)
-    const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
-    if (resData) setRestaurant(resData)
+    if (!id) return
+    try {
+      setLoading(true)
+      const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
+      if (resData) setRestaurant(resData)
 
-    const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })
-    if (catData) setCategories(catData)
+      const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })
+      if (catData) setCategories(catData)
 
-    const { data: itemData } = await supabase
-      .from('menu_items').select('*')
-      .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
-      .order('created_at', { ascending: true })
-    if (itemData) setMenuItems(itemData)
+      const { data: itemData } = await supabase
+        .from('menu_items').select('*')
+        .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
+        .order('created_at', { ascending: true })
+      if (itemData) setMenuItems(itemData)
 
-    const { data: offerData } = await supabase.from('offers').select('*').eq('restaurant_id', id).order('created_at', { ascending: false })
-    if (offerData) setOffers(offerData)
-
-    setLoading(false)
+      const { data: offerData } = await supabase.from('offers').select('*').eq('restaurant_id', id).order('created_at', { ascending: false })
+      if (offerData) setOffers(offerData)
+    } catch (err) {
+      console.error('Error fetching admin restaurant data:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    if (id) fetchData()
+  }, [id])
 
   // ── Sub-categories CRUD ────────────────────────────────────────
   const saveCategory = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (editCatId) {
-      await supabase.from('categories').update({ name: editCatName, sort_order: editCatSort }).eq('id', editCatId)
-      setEditCatId(null)
-    } else {
-      const maxSort = categories.length > 0 ? Math.max(...categories.map(c => c.sort_order || 0)) + 1 : 1
-      await supabase.from('categories').insert([{ restaurant_id: id, name: newCatName, sort_order: maxSort }])
-      setNewCatName('')
+    if (!newCatName && !editCatName) return
+    try {
+      if (editCatId) {
+        await supabase.from('categories').update({ name: editCatName, sort_order: editCatSort }).eq('id', editCatId)
+        setEditCatId(null)
+      } else {
+        const maxSort = categories.length > 0 ? Math.max(...categories.map(c => c.sort_order || 0)) + 1 : 1
+        await supabase.from('categories').insert([{ restaurant_id: id, name: newCatName, sort_order: maxSort }])
+        setNewCatName('')
+      }
+      fetchData()
+    } catch (err: any) {
+      alert('خطأ في حفظ القسم: ' + err.message)
     }
-    fetchData()
   }
 
   const deleteCategory = async (catId: string) => {
@@ -99,6 +111,7 @@ export default function RestaurantAdmin({ params }: { params: Promise<{ id: stri
   // ── Items CRUD ─────────────────────────────────────────────────
   const saveItem = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!itemForm.category_id || !itemForm.name || !itemForm.price) return alert('يرجى اختيار القسم وتعبئة اسم والسعر للوجبة')
     setSavingItem(true)
     const payload = {
       category_id: itemForm.category_id,
@@ -111,16 +124,25 @@ export default function RestaurantAdmin({ params }: { params: Promise<{ id: stri
       original_price: itemForm.is_offer && itemForm.original_price ? parseFloat(itemForm.original_price) : null,
       offer_title: itemForm.is_offer && itemForm.offer_title ? itemForm.offer_title : null
     }
-    if (editItemId) {
-      await supabase.from('menu_items').update(payload).eq('id', editItemId)
-    } else {
-      await supabase.from('menu_items').insert([payload])
+
+    try {
+      if (editItemId) {
+        const { error } = await supabase.from('menu_items').update(payload).eq('id', editItemId)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('menu_items').insert([payload])
+        if (error) throw error
+      }
+      setSavingItem(false)
+      setShowItemForm(false)
+      setEditItemId(null)
+      setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
+      fetchData()
+    } catch (err: any) {
+      console.error('Error saving item in admin:', err)
+      alert('خطأ أثناء حفظ الوجبة: ' + (err.message || 'حدث خطأ غير متوقع'))
+      setSavingItem(false)
     }
-    setSavingItem(false)
-    setShowItemForm(false)
-    setEditItemId(null)
-    setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
-    fetchData()
   }
 
   const startEditItem = (item: any) => {
