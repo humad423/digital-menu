@@ -85,7 +85,7 @@ export default function AdminDashboard() {
       const { error } = await supabase.from('restaurants').update(payload).eq('id', editResId)
       if (error) { alert('خطأ في التحديث'); setSavingRes(false); return }
     } else {
-      const { data, error } = await supabase.from('restaurants').insert([payload]).select().single()
+      const { data, error } = await supabase.from('restaurants').insert([payload]).select().maybeSingle()
       if (error || !data) { alert('حدث خطأ. تأكد أن الرابط (Slug) غير مكرر.'); setSavingRes(false); return }
       restaurantId = data.id
     }
