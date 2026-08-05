@@ -8,9 +8,12 @@ import { useAuth } from '@/context/AuthContext'
 import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut } from 'lucide-react'
 import Link from 'next/link'
 
-export default function RestaurantAdmin({ params }: { params: Promise<{ id: string }> }) {
+export default function RestaurantAdmin({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const { logout, profile } = useAuth()
-  const { id } = use(params)
+  const resolvedParams = params && typeof (params as any).then === 'function' 
+    ? use(params as Promise<{ id: string }>) 
+    : (params as unknown as { id: string })
+  const id = resolvedParams?.id
   const [restaurant, setRestaurant] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])

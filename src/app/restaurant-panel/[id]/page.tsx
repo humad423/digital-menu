@@ -8,8 +8,11 @@ import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utens
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolvedParams = params && typeof (params as any).then === 'function' 
+    ? use(params as Promise<{ id: string }>) 
+    : (params as unknown as { id: string })
+  const id = resolvedParams?.id
   const router = useRouter()
 
   const [restaurant, setRestaurant] = useState<any>(null)
@@ -198,9 +201,19 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     }
 
     if (editItemId) {
-      await supabase.from('menu_items').update(payload).eq('id', editItemId)
+      const { error } = await supabase.from('menu_items').update(payload).eq('id', editItemId)
+      if (error) {
+        alert('خطأ في حفظ الوجبة: ' + error.message)
+        setSavingItem(false)
+        return
+      }
     } else {
-      await supabase.from('menu_items').insert([payload])
+      const { error } = await supabase.from('menu_items').insert([payload])
+      if (error) {
+        alert('خطأ في إضافة الوجبة: ' + error.message)
+        setSavingItem(false)
+        return
+      }
     }
 
     setSavingItem(false)
