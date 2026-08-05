@@ -58,7 +58,8 @@ function AdsSlider({ ads }: { ads: any[] }) {
   if (!ads || !ads.length) return null
 
   return (
-    <div className="relative group rounded-3xl overflow-hidden shadow-lg select-none bg-slate-900" style={{ aspectRatio: '16/7' }}>
+    <div dir="ltr" className="relative group rounded-3xl overflow-hidden shadow-lg select-none bg-slate-900" style={{ aspectRatio: '16/7' }}>
+
       <div
         ref={containerRef}
         className="w-full h-full"
@@ -251,6 +252,14 @@ export default function PlatformClient({
 
   const filteredOffers = (offers || []).filter(o => allowedIds.has(o.restaurants?.id || o.restaurant_id))
 
+  const filteredAds = (ads || []).filter(ad => {
+    if (!ad.target_region || ad.target_region === 'جميع المناطق' || ad.target_region === 'عام') return true
+    if (userArea && (ad.target_region.includes(userArea) || userArea.includes(ad.target_region))) return true
+    if (!userArea && (ad.target_region.includes('شايروفا') || ad.target_region.includes('كيبزة'))) return true
+    return false
+  })
+
+
   /* Drag Offers Scroll */
   const offerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!offersRef.current) return
@@ -348,9 +357,10 @@ export default function PlatformClient({
         )}
 
         {/* ── ADS SLIDER ── */}
-        {ads && ads.length > 0 && !searchQuery && (
-          <AdsSlider ads={ads} />
+        {filteredAds && filteredAds.length > 0 && !searchQuery && (
+          <AdsSlider ads={filteredAds} />
         )}
+
 
         {/* ── SPECIAL OFFERS ── */}
         {filteredOffers && filteredOffers.length > 0 && !searchQuery && (

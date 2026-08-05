@@ -140,18 +140,23 @@ export default function AdminDashboard() {
 
   // ── Platform Ads ────────────────────────────────────────────────
   const [showAdForm, setShowAdForm] = useState(false)
-  const [adForm, setAdForm] = useState({ image_url: '', link_url: '', sort_order: 0 })
+  const [adForm, setAdForm] = useState({ image_url: '', link_url: '', sort_order: 0, target_region: 'جميع المناطق' })
 
   const handleAdSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!adForm.image_url) return alert('الصورة مطلوبة')
-    await supabase.from('platform_ads').insert([adForm])
-    setShowAdForm(false); setAdForm({ image_url: '', link_url: '', sort_order: 0 }); fetchData()
+    const { error } = await supabase.from('platform_ads').insert([adForm])
+    if (error) {
+      const { target_region, ...cleanForm } = adForm
+      await supabase.from('platform_ads').insert([cleanForm])
+    }
+    setShowAdForm(false); setAdForm({ image_url: '', link_url: '', sort_order: 0, target_region: 'جميع المناطق' }); fetchData()
   }
 
   const deleteAd = async (id: string) => {
     if (confirm('حذف هذا الإعلان؟')) { await supabase.from('platform_ads').delete().eq('id', id); fetchData() }
   }
+
 
   // ── Stats ───────────────────────────────────────────────────────
   const pendingOrders = orders.filter(o => o.status !== 'completed').length
@@ -524,15 +529,25 @@ export default function AdminDashboard() {
                       <label className="f-label mb-2">صورة الإعلان</label>
                       <ImageUpload value={adForm.image_url} onChange={(url) => setAdForm({ ...adForm, image_url: url })} />
                     </div>
-                    <div className="flex gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex-1">
                         <label className="f-label">رابط التوجيه (اختياري)</label>
                         <input type="text" dir="ltr" value={adForm.link_url} onChange={e => setAdForm({ ...adForm, link_url: e.target.value })} className="f-input text-left" placeholder="https://..." />
                       </div>
-                      <div className="w-28">
-                        <label className="f-label">الترتيب</label>
-                        <input type="number" value={adForm.sort_order} onChange={e => setAdForm({ ...adForm, sort_order: parseInt(e.target.value) })} className="f-input" />
+                      <div className="flex-1">
+                        <label className="f-label">المنطقة المستهدفة للإعلان</label>
+                        <input
+                          type="text"
+                          value={adForm.target_region}
+                          onChange={e => setAdForm({ ...adForm, target_region: e.target.value })}
+                          className="f-input"
+                          placeholder="جميع المناطق أو اسم المنطقة (مثل: شايروفا / كيبزة)"
+                        />
                       </div>
+                    </div>
+                    <div className="w-28">
+                      <label className="f-label">الترتيب</label>
+                      <input type="number" value={adForm.sort_order} onChange={e => setAdForm({ ...adForm, sort_order: parseInt(e.target.value) || 0 })} className="f-input" />
                     </div>
                     <div className="flex justify-end gap-2">
                       <button type="button" onClick={() => setShowAdForm(false)} className="btn btn-ghost">إلغاء</button>
@@ -553,11 +568,15 @@ export default function AdminDashboard() {
                 {platformAds.map(ad => (
                   <div key={ad.id} className="relative group rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-[21/9]">
                     <img src={ad.image_url} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <div className="absolute top-2.5 right-2.5 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black px-2.5 py-1 rounded-full border border-white/20 z-10">
+                      📍 {ad.target_region || 'جميع المناطق'}
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
                       <button onClick={() => deleteAd(ad.id)} className="btn btn-danger">
                         <Trash2 size={16} /> حذف
                       </button>
                     </div>
+
                   </div>
                 ))}
               </div>
