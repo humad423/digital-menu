@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -379,523 +379,429 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     }
   }
 
+  const PANEL_TABS = [
+    { key: 'menu', label: 'الوجبات', emoji: '🍱' },
+    { key: 'offers', label: 'العروض', emoji: '🔥' },
+    { key: 'delivery', label: 'التوصيل', emoji: '🛵' },
+  ] as const
+  type PanelTab = typeof PANEL_TABS[number]['key']
+  // activeTab is already declared at top
+  // we use a local panelTab state in JSX below via panelTab
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 dir-rtl">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4" dir="rtl">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-bold text-gray-500">جاري تحميل بيانات لوحة المطعم...</p>
+          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-bold text-slate-400">جاري تحميل لوحة المطعم...</p>
         </div>
       </div>
     )
   }
 
   if (!restaurant) {
-    return <div className="min-h-screen flex items-center justify-center p-4 dir-rtl font-bold">المطعم غير موجود</div>
+    return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500" dir="rtl">المطعم غير موجود</div>
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 dir-rtl">
-      {/* Top Standalone Header Bar */}
-      <header className="bg-gray-900 text-white px-6 py-4 shadow-md sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-lg shadow-inner">
-              🏪
-            </div>
-            <div>
-              <h1 className="text-lg font-black leading-tight">{restaurant.name}</h1>
-              <p className="text-[11px] text-gray-400 font-medium">لوحة تحكم صاحب المطعم المستقلة</p>
-            </div>
+    <div className="min-h-screen flex flex-col" dir="rtl" style={{ background: 'var(--content-bg)' }}>
+      {/* ── Unified Header ── */}
+      <header className="dash-header">
+        <div className="flex items-center gap-3">
+          {restaurant.logo_url
+            ? <img src={restaurant.logo_url} alt="" className="w-9 h-9 rounded-xl object-cover border border-white/10" />
+            : <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-xl" style={{ background: restaurant.primary_color || '#F97316' }}>🏪</div>
+          }
+          <div>
+            <h1 className="text-base font-black leading-tight text-white">{restaurant.name}</h1>
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">لوحة التحكم</p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href={`/m/${restaurant.slug}`}
-              target="_blank"
-              className="text-xs font-bold bg-gray-800 text-gray-200 hover:bg-gray-700 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5"
-            >
-              <span>معاينة المنيو 👁️</span>
-            </Link>
-
-            <button
-              onClick={handleLogout}
-              className="text-xs font-bold bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5"
-            >
-              <LogOut size={16} />
-              <span>تسجيل الخروج 🚪</span>
-            </button>
-          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href={`/m/${restaurant.slug}`} target="_blank"
+            className="btn btn-ghost text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white btn-sm hidden sm:flex">
+            معاينة المنيو 👁️
+          </Link>
+          <button onClick={handleLogout} className="btn btn-danger btn-sm border-red-900/50 bg-red-500/15 text-red-400 hover:bg-red-500/25">
+            <LogOut size={14} />
+            <span className="hidden sm:block">خروج</span>
+          </button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-6xl mx-auto p-4 md:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Sidebar: Categories */}
-          <div className="space-y-6">
-            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
-                <span>📁</span>
-                <span>أقسام المنيو الفرعية</span>
-              </h3>
-
-              {/* Add Category Form */}
-              <form onSubmit={saveCategory} className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  required
-                  placeholder="قسم جديد (مثال: برغر)..."
-                  value={editCatId ? editCatName : newCatName}
-                  onChange={e => editCatId ? setEditCatName(e.target.value) : setNewCatName(e.target.value)}
-                  className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-2xl text-xs font-bold bg-gray-50 focus:bg-white focus:border-orange-500 outline-none transition"
-                />
-                <button
-                  type="submit"
-                  className="bg-gray-900 text-white px-4 py-2.5 rounded-2xl text-xs font-bold hover:bg-black transition shrink-0"
-                >
-                  {editCatId ? 'حفظ' : 'إضافة'}
-                </button>
-              </form>
-
-              {/* Category List */}
-              <div className="space-y-2">
-                {categories.map(cat => (
-                  <div key={cat.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100 hover:border-gray-200 transition">
-                    <span className="font-bold text-xs text-gray-800">{cat.name}</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setEditCatSort(cat.sort_order || 0) }}
-                        className="p-1.5 text-gray-500 hover:text-blue-600 rounded-lg hover:bg-gray-200/50"
-                      >
-                        <Edit size={14} />
-                      </button>
-                      <button
-                        onClick={() => deleteCategory(cat.id, cat.name)}
-                        className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-gray-200/50"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Delivery Tiers Card */}
-            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-base font-black text-gray-900 mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-2">🛵 شرائح وأجور التوصيل</span>
-                {savingTiers && <span className="text-[10px] text-orange-600 font-bold animate-pulse">جاري الحفظ...</span>}
-              </h3>
-              <p className="text-xs text-gray-400 font-bold mb-4">حدد السعر والمسافة وتفعيل/تعطيل كل شريحة</p>
-
-              {/* Add New Tier Form */}
-              <form onSubmit={handleAddTier} className="space-y-2 mb-4 bg-orange-50/50 p-3 rounded-2xl border border-orange-100">
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-600 mb-1">من (كم)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      required
-                      placeholder="0"
-                      value={newTier.min_km}
-                      onChange={e => setNewTier({ ...newTier, min_km: e.target.value })}
-                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-bold bg-white outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-600 mb-1">إلى (كم)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      required
-                      placeholder="10"
-                      value={newTier.max_km}
-                      onChange={e => setNewTier({ ...newTier, max_km: e.target.value })}
-                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-bold bg-white outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-600 mb-1">الأجرة (TL)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      required
-                      placeholder="25"
-                      value={newTier.fee}
-                      onChange={e => setNewTier({ ...newTier, fee: e.target.value })}
-                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-bold bg-white text-orange-600 outline-none"
-                    />
-                  </div>
+      {/* ── Main Content ── */}
+      <main className="flex-1">
+        <div className="dash-content">
+          {/* Panel Stats */}
+          <div className="grid grid-cols-3 gap-3 mb-6 animate-fade-in-up">
+            {[
+              { label: 'الأقسام', value: categories.length, color: '#3B82F6', emoji: '📁' },
+              { label: 'الوجبات', value: menuItems.length, color: '#10B981', emoji: '🍱' },
+              { label: 'العروض', value: offers.length, color: '#F97316', emoji: '🔥' },
+            ].map(s => (
+              <div key={s.label} className="stat-card">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 hidden sm:flex" style={{ background: s.color + '18' }}>{s.emoji}</div>
+                <div>
+                  <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
+                  <p className="text-xs font-bold text-slate-400">{s.label}</p>
                 </div>
-                <button
-                  type="submit"
-                  className="w-full bg-orange-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-orange-700 transition"
-                >
-                  + إضافة شريحة توصيل
-                </button>
-              </form>
-
-              {/* Tiers List */}
-              <div className="space-y-2">
-                {deliveryTiers.map((tier, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100 text-xs">
-                    <div>
-                      <div className="font-black text-gray-900 flex items-center gap-1.5">
-                        <span>مسافة ({tier.min_km} - {tier.max_km} كم)</span>
-                      </div>
-                      <div className="text-[11px] font-bold text-orange-600 mt-0.5">
-                        الأجرة: {tier.fee} TL
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleTierActive(idx)}
-                        className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition ${
-                          tier.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
-                        }`}
-                      >
-                        {tier.is_active ? 'مفعل ✓' : 'معطل ✕'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteTier(idx)}
-                        className="p-1 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-200/50"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
               </div>
-            </div>
+            ))}
           </div>
 
-          {/* Main Area: Menu Items & Offers */}
-          <div className="lg:col-span-2 space-y-8">
-            
-            {/* OFFERS SECTION */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
-                    <span>🔥</span>
-                    <span>العروض التلقائية والباكجات</span>
-                  </h3>
-                  <p className="text-xs text-gray-400 font-bold mt-0.5">دمج تلقائي للصور وحساب لنسب التوفير</p>
+          {/* ══════════ MAIN GRID ══════════ */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up">
+
+            {/* ── LEFT SIDEBAR: Categories + Delivery ── */}
+            <div className="space-y-5 lg:col-span-1">
+
+              {/* Categories Card */}
+              <div className="c-card">
+                <div className="c-card-header">
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>📁</span> أقسام المنيو</h3>
+                  <span className="badge badge-gray">{categories.length}</span>
                 </div>
-                <button
-                  onClick={() => { setShowOfferForm(!showOfferForm); setEditOfferId(null) }}
-                  className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black text-xs rounded-2xl shadow-md hover:shadow-lg transition flex items-center gap-1.5"
-                >
-                  <Plus size={16} />
-                  <span>عرض جديد</span>
-                </button>
+                <div className="c-card-body">
+                  <form onSubmit={saveCategory} className="flex gap-2 mb-4">
+                    <input
+                      type="text" required
+                      placeholder="قسم جديد..."
+                      value={editCatId ? editCatName : newCatName}
+                      onChange={e => editCatId ? setEditCatName(e.target.value) : setNewCatName(e.target.value)}
+                      className="f-input flex-1"
+                    />
+                    <button type="submit" className="btn btn-dark btn-sm shrink-0">
+                      {editCatId ? 'حفظ' : <Plus size={16} />}
+                    </button>
+                    {editCatId && (
+                      <button type="button" onClick={() => setEditCatId(null)} className="btn btn-ghost btn-sm"><X size={14} /></button>
+                    )}
+                  </form>
+                  <div className="space-y-2">
+                    {categories.map(cat => (
+                      <div key={cat.id} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition">
+                        <div>
+                          <span className="font-bold text-sm text-slate-800">{cat.name}</span>
+                          <span className="text-xs text-slate-400 mr-2">{menuItems.filter(m => m.category_id === cat.id).length} وجبة</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setEditCatSort(cat.sort_order || 0) }}
+                            className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100 p-1.5">
+                            <Edit size={13} />
+                          </button>
+                          <button onClick={() => deleteCategory(cat.id, cat.name)} className="btn btn-danger btn-sm p-1.5">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {categories.length === 0 && (
+                      <p className="text-center text-slate-400 text-sm py-4">أضف أول قسم للمنيو</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Offer Form */}
-              {showOfferForm && (
-                <form onSubmit={handleSaveOffer} className="bg-orange-50/70 p-5 rounded-3xl border border-orange-100 space-y-4 mb-6 animate-fade-in">
-                  <h4 className="font-black text-sm text-gray-800 mb-2">إعداد العرض الذكي</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">الوجبة الرئيسية بالعرض</label>
-                      <select
-                        required
-                        value={offerForm.primary_item_id}
-                        onChange={e => handlePrimaryItemChange(e.target.value)}
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                      >
-                        <option value="">اختر الوجبة الأساسية...</option>
-                        {menuItems.map(item => (
-                          <option key={item.id} value={item.id}>{item.name} ({item.price} TL)</option>
-                        ))}
-                      </select>
+              {/* Delivery Tiers Card */}
+              <div className="c-card">
+                <div className="c-card-header">
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
+                  {savingTiers && <span className="text-xs text-orange-500 font-bold animate-pulse">حفظ...</span>}
+                </div>
+                <div className="c-card-body">
+                  <form onSubmit={handleAddTier} className="space-y-3 mb-4 bg-orange-50 p-3 rounded-2xl border border-orange-100">
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'من (كم)', key: 'min_km', placeholder: '0' },
+                        { label: 'إلى (كم)', key: 'max_km', placeholder: '10' },
+                        { label: 'الأجرة TL', key: 'fee', placeholder: '25' },
+                      ].map(f => (
+                        <div key={f.key}>
+                          <label className="f-label">{f.label}</label>
+                          <input type="number" step="0.5" required placeholder={f.placeholder}
+                            value={(newTier as any)[f.key]}
+                            onChange={e => setNewTier({ ...newTier, [f.key]: e.target.value })}
+                            className="f-input" />
+                        </div>
+                      ))}
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">العدد المطلوب من الوجبة الرئيسية</label>
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        value={offerForm.min_quantity}
-                        onChange={e => setOfferForm({ ...offerForm, min_quantity: e.target.value })}
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">الوجبة الإضافية / المجانية (اختياري)</label>
-                      <select
-                        value={offerForm.bonus_item_id}
-                        onChange={e => handleBonusItemChange(e.target.value)}
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                      >
-                        <option value="">بدون وجبة إضافية (عرض تخفيض فقط)...</option>
-                        {menuItems.map(item => (
-                          <option key={item.id} value={item.id}>{item.name} ({item.price} TL)</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">عدد الوجبة الإضافية</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={offerForm.bonus_quantity}
-                        onChange={e => setOfferForm({ ...offerForm, bonus_quantity: e.target.value })}
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">عنوان العرض التلقائي</label>
-                      <input
-                        type="text"
-                        required
-                        value={offerForm.title}
-                        onChange={e => setOfferForm({ ...offerForm, title: e.target.value })}
-                        placeholder="مثال: 3 شاورما + 2 عيران مجاناً"
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">السعر النهائي للعرض (TL)</label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        required
-                        value={offerForm.offer_price}
-                        onChange={e => setOfferForm({ ...offerForm, offer_price: e.target.value })}
-                        placeholder="السعر بعد التخفيض"
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none text-orange-600"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 justify-end pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowOfferForm(false)}
-                      className="px-5 py-2.5 border border-gray-200 rounded-2xl text-xs font-bold hover:bg-gray-100 transition"
-                    >
-                      إلغاء
+                    <button type="submit" className="btn btn-primary w-full">
+                      <Plus size={15} /> إضافة شريحة
                     </button>
-                    <button
-                      type="submit"
-                      disabled={savingOffer}
-                      className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black text-xs rounded-2xl shadow-md hover:shadow-lg transition"
-                    >
-                      {savingOffer ? 'جاري الحفظ...' : 'حفظ العرض ⭐'}
-                    </button>
-                  </div>
-                </form>
-              )}
+                  </form>
 
-              {/* Offers List */}
-              <div className="space-y-3">
-                {offers.map(offer => {
-                  const primaryItem = menuItems.find(i => i.id === offer.primary_item_id)
-                  const bonusItem = menuItems.find(i => i.id === offer.bonus_item_id)
-
-                  return (
-                    <div key={offer.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <SmartOfferImage
-                          primaryImage={primaryItem?.image_url}
-                          bonusImage={bonusItem?.image_url}
-                          minQuantity={offer.min_quantity}
-                          bonusQuantity={offer.bonus_quantity}
-                          className="w-16 h-16 shrink-0"
-                        />
+                  <div className="space-y-2">
+                    {deliveryTiers.map((tier, idx) => (
+                      <div key={idx} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
                         <div>
-                          <h4 className="font-black text-sm text-gray-900">{offer.title}</h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm font-black text-orange-600">{offer.offer_price} TL</span>
-                            {offer.original_price && (
-                              <span className="text-xs text-gray-400 line-through font-bold">{offer.original_price} TL</span>
+                          <p className="font-black text-xs text-slate-800">{tier.min_km} – {tier.max_km} كم</p>
+                          <p className="text-xs text-orange-500 font-bold">{tier.fee} TL</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => toggleTierActive(idx)}
+                            className={`badge cursor-pointer ${tier.is_active ? 'badge-green' : 'badge-red'}`}>
+                            {tier.is_active ? 'مفعّل' : 'معطّل'}
+                          </button>
+                          <button onClick={() => deleteTier(idx)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                    ))}
+                    {deliveryTiers.length === 0 && (
+                      <p className="text-center text-slate-400 text-xs py-3">لا توجد شرائح توصيل بعد</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── RIGHT MAIN: Items + Offers ── */}
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* OFFERS SECTION */}
+              <div className="c-card border-t-4 border-t-orange-400">
+                <div className="c-card-header">
+                  <div>
+                    <h3 className="font-black text-slate-800 flex items-center gap-2"><span>🔥</span> العروض والبكجات</h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">عروض تظهر في أعلى المنيو للزبائن</p>
+                  </div>
+                  <button
+                    onClick={() => { setEditOfferId(null); setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true }); setShowOfferForm(!showOfferForm) }}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <Plus size={15} /> عرض جديد
+                  </button>
+                </div>
+
+                {showOfferForm && (
+                  <div className="mx-4 mb-4 bg-orange-50 border border-orange-200 rounded-2xl p-4 animate-slide-down">
+                    <h4 className="font-black text-slate-800 mb-3">{editOfferId ? 'تعديل العرض' : 'إنشاء عرض جديد'}</h4>
+                    <form onSubmit={handleSaveOffer} className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100">
+                        <div className="md:col-span-2">
+                          <label className="f-label">الوجبة الرئيسية *</label>
+                          <select required value={offerForm.primary_item_id} onChange={e => handlePrimaryItemChange(e.target.value)} className="f-input">
+                            <option value="">اختر وجبة...</option>
+                            {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="f-label">الكمية</label>
+                          <input type="number" min="1" required value={offerForm.min_quantity}
+                            onChange={e => setOfferForm({ ...offerForm, min_quantity: e.target.value })} className="f-input text-center" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100">
+                        <div className="md:col-span-2">
+                          <label className="f-label">وجبة هدية إضافية (اختياري)</label>
+                          <select value={offerForm.bonus_item_id} onChange={e => handleBonusItemChange(e.target.value)} className="f-input">
+                            <option value="">بدون وجبة إضافية</option>
+                            {menuItems.map(item => <option key={item.id} value={item.id}>🎁 {item.name} ({item.price} ₺)</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="f-label">كميتها</label>
+                          <input type="number" min="1" value={offerForm.bonus_quantity} disabled={!offerForm.bonus_item_id}
+                            onChange={e => setOfferForm({ ...offerForm, bonus_quantity: e.target.value })} className="f-input text-center" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="f-label">عنوان العرض *</label>
+                          <input type="text" required value={offerForm.title} onChange={e => setOfferForm({ ...offerForm, title: e.target.value })} className="f-input" />
+                        </div>
+                        <div>
+                          <label className="f-label">سعر العرض النهائي (₺) *</label>
+                          <input type="number" step="0.5" required value={offerForm.offer_price}
+                            onChange={e => setOfferForm({ ...offerForm, offer_price: e.target.value })}
+                            className="f-input text-orange-600 font-black" dir="ltr" />
+                        </div>
+                        <div>
+                          <label className="f-label">السعر الأصلي قبل الخصم (₺)</label>
+                          <input type="number" step="0.5" value={offerForm.original_price}
+                            onChange={e => setOfferForm({ ...offerForm, original_price: e.target.value })}
+                            className="f-input" dir="ltr" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
+                          <input type="checkbox" checked={offerForm.is_active} onChange={e => setOfferForm({ ...offerForm, is_active: e.target.checked })} className="w-4 h-4 accent-orange-500" />
+                          تفعيل فوراً للزبائن
+                        </label>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setShowOfferForm(false)} className="btn btn-ghost btn-sm">إلغاء</button>
+                          <button type="submit" disabled={savingOffer} className="btn btn-primary btn-sm">
+                            {savingOffer ? 'حفظ...' : '💾 حفظ العرض'}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                <div className="c-card-body pt-0">
+                  {offers.length === 0 && !showOfferForm ? (
+                    <div className="text-center py-8 border-2 border-dashed border-orange-200 rounded-2xl">
+                      <p className="text-slate-400 text-sm font-medium">لا توجد عروض مضافة بعد</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {offers.map(offer => {
+                        const primaryItem = menuItems.find(i => i.id === offer.primary_item_id)
+                        const bonusItem = menuItems.find(i => i.id === offer.bonus_item_id)
+                        return (
+                          <div key={offer.id} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
+                            <SmartOfferImage primaryImage={primaryItem?.image_url} bonusImage={bonusItem?.image_url} minQuantity={offer.min_quantity} bonusQuantity={offer.bonus_quantity} className="w-16 h-16 rounded-xl shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-black text-sm text-slate-900 truncate">{offer.title}</h4>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="font-black text-orange-500 text-sm">{offer.offer_price} ₺</span>
+                                {offer.original_price && <span className="text-xs text-slate-400 line-through">{offer.original_price} ₺</span>}
+                                <button onClick={() => toggleOfferActive(offer)}
+                                  className={`badge cursor-pointer ${offer.is_active ? 'badge-green' : 'badge-gray'}`}>
+                                  {offer.is_active ? 'نشط' : 'معطّل'}
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <button onClick={() => handleEditOffer(offer)} className="btn btn-ghost btn-sm text-blue-600 p-1.5"><Edit size={14} /></button>
+                              <button onClick={() => deleteOffer(offer.id)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={14} /></button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* MENU ITEMS SECTION */}
+              <div className="c-card">
+                <div className="c-card-header">
+                  <div>
+                    <h3 className="font-black text-slate-800 flex items-center gap-2"><span>🍱</span> الوجبات والمنتجات</h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">{menuItems.length} وجبة في {categories.length} قسم</p>
+                  </div>
+                  <button
+                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '' }) }}
+                    disabled={categories.length === 0}
+                    className="btn btn-dark btn-sm disabled:opacity-40"
+                  >
+                    <Plus size={15} /> وجبة جديدة
+                  </button>
+                </div>
+
+                {categories.length === 0 && (
+                  <div className="mx-4 mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-700 text-sm font-bold text-center">
+                    ⚠️ أضف قسماً فرعياً من القائمة اليسرى أولاً
+                  </div>
+                )}
+
+                {showItemForm && categories.length > 0 && (
+                  <div className="mx-4 mb-4 bg-slate-50 border border-slate-200 rounded-2xl p-4 animate-slide-down">
+                    <h4 className="font-black text-slate-800 mb-3">{editItemId ? 'تعديل وجبة' : 'إضافة وجبة جديدة'}</h4>
+                    <form onSubmit={handleSaveItem} className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="f-label">القسم الفرعي *</label>
+                          <select required value={itemForm.category_id} onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })} className="f-input">
+                            <option value="">اختر القسم...</option>
+                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="f-label">اسم الوجبة *</label>
+                          <input type="text" required value={itemForm.name} onChange={e => setItemForm({ ...itemForm, name: e.target.value })} placeholder="اسم الوجبة..." className="f-input" />
+                        </div>
+                        <div>
+                          <label className="f-label">السعر (TL) *</label>
+                          <input type="number" step="0.5" required value={itemForm.price} onChange={e => setItemForm({ ...itemForm, price: e.target.value })} className="f-input text-orange-600 font-black" />
+                        </div>
+                        <div>
+                          <label className="f-label">صورة الوجبة</label>
+                          <ImageUpload value={itemForm.image_url} onChange={url => setItemForm({ ...itemForm, image_url: url })} />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="f-label">الوصف (اختياري)</label>
+                          <textarea rows={2} value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="المكونات والتفاصيل..." className="f-input" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
+                          <input type="checkbox" checked={itemForm.is_available} onChange={e => setItemForm({ ...itemForm, is_available: e.target.checked })} className="w-4 h-4 accent-green-500" />
+                          متوفرة للطلب؟
+                        </label>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setShowItemForm(false)} className="btn btn-ghost btn-sm">إلغاء</button>
+                          <button type="submit" disabled={savingItem} className="btn btn-dark btn-sm">
+                            {savingItem ? 'حفظ...' : '💾 حفظ الوجبة'}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                <div className="c-card-body pt-0">
+                  {categories.length > 0 && menuItems.length === 0 && !showItemForm ? (
+                    <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-2xl">
+                      <p className="text-4xl mb-2">🍱</p>
+                      <p className="text-slate-400 text-sm font-medium">لا توجد وجبات مضافة بعد</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {categories.map(cat => {
+                        const items = menuItems.filter(i => i.category_id === cat.id)
+                        return (
+                          <div key={cat.id}>
+                            <div className="flex items-center gap-2 mb-2.5">
+                              <h4 className="font-black text-sm text-slate-800">{cat.name}</h4>
+                              <span className="badge badge-gray">{items.length} وجبة</span>
+                            </div>
+                            {items.length === 0 ? (
+                              <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-400 text-xs">
+                                لا توجد وجبات في هذا القسم بعد
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {items.map(item => (
+                                  <div key={item.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition">
+                                    {item.image_url
+                                      ? <img src={item.image_url} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                                      : <div className="w-14 h-14 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 text-xs font-bold shrink-0">لا صورة</div>
+                                    }
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="font-black text-sm text-slate-900 truncate">{item.name}</h5>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="font-black text-orange-500 text-sm">{item.price} ₺</span>
+                                        <button
+                                          onClick={() => toggleItemAvailability(item)}
+                                          className={`badge cursor-pointer transition ${item.is_available ? 'badge-green' : 'badge-red'}`}>
+                                          {item.is_available ? 'متوفر' : 'نفد'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col gap-1 shrink-0">
+                                      <button onClick={() => handleEditItem(item)} className="btn btn-ghost btn-sm text-blue-600 p-1.5"><Edit size={13} /></button>
+                                      <button onClick={() => deleteItem(item.id, item.name)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={13} /></button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleOfferActive(offer)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
-                            offer.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
-                          }`}
-                        >
-                          {offer.is_active ? 'مفعل ✓' : 'معطل'}
-                        </button>
-
-                        <button onClick={() => handleEditOffer(offer)} className="p-2 text-gray-500 hover:text-blue-600 rounded-xl hover:bg-gray-200/50">
-                          <Edit size={16} />
-                        </button>
-                        <button onClick={() => deleteOffer(offer.id)} className="p-2 text-gray-500 hover:text-red-600 rounded-xl hover:bg-gray-200/50">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* MENU ITEMS SECTION */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
-                    <span>🍱</span>
-                    <span>قائمة الوجبات والمنتجات</span>
-                  </h3>
-                  <p className="text-xs text-gray-400 font-bold mt-0.5">إضافة وتعديل الوجبات والتحكم بـ (متوفر/غير متوفر)</p>
+                  )}
                 </div>
-                <button
-                  onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null) }}
-                  className="px-4 py-2 bg-gray-900 text-white font-black text-xs rounded-2xl hover:bg-black transition flex items-center gap-1.5"
-                >
-                  <Plus size={16} />
-                  <span>وجبة جديدة</span>
-                </button>
               </div>
 
-              {/* Item Form */}
-              {showItemForm && (
-                <form onSubmit={handleSaveItem} className="bg-gray-50 p-5 rounded-3xl border border-gray-200 space-y-4 mb-6 animate-fade-in">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">القسم الفراعي</label>
-                      <select
-                        required
-                        value={itemForm.category_id}
-                        onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })}
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                      >
-                        <option value="">اختر القسم...</option>
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">اسم الوجبة</label>
-                      <input
-                        type="text"
-                        required
-                        value={itemForm.name}
-                        onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
-                        placeholder="اسم الوجبة..."
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">السعر (TL)</label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        required
-                        value={itemForm.price}
-                        onChange={e => setItemForm({ ...itemForm, price: e.target.value })}
-                        className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-bold bg-white focus:ring-2 focus:ring-orange-200 outline-none text-orange-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">صورة الوجبة</label>
-                      <ImageUpload value={itemForm.image_url} onChange={url => setItemForm({ ...itemForm, image_url: url })} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">الوصف (اختياري)</label>
-                    <textarea
-                      rows={2}
-                      value={itemForm.description}
-                      onChange={e => setItemForm({ ...itemForm, description: e.target.value })}
-                      placeholder="المكونات والتفاصيل..."
-                      className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-medium bg-white focus:ring-2 focus:ring-orange-200 outline-none"
-                    ></textarea>
-                  </div>
-
-                  <div className="flex gap-2 justify-end pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowItemForm(false)}
-                      className="px-5 py-2.5 border border-gray-200 rounded-2xl text-xs font-bold hover:bg-gray-200 transition"
-                    >
-                      إلغاء
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingItem}
-                      className="px-6 py-2.5 bg-gray-900 text-white font-black text-xs rounded-2xl hover:bg-black transition"
-                    >
-                      {savingItem ? 'جاري الحفظ...' : 'حفظ الوجبة'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Items List */}
-              <div className="space-y-3">
-                {menuItems.map(item => {
-                  const cat = categories.find(c => c.id === item.category_id)
-
-                  return (
-                    <div key={item.id} className="p-3.5 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gray-200 overflow-hidden shrink-0 border border-gray-200">
-                          {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs font-black text-gray-400">🍱</div>
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-black text-xs text-gray-900">{item.name}</h4>
-                          <p className="text-[11px] text-gray-400 font-bold">{cat?.name || 'قسم غير محدد'}</p>
-                          <span className="text-xs font-black text-orange-600">{item.price} TL</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleItemAvailability(item)}
-                          className={`px-3 py-1 rounded-xl text-xs font-black transition ${
-                            item.is_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                          }`}
-                        >
-                          {item.is_available ? 'متوفر ✓' : 'غير متوفر ✕'}
-                        </button>
-
-                        <button onClick={() => handleEditItem(item)} className="p-1.5 text-gray-500 hover:text-blue-600 rounded-lg hover:bg-gray-200/50">
-                          <Edit size={16} />
-                        </button>
-                        <button onClick={() => deleteItem(item.id, item.name)} className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-gray-200/50">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
             </div>
-
           </div>
-
         </div>
       </main>
     </div>
