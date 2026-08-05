@@ -254,6 +254,14 @@ export default function PlatformClient({
 
   const filteredAds = (ads || []).filter(ad => {
     if (!ad.target_region || ad.target_region === 'جميع المناطق' || ad.target_region === 'عام') return true
+
+    // 1. Exact Mathematical GPS Geofencing (Haversine Formula)
+    if (ad.latitude && ad.longitude && ad.radius_km && userLoc?.lat && userLoc?.lng) {
+      const dist = calculateDistance(userLoc.lat, userLoc.lng, ad.latitude, ad.longitude)
+      return dist <= ad.radius_km
+    }
+
+    // 2. District Name Matching Fallback
     const target = ad.target_region.toLowerCase().trim()
     if (userArea) {
       const area = userArea.toLowerCase().trim()
@@ -262,9 +270,11 @@ export default function PlatformClient({
       if (target.includes('كيبزة') && (area.includes('شايروفا') || area.includes('كيبزة'))) return true
       return false
     }
+
     if (target.includes('شايروفا') || target.includes('كيبزة')) return true
     return false
   })
+
 
 
 

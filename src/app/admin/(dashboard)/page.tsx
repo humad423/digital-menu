@@ -140,22 +140,38 @@ export default function AdminDashboard() {
 
   // ── Platform Ads ────────────────────────────────────────────────
   const [showAdForm, setShowAdForm] = useState(false)
-  const [adForm, setAdForm] = useState({ image_url: '', link_url: '', sort_order: 0, target_region: 'جميع المناطق' })
+  const [adForm, setAdForm] = useState({
+    image_url: '',
+    link_url: '',
+    sort_order: 0,
+    target_region: 'جميع المناطق',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    radius_km: null as number | null
+  })
 
   const handleAdSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!adForm.image_url) return alert('الصورة مطلوبة')
+
     const { error } = await supabase.from('platform_ads').insert([adForm])
     if (error) {
-      const { target_region, ...cleanForm } = adForm
-      await supabase.from('platform_ads').insert([cleanForm])
+      const { latitude, longitude, radius_km, ...fallbackForm } = adForm
+      const { error: err2 } = await supabase.from('platform_ads').insert([fallbackForm])
+      if (err2) {
+        const { target_region, ...cleanForm } = fallbackForm
+        await supabase.from('platform_ads').insert([cleanForm])
+      }
     }
-    setShowAdForm(false); setAdForm({ image_url: '', link_url: '', sort_order: 0, target_region: 'جميع المناطق' }); fetchData()
+    setShowAdForm(false)
+    setAdForm({ image_url: '', link_url: '', sort_order: 0, target_region: 'جميع المناطق', latitude: null, longitude: null, radius_km: null })
+    fetchData()
   }
 
   const deleteAd = async (id: string) => {
     if (confirm('حذف هذا الإعلان؟')) { await supabase.from('platform_ads').delete().eq('id', id); fetchData() }
   }
+
 
 
   // ── Stats ───────────────────────────────────────────────────────
@@ -539,20 +555,28 @@ export default function AdminDashboard() {
                         <select
                           value={['جميع المناطق', 'شايروفا / كيبزة', 'إسطنبول', 'كوجالي'].includes(adForm.target_region) ? adForm.target_region : 'custom'}
                           onChange={e => {
-                            if (e.target.value !== 'custom') {
-                              setAdForm({ ...adForm, target_region: e.target.value })
+                            const val = e.target.value
+                            if (val === 'جميع المناطق') {
+                              setAdForm({ ...adForm, target_region: 'جميع المناطق', latitude: null, longitude: null, radius_km: null })
+                            } else if (val === 'شايروفا / كيبزة') {
+                              setAdForm({ ...adForm, target_region: 'شايروفا / كيبزة', latitude: 40.8167, longitude: 29.3750, radius_km: 15 })
+                            } else if (val === 'إسطنبول') {
+                              setAdForm({ ...adForm, target_region: 'إسطنبول', latitude: 41.0082, longitude: 28.9784, radius_km: 30 })
+                            } else if (val === 'كوجالي') {
+                              setAdForm({ ...adForm, target_region: 'كوجالي', latitude: 40.7654, longitude: 29.9408, radius_km: 25 })
                             } else {
-                              setAdForm({ ...adForm, target_region: '' })
+                              setAdForm({ ...adForm, target_region: '', latitude: null, longitude: null, radius_km: null })
                             }
                           }}
                           className="f-input mb-2"
                         >
                           <option value="جميع المناطق">جميع المناطق (عام للجميع)</option>
-                          <option value="شايروفا / كيبزة">شايروفا / كيبزة (نطاق 15 كم)</option>
-                          <option value="إسطنبول">إسطنبول</option>
-                          <option value="كوجالي">كوجالي</option>
-                          <option value="custom font-bold">✍️ إدخال منطقة مخصصة أخرى...</option>
+                          <option value="شايروفا / كيبزة">📍 شايروفا / كيبزة (دائرة 15 كم بـ GPS)</option>
+                          <option value="إسطنبول">📍 إسطنبول (دائرة 30 كم بـ GPS)</option>
+                          <option value="كوجالي">📍 كوجالي (دائرة 25 كم بـ GPS)</option>
+                          <option value="custom">✍️ إدخال منطقة مخصصة بالاسم...</option>
                         </select>
+
 
                         {!['جميع المناطق', 'شايروفا / كيبزة', 'إسطنبول', 'كوجالي'].includes(adForm.target_region) && (
                           <input
