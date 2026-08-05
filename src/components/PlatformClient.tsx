@@ -86,38 +86,12 @@ export default function PlatformClient({
 
   const { isLoggedIn, profile, openAuthModal, logout } = useAuth()
 
-  // Location State
-  const [locationStatus, setLocationStatus] = useState<'loading' | 'granted' | 'granted_ip' | 'default'>('loading')
-  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null)
+  // Location State (Default to Çayırova / Gebze center so all restaurants render instantly)
+  const [locationStatus, setLocationStatus] = useState<'granted' | 'granted_ip' | 'default'>('default')
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number }>({ lat: 40.8167, lng: 29.3750 })
 
   const requestLocation = () => {
-    setLocationStatus('loading')
-    
-    const fallbackToDefault = () => {
-      // Default to Çayırova / Gebze center coordinates so all area restaurants show
-      setUserLocation({ lat: 40.8167, lng: 29.3750 })
-      setLocationStatus('default')
-    }
-
-    const fallbackToIP = async () => {
-      try {
-        const res = await fetch('https://ipapi.co/json/')
-        const data = await res.json()
-        if (data.latitude && data.longitude) {
-          setUserLocation({ lat: data.latitude, lng: data.longitude })
-          setLocationStatus('granted_ip')
-        } else {
-          fallbackToDefault()
-        }
-      } catch (e) {
-        fallbackToDefault()
-      }
-    }
-
-    if (!navigator.geolocation) {
-      fallbackToIP()
-      return
-    }
+    if (!navigator.geolocation) return
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -126,7 +100,6 @@ export default function PlatformClient({
       },
       (err) => {
         console.error("Location error:", err)
-        fallbackToIP()
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     )
@@ -135,23 +108,6 @@ export default function PlatformClient({
   useEffect(() => {
     requestLocation()
   }, [])
-
-  // ── RENDER LOCATION PENDING ──────────────────────────────────────
-  if (locationStatus === 'loading') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-center relative overflow-hidden" dir="rtl">
-        <div className="absolute top-1/4 -right-20 w-64 h-64 bg-orange-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -left-20 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl" />
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="w-20 h-20 bg-slate-800 rounded-3xl shadow-xl border border-slate-700 flex items-center justify-center mb-6 animate-pulse">
-            <Navigation className="text-orange-500 animate-bounce mt-1" size={32} />
-          </div>
-          <h2 className="text-2xl font-black text-white mb-2">نحدد موقعك...</h2>
-          <p className="text-slate-400 font-medium max-w-xs text-sm">نحن نبحث عن أفضل مطاعم ألف سوق التي توصل لموقعك</p>
-        </div>
-      </div>
-    )
-  }
 
   // ── FILTER RESTAURANTS BY LOCATION AND SEARCH ─────────────────────────────
   const restaurantsWithDistance = restaurants.map(r => {
@@ -162,19 +118,10 @@ export default function PlatformClient({
     return { ...r, distance: dist }
   })
 
-  // Allowed Restaurant IDs within delivery range
-  const allowedRestaurantIds = new Set(
-    restaurantsWithDistance
-      .filter(r => r.distance === null || !r.delivery_radius_km || r.distance <= r.delivery_radius_km || locationStatus === 'default')
-      .map(r => r.id)
-  )
+  // Allowed Restaurant IDs for offers
+  const allowedRestaurantIds = new Set(restaurantsWithDistance.map(r => r.id))
 
   const filteredRestaurants = restaurantsWithDistance.filter(r => {
-    // Check delivery radius if location is granted
-    if (locationStatus !== 'default' && r.distance !== null && r.delivery_radius_km && r.distance > r.delivery_radius_km) {
-      return false
-    }
-
     // Check category
     const matchesCat = activeCat
       ? (r.platform_category_ids || []).includes(activeCat)
