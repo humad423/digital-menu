@@ -87,12 +87,18 @@ export default function PlatformClient({
   const { isLoggedIn, profile, openAuthModal, logout } = useAuth()
 
   // Location State
-  const [locationStatus, setLocationStatus] = useState<'loading' | 'granted' | 'granted_ip' | 'denied'>('loading')
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'granted' | 'granted_ip' | 'default'>('loading')
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null)
 
   const requestLocation = () => {
     setLocationStatus('loading')
     
+    const fallbackToDefault = () => {
+      // Default to Çayırova / Gebze center coordinates so all area restaurants show
+      setUserLocation({ lat: 40.8167, lng: 29.3750 })
+      setLocationStatus('default')
+    }
+
     const fallbackToIP = async () => {
       try {
         const res = await fetch('https://ipapi.co/json/')
@@ -101,10 +107,10 @@ export default function PlatformClient({
           setUserLocation({ lat: data.latitude, lng: data.longitude })
           setLocationStatus('granted_ip')
         } else {
-          setLocationStatus('denied')
+          fallbackToDefault()
         }
       } catch (e) {
-        setLocationStatus('denied')
+        fallbackToDefault()
       }
     }
 
@@ -130,41 +136,18 @@ export default function PlatformClient({
     requestLocation()
   }, [])
 
-  // ── RENDER LOCATION PENDING / DENIED ──────────────────────────────────────
+  // ── RENDER LOCATION PENDING ──────────────────────────────────────
   if (locationStatus === 'loading') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50 text-center relative overflow-hidden" dir="rtl">
-        <div className="absolute top-1/4 -right-20 w-64 h-64 bg-orange-400/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -left-20 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl" />
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-center relative overflow-hidden" dir="rtl">
+        <div className="absolute top-1/4 -right-20 w-64 h-64 bg-orange-500/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -left-20 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl" />
         <div className="relative z-10 flex flex-col items-center">
-          <div className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center mb-6 animate-pulse">
-            <Navigation className="text-orange-500 animate-bounce mt-2" size={32} />
+          <div className="w-20 h-20 bg-slate-800 rounded-3xl shadow-xl border border-slate-700 flex items-center justify-center mb-6 animate-pulse">
+            <Navigation className="text-orange-500 animate-bounce mt-1" size={32} />
           </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-2">نحدد موقعك...</h2>
-          <p className="text-gray-500 font-medium max-w-xs">نحن نبحث عن أفضل المطاعم التي توصل إلى موقعك الحالي</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (locationStatus === 'denied') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50 text-center relative overflow-hidden" dir="rtl">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-orange-50" />
-        <div className="relative z-10 flex flex-col items-center max-w-sm">
-          <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6 -rotate-6">
-            <MapPinOff className="text-red-500" size={40} />
-          </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-3">الموقع مطلوب</h2>
-          <p className="text-gray-600 font-medium mb-8 leading-relaxed">
-            يجب السماح بالوصول إلى موقعك الجغرافي لنتمكن من عرض المطاعم المتاحة للتوصيل في منطقتك.
-          </p>
-          <button
-            onClick={requestLocation}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-500/30 transition-all active:scale-95"
-          >
-            تحديد الموقع مرة أخرى
-          </button>
+          <h2 className="text-2xl font-black text-white mb-2">نحدد موقعك...</h2>
+          <p className="text-slate-400 font-medium max-w-xs text-sm">نحن نبحث عن أفضل مطاعم ألف سوق التي توصل لموقعك</p>
         </div>
       </div>
     )
@@ -182,14 +165,15 @@ export default function PlatformClient({
   // Allowed Restaurant IDs within delivery range
   const allowedRestaurantIds = new Set(
     restaurantsWithDistance
-      .filter(r => r.distance !== null && (!r.delivery_radius_km || r.distance <= r.delivery_radius_km))
+      .filter(r => r.distance === null || !r.delivery_radius_km || r.distance <= r.delivery_radius_km || locationStatus === 'default')
       .map(r => r.id)
   )
 
   const filteredRestaurants = restaurantsWithDistance.filter(r => {
-    // Check delivery radius
-    if (r.distance === null) return false // Hide if restaurant has no location
-    if (r.delivery_radius_km && r.distance > r.delivery_radius_km) return false
+    // Check delivery radius if location is granted
+    if (locationStatus !== 'default' && r.distance !== null && r.delivery_radius_km && r.distance > r.delivery_radius_km) {
+      return false
+    }
 
     // Check category
     const matchesCat = activeCat
@@ -200,7 +184,7 @@ export default function PlatformClient({
     const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase())
     
     return matchesCat && matchesSearch
-  }).sort((a, b) => (a.distance || 0) - (b.distance || 0)) // Sort by closest first
+  }).sort((a, b) => (a.distance !== null && b.distance !== null) ? a.distance - b.distance : 0) // Sort by closest first
 
   // Filter offers by location (only restaurants within delivery range)
   const locationFilteredOffers = (offers || []).filter(o => {
@@ -263,6 +247,23 @@ export default function PlatformClient({
             <p className="text-xs text-orange-700 font-bold leading-relaxed">
               لم نتمكن من تحديد موقعك الدقيق. نستخدم الآن موقعك التقريبي لعرض المطاعم، وسيُطلب منك الموقع الدقيق عند الطلب.
             </p>
+          </div>
+        )}
+
+        {locationStatus === 'default' && (
+          <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <MapPinOff className="text-amber-600 shrink-0" size={18} />
+              <p className="text-xs font-bold leading-relaxed text-amber-900">
+                تتصفح بموقع المنطقة الافتراضي (شايروفا وكيبزة).
+              </p>
+            </div>
+            <button
+              onClick={requestLocation}
+              className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shrink-0 transition shadow-sm"
+            >
+              تحديد الموقع الدقيق 📍
+            </button>
           </div>
         )}
 
