@@ -188,20 +188,30 @@ export default function PlatformClient({
           localStorage.setItem('alfsouq_loc_status', 'granted')
         }
 
-        // Reverse geocode to get actual area/district name
+        // Reverse geocode to get main district or combined regions within 15km
         try {
-          const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lng}&localityLanguage=ar`)
-          if (res.ok) {
-            const data = await res.json()
-            const area = data.locality || data.city || data.localityInfo?.administrative?.[2]?.name
-            if (area) {
-              setUserArea(area)
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('alfsouq_user_area', area)
-              }
+          const distCayirova = calculateDistance(coords.lat, coords.lng, 40.8167, 29.3750)
+          const distGebze    = calculateDistance(coords.lat, coords.lng, 40.8028, 29.4307)
+
+          let areaName = ''
+          if (distCayirova <= 15 && distGebze <= 15) {
+            areaName = 'شايروفا / كيبزة'
+          } else {
+            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lng}&localityLanguage=ar`)
+            if (res.ok) {
+              const data = await res.json()
+              areaName = data.city || data.localityInfo?.administrative?.[2]?.name || data.localityInfo?.administrative?.[1]?.name || ''
+            }
+          }
+
+          if (areaName) {
+            setUserArea(areaName)
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('alfsouq_user_area', areaName)
             }
           }
         } catch (err) {}
+
       },
       err => {
         console.warn('Location request error/denied:', err)
