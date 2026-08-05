@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
 
@@ -10,6 +10,7 @@ export default async function RestaurantMenuPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
+  const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('id, name')

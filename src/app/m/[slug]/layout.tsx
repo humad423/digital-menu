@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import CartButton from '@/components/CartButton'
 import UserAuthButton from '@/components/UserAuthButton'
@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
+  const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('name')
@@ -30,6 +31,7 @@ export default async function RestaurantLayout({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
+  const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km')

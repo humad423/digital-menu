@@ -1,9 +1,11 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/server'
 import PlatformClient from '@/components/PlatformClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
+  const supabase = await createClient()
+
   const [
     { data: restaurants },
     { data: categories },

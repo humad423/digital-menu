@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import ReviewsClient from './ReviewsClient'
 
@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
+  const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('name')
@@ -19,6 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function RestaurantReviewsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
+  const supabase = await createClient()
 
   const { data: restaurant } = await supabase
     .from('restaurants')
