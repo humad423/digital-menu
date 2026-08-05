@@ -7,6 +7,8 @@ import SmartOfferImage from '@/components/SmartOfferImage'
 import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { getMainDomainMenuUrl } from '@/utils/url'
+
 
 export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const resolvedParams = params && typeof (params as any).then === 'function' 
@@ -418,10 +420,15 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/m/${restaurant.slug}`} target="_blank"
-            className="btn btn-ghost text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white btn-sm hidden sm:flex">
+          <a
+            href={getMainDomainMenuUrl(restaurant.slug)}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-ghost text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white btn-sm hidden sm:flex"
+          >
             معاينة المنيو 👁️
-          </Link>
+          </a>
+
           <button onClick={handleLogout} className="btn btn-danger btn-sm border-red-900/50 bg-red-500/15 text-red-400 hover:bg-red-500/25">
             <LogOut size={14} />
             <span className="hidden sm:block">خروج</span>

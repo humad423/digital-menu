@@ -7,6 +7,8 @@ import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
+import { getMainDomainMenuUrl } from '@/utils/url'
+
 
 export default function AdminRestaurantPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const { logout, profile } = useAuth()
@@ -404,14 +406,16 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
 
           {/* Left: Preview + Logout */}
           <div className="flex items-center gap-2">
-            <Link
-              href={`/m/${restaurant.slug}`}
+            <a
+              href={getMainDomainMenuUrl(restaurant.slug)}
               target="_blank"
+              rel="noreferrer"
               className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-sm"
             >
               <Eye size={14} className="text-orange-400" />
               <span>معاينة المنيو</span>
-            </Link>
+            </a>
+
 
             <button
               onClick={() => logout()}
