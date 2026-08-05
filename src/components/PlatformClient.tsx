@@ -7,19 +7,7 @@ import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import UserAuthButton from '@/components/UserAuthButton'
 import BrandLogo from '@/components/BrandLogo'
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371 // Radius of the earth in km
-  const dLat = (lat2 - lat1) * (Math.PI / 180)
-  const dLon = (lon2 - lon1) * (Math.PI / 180)
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
+import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 
 // ── Ads Slider Component ────────────────────────────────────────────────────
 function AdsSlider({ ads }: { ads: any[] }) {
@@ -512,14 +500,29 @@ export default function PlatformClient({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3 text-xs font-bold">
-                          <span className="flex items-center gap-1.5 bg-gray-50 text-gray-500 px-2.5 py-1.5 rounded-lg">
-                            <MapPin size={12} /> توصيل متاح
-                          </span>
-                          <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--brand-accent)', color: 'var(--brand-primary)' }}>
-                            <Clock size={12} /> 30-45 دقيقة
-                          </span>
-                        </div>
+                        {(() => {
+                          const deliveryInfo = restaurant.distance !== null
+                            ? getDeliveryFeeForDistance(restaurant.distance, restaurant.delivery_tiers)
+                            : null
+
+                          return (
+                            <div className="flex flex-wrap items-center gap-2 text-xs font-bold mt-2">
+                              {deliveryInfo && deliveryInfo.available ? (
+                                <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200/80 font-black">
+                                  <span>🛵 أجرة التوصيل: {deliveryInfo.fee} TL</span>
+                                  <span className="text-[10px] text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full font-bold">({deliveryInfo.tierName})</span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 bg-red-50 text-red-600 px-2.5 py-1 rounded-lg border border-red-200/80 font-bold">
+                                  <span>🚫 {deliveryInfo?.reason || 'التوصيل غير متاح لموقك'}</span>
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1 bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-bold">
+                                <Clock size={12} /> 25-45 دقيقة
+                              </span>
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
                   </Link>

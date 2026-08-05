@@ -72,10 +72,22 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     }
   }, [id, router])
 
+  // ── Delivery Tiers State ─────────────────────────────────────────
+  const [deliveryTiers, setDeliveryTiers] = useState<any[]>([])
+  const [newTier, setNewTier] = useState({ min_km: '', max_km: '', fee: '', is_active: true })
+  const [savingTiers, setSavingTiers] = useState(false)
+
   const fetchData = async () => {
     setLoading(true)
     const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).single()
-    if (resData) setRestaurant(resData)
+    if (resData) {
+      setRestaurant(resData)
+      setDeliveryTiers(resData.delivery_tiers || [
+        { min_km: 0, max_km: 10, fee: 25, is_active: true },
+        { min_km: 10, max_km: 20, fee: 50, is_active: true },
+        { min_km: 20, max_km: 30, fee: 85, is_active: true }
+      ])
+    }
 
     const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })
     if (catData) setCategories(catData)
@@ -124,6 +136,47 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       await supabase.from('categories').delete().eq('id', catId)
       fetchData()
     }
+  }
+
+  // ── Delivery Tiers Handlers ─────────────────────────────────────
+  const handleAddTier = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTier.min_km || !newTier.max_km || !newTier.fee) return alert('يرجى ملء كافة حقول الشريحة')
+    
+    const updated = [
+      ...deliveryTiers,
+      {
+        min_km: parseFloat(newTier.min_km),
+        max_km: parseFloat(newTier.max_km),
+        fee: parseFloat(newTier.fee),
+        is_active: newTier.is_active
+      }
+    ].sort((a, b) => a.min_km - b.min_km)
+
+    setDeliveryTiers(updated)
+    await saveTiersToDb(updated)
+    setNewTier({ min_km: '', max_km: '', fee: '', is_active: true })
+  }
+
+  const toggleTierActive = async (index: number) => {
+    const updated = [...deliveryTiers]
+    updated[index].is_active = !updated[index].is_active
+    setDeliveryTiers(updated)
+    await saveTiersToDb(updated)
+  }
+
+  const deleteTier = async (index: number) => {
+    if (confirm('حذف شريحة التوصيل هذه؟')) {
+      const updated = deliveryTiers.filter((_, i) => i !== index)
+      setDeliveryTiers(updated)
+      await saveTiersToDb(updated)
+    }
+  }
+
+  const saveTiersToDb = async (tiers: any[]) => {
+    setSavingTiers(true)
+    await supabase.from('restaurants').update({ delivery_tiers: tiers }).eq('id', id)
+    setSavingTiers(false)
   }
 
   // ── Items CRUD ──────────────────────────────────────────────────
@@ -404,6 +457,98 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                       <button
                         onClick={() => deleteCategory(cat.id, cat.name)}
                         className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-gray-200/50"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Delivery Tiers Card */}
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-base font-black text-gray-900 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-2">🛵 شرائح وأجور التوصيل</span>
+                {savingTiers && <span className="text-[10px] text-orange-600 font-bold animate-pulse">جاري الحفظ...</span>}
+              </h3>
+              <p className="text-xs text-gray-400 font-bold mb-4">حدد السعر والمسافة وتفعيل/تعطيل كل شريحة</p>
+
+              {/* Add New Tier Form */}
+              <form onSubmit={handleAddTier} className="space-y-2 mb-4 bg-orange-50/50 p-3 rounded-2xl border border-orange-100">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 mb-1">من (كم)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      required
+                      placeholder="0"
+                      value={newTier.min_km}
+                      onChange={e => setNewTier({ ...newTier, min_km: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-bold bg-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 mb-1">إلى (كم)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      required
+                      placeholder="10"
+                      value={newTier.max_km}
+                      onChange={e => setNewTier({ ...newTier, max_km: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-bold bg-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-600 mb-1">الأجرة (TL)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      required
+                      placeholder="25"
+                      value={newTier.fee}
+                      onChange={e => setNewTier({ ...newTier, fee: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-xl text-xs font-bold bg-white text-orange-600 outline-none"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-orange-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-orange-700 transition"
+                >
+                  + إضافة شريحة توصيل
+                </button>
+              </form>
+
+              {/* Tiers List */}
+              <div className="space-y-2">
+                {deliveryTiers.map((tier, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100 text-xs">
+                    <div>
+                      <div className="font-black text-gray-900 flex items-center gap-1.5">
+                        <span>مسافة ({tier.min_km} - {tier.max_km} كم)</span>
+                      </div>
+                      <div className="text-[11px] font-bold text-orange-600 mt-0.5">
+                        الأجرة: {tier.fee} TL
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleTierActive(idx)}
+                        className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition ${
+                          tier.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+                        }`}
+                      >
+                        {tier.is_active ? 'مفعل ✓' : 'معطل ✕'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteTier(idx)}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-200/50"
                       >
                         <Trash2 size={14} />
                       </button>
