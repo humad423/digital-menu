@@ -55,7 +55,7 @@ export default function RestaurantAdmin({ params }: { params: Promise<{ id: stri
 
   const fetchData = async () => {
     setLoading(true)
-    const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).single()
+    const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
     if (resData) setRestaurant(resData)
 
     const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })

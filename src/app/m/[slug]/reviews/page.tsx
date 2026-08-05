@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     .from('restaurants')
     .select('name')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
 
   return {
     title: restaurant ? `تقييمات وآراء الزبائن | ${restaurant.name}` : 'التقييمات',
@@ -24,7 +24,7 @@ export default async function RestaurantReviewsPage({ params }: { params: Promis
     .from('restaurants')
     .select('id, name, slug, primary_color, logo_url')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
 
   if (!restaurant) {
     notFound()

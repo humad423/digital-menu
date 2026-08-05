@@ -81,30 +81,34 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [savingTiers, setSavingTiers] = useState(false)
 
   const fetchData = async () => {
-    setLoading(true)
-    const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).single()
-    if (resData) {
-      setRestaurant(resData)
-      setDeliveryTiers(resData.delivery_tiers || [
-        { min_km: 0, max_km: 10, fee: 25, is_active: true },
-        { min_km: 10, max_km: 20, fee: 50, is_active: true },
-        { min_km: 20, max_km: 30, fee: 85, is_active: true }
-      ])
+    try {
+      setLoading(true)
+      const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
+      if (resData) {
+        setRestaurant(resData)
+        setDeliveryTiers(resData.delivery_tiers || [
+          { min_km: 0, max_km: 10, fee: 25, is_active: true },
+          { min_km: 10, max_km: 20, fee: 50, is_active: true },
+          { min_km: 20, max_km: 30, fee: 85, is_active: true }
+        ])
+      }
+
+      const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })
+      if (catData) setCategories(catData)
+
+      const { data: itemData } = await supabase
+        .from('menu_items').select('*')
+        .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
+        .order('created_at', { ascending: true })
+      if (itemData) setMenuItems(itemData)
+
+      const { data: offerData } = await supabase.from('offers').select('*').eq('restaurant_id', id).order('created_at', { ascending: false })
+      if (offerData) setOffers(offerData)
+    } catch (err) {
+      console.error('Error fetching restaurant data:', err)
+    } finally {
+      setLoading(false)
     }
-
-    const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })
-    if (catData) setCategories(catData)
-
-    const { data: itemData } = await supabase
-      .from('menu_items').select('*')
-      .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
-      .order('created_at', { ascending: true })
-    if (itemData) setMenuItems(itemData)
-
-    const { data: offerData } = await supabase.from('offers').select('*').eq('restaurant_id', id).order('created_at', { ascending: false })
-    if (offerData) setOffers(offerData)
-
-    setLoading(false)
   }
 
   useEffect(() => {

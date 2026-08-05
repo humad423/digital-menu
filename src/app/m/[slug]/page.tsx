@@ -14,7 +14,7 @@ export default async function RestaurantMenuPage({
     .from('restaurants')
     .select('id, name')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
 
   if (!restaurant) notFound()
 

@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     .from('restaurants')
     .select('name')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
 
   return {
     title: restaurant ? `${restaurant.name} | مِنيو` : 'مطعم غير موجود',
@@ -34,7 +34,7 @@ export default async function RestaurantLayout({
     .from('restaurants')
     .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
 
   if (!restaurant) {
     notFound()
