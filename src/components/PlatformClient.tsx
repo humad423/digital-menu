@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { Search, MapPin, Clock, ChevronLeft, ChevronRight, MapPinOff, Navigation, User as UserIcon, LogOut, Settings } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
-
 import UserAuthButton from '@/components/UserAuthButton'
+import BrandLogo from '@/components/BrandLogo'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -232,36 +232,35 @@ export default function PlatformClient({
 
       {/* ── HEADER ── */}
       <div
-        className="relative px-5 pt-6 pb-7 overflow-hidden"
-        style={{ background: 'var(--brand-secondary)' }}
+        className="relative px-5 pt-6 pb-7 overflow-hidden bg-slate-900 border-b border-slate-800"
       >
         {/* Decorative circles */}
-        <div className="absolute -top-8 -left-8 w-32 h-32 rounded-full opacity-10" style={{ background: 'var(--brand-primary)' }} />
-        <div className="absolute top-2 -right-6 w-20 h-20 rounded-full opacity-10" style={{ background: 'var(--brand-primary)' }} />
+        <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full opacity-25 bg-orange-500 blur-2xl" />
+        <div className="absolute top-2 -right-8 w-28 h-28 rounded-full opacity-20 bg-amber-400 blur-xl" />
 
-        {/* Brand Logo + Heading in one row */}
+        {/* Brand Logo + User Auth Button in top row */}
         <div className="relative z-10 flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight leading-tight">
-              اكتشف أشهى
-            </h1>
-            <h1 className="text-2xl font-black tracking-tight leading-tight" style={{ color: 'var(--brand-primary)' }}>
-              المأكولات حولك
-            </h1>
-          </div>
+          <BrandLogo size="md" variant="light" />
           <div className="flex items-center gap-2 shrink-0">
             <UserAuthButton />
           </div>
         </div>
 
-        {/* Search */}
+        {/* Title tagline */}
+        <div className="relative z-10 mb-4">
+          <h1 className="text-xl font-black text-white tracking-tight leading-tight">
+            سوقك الأول لاكتشاف أشهى <span className="text-orange-500">المأكولات والعروض</span>
+          </h1>
+        </div>
+
+        {/* Search Input */}
         <div className="relative z-10">
           <input
             type="text"
-            placeholder="عن ماذا تبحث اليوم؟"
+            placeholder="ابحث عن مطعم أو أكلة في ألف سوق..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-white/10 border border-white/20 text-white placeholder-white/50 rounded-2xl py-3 px-11 focus:outline-none focus:bg-white/20 focus:border-white/40 transition-all text-sm font-medium"
+            className="w-full bg-white/10 border border-white/20 text-white placeholder-white/50 rounded-2xl py-3 px-11 focus:outline-none focus:bg-white/20 focus:border-orange-500/50 transition-all text-sm font-medium"
           />
           <Search className="absolute right-3.5 top-3 text-white/50" size={19} />
         </div>

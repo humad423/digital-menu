@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Store, Phone, Lock, ArrowLeft, LogIn, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import BrandLogo from '@/components/BrandLogo'
 
 export default function CompletelyStandaloneDashboardPage() {
   const router = useRouter()
@@ -129,12 +130,12 @@ export default function CompletelyStandaloneDashboardPage() {
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Header Logo */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-tr from-orange-500 to-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-orange-500/20 border border-orange-400/30">
-            <Store size={36} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-white mb-1">لوحة أصحاب المطاعم</h1>
-          <p className="text-xs text-gray-400 font-medium">بوابة إدارة المنيو الرقمي والعروض والتوصيل</p>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <BrandLogo size="lg" variant="light" className="mb-3" />
+          <span className="text-xs text-orange-400 font-bold bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+            بوابة شركاء ألف سوق Alfsouq Partner Portal
+          </span>
+          <p className="text-xs text-gray-400 font-medium mt-2">إدارة المنيو والطلبات والعروض الخاصة بمطعمك</p>
         </div>
 
         {/* Error Alert */}

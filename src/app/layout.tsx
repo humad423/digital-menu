@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "منصة المنيو الرقمي | المطاعم في تركيا",
-  description: "اطلب الطعام وتصفح أحدث عروض وبكجات المطاعم بسهولة دون عمولة",
+  title: "ألف سوق | Alfsouq - منصة المطاعم والعروض الأولى",
+  description: "ألف سوق (alfsouq.com) - المنصة التجارية الشاملة لتصفح أحدث المطاعم والوجبات والعروض التنافسية وتسهيل الطلب المباشر.",
 };
 
 export default function RootLayout({

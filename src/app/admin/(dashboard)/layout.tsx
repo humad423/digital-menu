@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import BrandLogo from '@/components/BrandLogo'
 
 export default async function AdminDashboardLayout({
   children,
@@ -14,12 +15,17 @@ export default async function AdminDashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col" dir="rtl">
-      <header className="bg-gray-900 text-white p-4 shadow-md">
+    <div className="min-h-screen bg-slate-50 flex flex-col" dir="rtl">
+      <header className="bg-slate-900 text-white p-4 shadow-md border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold">لوحة تحكم الإدارة</h1>
+          <div className="flex items-center gap-3">
+            <BrandLogo size="sm" variant="light" showSubtitle={false} />
+            <span className="text-xs bg-orange-500/20 text-orange-400 font-bold px-2.5 py-1 rounded-full border border-orange-500/30">
+              إدارة المنصة
+            </span>
+          </div>
           <form action="/auth/signout" method="post">
-            <button className="text-sm bg-gray-800 px-4 py-2 rounded-lg hover:bg-gray-700 transition">
+            <button className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl transition font-medium border border-slate-700">
               تسجيل الخروج
             </button>
           </form>

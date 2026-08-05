@@ -1,13 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@400;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #F8F9FB;
-  --foreground: #1A1A2E;
-  /* Brand Colors */
-  --brand-primary: #FF5C00;
-  --brand-secondary: #1A1A2E;
-  --brand-accent: #FFE0CC;
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  /* Brand Colors for Alf Souq (ألف سوق) */
+  --brand-primary: #FF6B00;
+  --brand-primary-hover: #E65100;
+  --brand-secondary: #0F172A;
+  --brand-accent: #10B981;
+  --brand-amber: #F59E0B;
+  --brand-light: #FFF7ED;
 }
 
 @theme inline {
@@ -18,7 +21,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Tajawal', Arial, Helvetica, sans-serif;
+  font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -26,3 +29,18 @@ body {
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Custom Glassmorphism Utility */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Glass Dark Utility */
+.glass-dark {
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
