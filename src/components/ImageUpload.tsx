@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { ImagePlus, X, Link as LinkIcon, Upload } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 
 export default function ImageUpload({ 
   value, 
@@ -15,23 +14,30 @@ export default function ImageUpload({
   const [urlText, setUrlText] = useState('')
   const [uploading, setUploading] = useState(false)
 
+  // Cloudinary configuration (Free 25GB storage)
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'o2iy0uxo'
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default'
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     try {
       setUploading(true)
-      const fileExt = file.name.split('.').pop() || 'jpg'
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
-      const filePath = `items/${fileName}`
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('upload_preset', uploadPreset)
 
-      const { data, error } = await supabase.storage
-        .from('menu-images')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true })
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData
+      })
 
-      if (error) {
-        console.warn('Supabase storage upload fallback:', error.message)
-        // Fallback to FileReader base64 if storage upload returns error
+      const data = await res.json()
+      if (data?.secure_url) {
+        onChange(data.secure_url)
+      } else {
+        // Fallback to FileReader base64 if Cloudinary returns an error
         const reader = new FileReader()
         reader.onload = (event) => {
           const base64Url = event.target?.result as string
@@ -41,16 +47,9 @@ export default function ImageUpload({
         reader.readAsDataURL(file)
         return
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from('menu-images')
-        .getPublicUrl(filePath)
-
-      if (publicUrlData?.publicUrl) {
-        onChange(publicUrlData.publicUrl)
-      }
     } catch (err) {
-      console.error('Upload error:', err)
+      console.error('Cloudinary upload error:', err)
+      alert('تعذر الرفع السحابي على Cloudinary، يمكن استخدام رابط الصورة المباشر.')
     } finally {
       setUploading(false)
     }
@@ -75,7 +74,7 @@ export default function ImageUpload({
             {/* File Upload Input */}
             <label className="w-32 h-32 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 transition cursor-pointer shrink-0">
               <Upload size={24} className="mb-2" />
-              <span className="text-xs font-bold text-center px-2">{uploading ? 'جاري الرفع...' : 'رفع صورة 📁'}</span>
+              <span className="text-xs font-bold text-center px-2">{uploading ? 'جاري الرفع...' : 'رفع صورة (Cloudinary) ☁️'}</span>
               <input 
                 type="file" 
                 accept="image/*" 
