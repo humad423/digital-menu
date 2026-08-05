@@ -149,6 +149,13 @@ export default function PlatformClient({
   const [offerStartX, setOfferStartX]   = useState(0)
   const [offerScrollL, setOfferScrollL] = useState(0)
 
+  const [userArea, setUserArea] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('alfsouq_user_area') || ''
+    }
+    return ''
+  })
+
   const [locationStatus, setLocStatus] = useState<'granted' | 'locating' | 'default'>(() => {
     if (typeof window !== 'undefined') {
       const savedStatus = localStorage.getItem('alfsouq_loc_status')
@@ -172,7 +179,7 @@ export default function PlatformClient({
     setLocStatus('locating')
 
     navigator.geolocation.getCurrentPosition(
-      p => {
+      async p => {
         const coords = { lat: p.coords.latitude, lng: p.coords.longitude }
         setUserLoc(coords)
         setLocStatus('granted')
@@ -180,10 +187,24 @@ export default function PlatformClient({
           localStorage.setItem('alfsouq_user_loc', JSON.stringify(coords))
           localStorage.setItem('alfsouq_loc_status', 'granted')
         }
+
+        // Reverse geocode to get actual area/district name
+        try {
+          const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lng}&localityLanguage=ar`)
+          if (res.ok) {
+            const data = await res.json()
+            const area = data.locality || data.city || data.localityInfo?.administrative?.[2]?.name
+            if (area) {
+              setUserArea(area)
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('alfsouq_user_area', area)
+              }
+            }
+          }
+        } catch (err) {}
       },
       err => {
         console.warn('Location request error/denied:', err)
-        // If previously granted, retain granted state, else reset to default
         if (typeof window !== 'undefined' && localStorage.getItem('alfsouq_loc_status') === 'granted') {
           setLocStatus('granted')
         } else {
@@ -195,11 +216,11 @@ export default function PlatformClient({
   }, [])
 
   useEffect(() => {
-    // Automatically attempt background location check if not already saved
     if (typeof window !== 'undefined' && !localStorage.getItem('alfsouq_loc_status')) {
       requestLocation()
     }
   }, [requestLocation])
+
 
 
   // Calculate restaurant distances
@@ -258,10 +279,13 @@ export default function PlatformClient({
               <span className="truncate text-slate-200">
                 {locationStatus === 'locating'
                   ? 'جاري التحديد...'
+                  : userArea
+                  ? userArea
                   : locationStatus === 'granted'
                   ? 'موقعي الحالي'
                   : 'شايروفا / كيبزة'}
               </span>
+
             </button>
 
 
