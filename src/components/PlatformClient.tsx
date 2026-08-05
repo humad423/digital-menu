@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, MapPin, Clock, ChevronLeft, ChevronRight, X, Bike, Star, Sparkles } from 'lucide-react'
+import { Search, MapPin, Clock, ChevronLeft, ChevronRight, X, Bike, Star, Sparkles, Loader2 } from 'lucide-react'
+
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import UserAuthButton from '@/components/UserAuthButton'
@@ -148,22 +149,58 @@ export default function PlatformClient({
   const [offerStartX, setOfferStartX]   = useState(0)
   const [offerScrollL, setOfferScrollL] = useState(0)
 
-  const [locationStatus, setLocStatus] = useState<'granted' | 'default'>('default')
-  const [userLoc, setUserLoc]          = useState({ lat: 40.8167, lng: 29.3750 })
+  const [locationStatus, setLocStatus] = useState<'granted' | 'locating' | 'default'>(() => {
+    if (typeof window !== 'undefined') {
+      const savedStatus = localStorage.getItem('alfsouq_loc_status')
+      if (savedStatus === 'granted') return 'granted'
+    }
+    return 'default'
+  })
 
-  const requestLocation = () => {
+  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number }>(() => {
+    if (typeof window !== 'undefined') {
+      const savedLoc = localStorage.getItem('alfsouq_user_loc')
+      if (savedLoc) {
+        try { return JSON.parse(savedLoc) } catch (e) {}
+      }
+    }
+    return { lat: 40.8167, lng: 29.3750 }
+  })
+
+  const requestLocation = useCallback(() => {
     if (!navigator.geolocation) return
+    setLocStatus('locating')
+
     navigator.geolocation.getCurrentPosition(
       p => {
-        setUserLoc({ lat: p.coords.latitude, lng: p.coords.longitude })
+        const coords = { lat: p.coords.latitude, lng: p.coords.longitude }
+        setUserLoc(coords)
         setLocStatus('granted')
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('alfsouq_user_loc', JSON.stringify(coords))
+          localStorage.setItem('alfsouq_loc_status', 'granted')
+        }
       },
-      () => {},
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      err => {
+        console.warn('Location request error/denied:', err)
+        // If previously granted, retain granted state, else reset to default
+        if (typeof window !== 'undefined' && localStorage.getItem('alfsouq_loc_status') === 'granted') {
+          setLocStatus('granted')
+        } else {
+          setLocStatus('default')
+        }
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     )
-  }
+  }, [])
 
-  useEffect(() => { requestLocation() }, [])
+  useEffect(() => {
+    // Automatically attempt background location check if not already saved
+    if (typeof window !== 'undefined' && !localStorage.getItem('alfsouq_loc_status')) {
+      requestLocation()
+    }
+  }, [requestLocation])
+
 
   // Calculate restaurant distances
   const withDist = restaurants.map(r => ({
@@ -210,13 +247,23 @@ export default function PlatformClient({
             {/* Location Pill */}
             <button
               onClick={requestLocation}
-              className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[170px]"
+              disabled={locationStatus === 'locating'}
+              className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[170px] disabled:opacity-75"
             >
-              <MapPin size={13} className="text-orange-400 shrink-0" />
+              {locationStatus === 'locating' ? (
+                <Loader2 size={13} className="text-orange-400 shrink-0 animate-spin" />
+              ) : (
+                <MapPin size={13} className="text-orange-400 shrink-0" />
+              )}
               <span className="truncate text-slate-200">
-                {locationStatus === 'granted' ? 'موقعي الحالي' : 'شايروفا / كيبزة'}
+                {locationStatus === 'locating'
+                  ? 'جاري التحديد...'
+                  : locationStatus === 'granted'
+                  ? 'موقعي الحالي'
+                  : 'شايروفا / كيبزة'}
               </span>
             </button>
+
 
             <UserAuthButton variant="light" />
           </div>
