@@ -12,7 +12,7 @@ export default async function RestaurantMenuPage({
   const { slug } = await params
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id')
+    .select('id, name')
     .eq('slug', slug)
     .single()
 

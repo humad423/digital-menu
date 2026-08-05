@@ -549,11 +549,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     <div key={offer.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <SmartOfferImage
-                          primaryImageUrl={primaryItem?.image_url}
-                          bonusImageUrl={bonusItem?.image_url}
-                          quantity={offer.min_quantity}
+                          primaryImage={primaryItem?.image_url}
+                          bonusImage={bonusItem?.image_url}
+                          minQuantity={offer.min_quantity}
                           bonusQuantity={offer.bonus_quantity}
-                          size="md"
+                          className="w-16 h-16 shrink-0"
                         />
                         <div>
                           <h4 className="font-black text-sm text-gray-900">{offer.title}</h4>

@@ -317,7 +317,7 @@ export default function RestaurantAdmin({ params }: { params: Promise<{ id: stri
               <button
                 onClick={() => {
                   setEditOfferId(null)
-                  setOfferForm({ type: 'bundle', target_item_id: '', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true })
+                  setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true })
                   setShowOfferForm(!showOfferForm)
                 }}
                 className="bg-gradient-to-r from-orange-600 to-amber-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold text-sm shadow-md hover:from-orange-700 hover:to-amber-700 transition"

@@ -143,7 +143,7 @@ export default function AdminDashboard() {
     setEditResId(r.id)
     setResForm({
       name: r.name, slug: r.slug, primary_color: r.primary_color || '#ea580c',
-      whatsapp_number: r.whatsapp_number, logo_url: r.logo_url || '', cover_url: r.cover_url || '',
+      whatsapp_number: r.whatsapp_number, owner_phone: r.owner_phone || '', logo_url: r.logo_url || '', cover_url: r.cover_url || '',
       latitude: r.latitude?.toString() || '',
       longitude: r.longitude?.toString() || '',
       delivery_radius_km: r.delivery_radius_km?.toString() || '5'
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
       {!loading && activeTab === 'restaurants' && (
         <div>
           <div className="flex justify-end mb-6">
-            <button onClick={() => { setShowResForm(!showResForm); setEditResId(null); setSelectedCatIds([]); setResForm({ name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', logo_url: '', cover_url: '' }) }} className="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-medium hover:bg-blue-700 transition">
+            <button onClick={() => { setShowResForm(!showResForm); setEditResId(null); setSelectedCatIds([]); setResForm({ name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '', logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5' }) }} className="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-medium hover:bg-blue-700 transition">
               <Plus size={20} /> إضافة مطعم
             </button>
           </div>
