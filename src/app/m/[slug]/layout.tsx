@@ -37,7 +37,20 @@ export default async function RestaurantLayout({
     .maybeSingle()
 
   if (!restaurant) {
-    notFound()
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center dir-rtl">
+        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center text-2xl font-black mb-4">
+          🏪
+        </div>
+        <h1 className="text-xl font-black text-gray-900 mb-2">المطعم غير موجود</h1>
+        <p className="text-xs text-gray-500 max-w-xs mb-6 font-medium leading-relaxed">
+          عذراً، هذا المطعم غير موجود أو قد يكون الرابط غير صحيح.
+        </p>
+        <Link href="/" className="px-6 py-3.5 bg-orange-500 text-white font-black text-xs rounded-2xl shadow-lg shadow-orange-500/25 active:scale-95 transition">
+          العودة للمنصة الرئيسية 🏠
+        </Link>
+      </div>
+    )
   }
 
   return (

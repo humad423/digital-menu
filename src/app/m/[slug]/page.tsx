@@ -16,7 +16,9 @@ export default async function RestaurantMenuPage({
     .eq('slug', slug)
     .maybeSingle()
 
-  if (!restaurant) notFound()
+  if (!restaurant) {
+    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المطعم غير موجود أو قد يكون الرابط غير صحيح.</div>
+  }
 
   const [
     { data: categories },
