@@ -94,12 +94,8 @@ export default async function RestaurantLayout({
             <UserAuthButton variant="light" />
           </div>
 
-          {/* Restaurant Title Overlay */}
-          <div className="absolute bottom-0 inset-x-0 z-10 px-4 pb-4 pt-10 bg-gradient-to-t from-slate-950/95 to-transparent">
-            <h1 className="text-2xl font-black text-white leading-tight" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
-              {restaurant.name}
-            </h1>
-          </div>
+          {/* Subtle gradient at bottom only for visual polish */}
+          <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-slate-950/60 to-transparent" />
         </div>
 
         {/* Info Box */}
@@ -119,8 +115,9 @@ export default async function RestaurantLayout({
               )}
             </div>
 
-            {/* Meta - status only, name removed (shown in cover) */}
+            {/* Meta - name + status + rating next to logo */}
             <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-black text-slate-900 truncate mb-1 leading-tight">{restaurant.name}</h2>
               <div className="flex items-center gap-3 flex-wrap text-xs mt-0">
                 {(() => {
                   const status = getStoreStatus(restaurant)
