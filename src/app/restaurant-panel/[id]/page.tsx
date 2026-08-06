@@ -29,7 +29,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   // ── Partner PWA App Install State ─────────────────────────────
   const [canInstallPwa, setCanInstallPwa] = useState(false)
   const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(null)
-  const [showIosInstallModal, setShowIosInstallModal] = useState(false)
+  const [showInstallModal, setShowInstallModal] = useState(false)
   const [isIosDevice, setIsIosDevice] = useState(false)
 
   useEffect(() => {
@@ -39,13 +39,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       document.referrer.includes('android-app://')
     )
 
-    // Hide ONLY if running inside installed standalone app
     if (isStandalone) {
       setCanInstallPwa(false)
       return
     }
 
-    // Always show install button in browser
     setCanInstallPwa(true)
 
     const ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
@@ -71,7 +69,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
   const handleInstallPartnerPwa = async () => {
     if (isIosDevice) {
-      setShowIosInstallModal(true)
+      setShowInstallModal(true)
       return
     }
 
@@ -92,11 +90,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           setCanInstallPwa(false)
         }
       } catch (e) {
-        console.log('PWA install error:', e)
+        setShowInstallModal(true)
       }
     } else {
-      // Chrome fallback instruction
-      setShowIosInstallModal(true)
+      setShowInstallModal(true)
     }
   }
 
@@ -1206,12 +1203,12 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         onSaveSuccess={fetchData}
       />
 
-      {/* iOS Install Guide Modal */}
-      {showIosInstallModal && (
+      {/* Device-Specific Install Guide Modal */}
+      {showInstallModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 dir-rtl animate-fade-in">
           <div className="bg-slate-900 text-white rounded-3xl p-5 border border-slate-700 shadow-2xl max-w-sm w-full space-y-4 relative">
             <button
-              onClick={() => setShowIosInstallModal(false)}
+              onClick={() => setShowInstallModal(false)}
               className="absolute top-3 left-3 p-1 text-slate-400 hover:text-white rounded-full bg-slate-800 cursor-pointer"
             >
               <X size={16} />
@@ -1219,17 +1216,34 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-xl font-black shadow-md">
               📲
             </div>
-            <h3 className="font-black text-base text-white">تثبيت لوحة التحكم على آيفون</h3>
-            <p className="text-xs text-slate-300 font-medium leading-relaxed">
-              لتثبيت لوحة تحكم المطعم كتطبيق على شاشة هاتفك الرئيسية:
-            </p>
-            <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
-              <p>1. اضغط على زر المشاركة <Share size={13} className="inline text-orange-400 mx-1" /> بالأسفل.</p>
-              <p>2. اختر <span className="text-white underline font-black">"إضافة إلى الشاشة الرئيسية ➕"</span>.</p>
-            </div>
+
+            {isIosDevice ? (
+              <>
+                <h3 className="font-black text-base text-white">تثبيت لوحة التحكم على آيفون</h3>
+                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                  لتثبيت لوحة تحكم المطعم كتطبيق على شاشة هاتفك الرئيسية:
+                </p>
+                <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
+                  <p>1. اضغط على زر المشاركة <Share size={13} className="inline text-orange-400 mx-1" /> بالأسفل.</p>
+                  <p>2. اختر <span className="text-white underline font-black">"إضافة إلى الشاشة الرئيسية ➕"</span>.</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-black text-base text-white">ثبّت لوحة التحكم كتطبيق 📲</h3>
+                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                  لتثبيت لوحة تحكم المطعم بنقرة واحدة على شاشة هاتفك:
+                </p>
+                <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
+                  <p>1. اضغط على خيارات المتصفح <span className="text-orange-400 font-black">⋮</span> بأعلى شاشة Chrome.</p>
+                  <p>2. اختر <span className="text-white underline font-black">"تثبيت التطبيق 📲"</span> أو <span className="text-white underline font-black">"إضافة إلى الشاشة الرئيسية ➕"</span>.</p>
+                </div>
+              </>
+            )}
+
             <button
-              onClick={() => setShowIosInstallModal(false)}
-              className="w-full py-2.5 bg-orange-500 text-white font-black text-xs rounded-xl cursor-pointer"
+              onClick={() => setShowInstallModal(false)}
+              className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl cursor-pointer transition active:scale-95"
             >
               حسناً، فهمت
             </button>
