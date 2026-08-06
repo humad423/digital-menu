@@ -19,9 +19,10 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // 2. Check if already installed in standalone mode
+    // 2. Check if already installed in standalone mode or stored flag
+    const isInstalledFlag = localStorage.getItem('alfsouq_pwa_installed') === 'true'
     const isStandaloneApp = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
-    if (isStandaloneApp) {
+    if (isStandaloneApp || isInstalledFlag) {
       setIsStandalone(true)
       return
     }
@@ -47,18 +48,26 @@ export default function InstallPwaPrompt() {
       setShowPrompt(true)
     }, 1000)
 
-    // 5. Android/Chrome beforeinstallprompt event
+    // 5. Android/Chrome beforeinstallprompt and appinstalled events
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
       setShowPrompt(true)
     }
 
+    const handleAppInstalled = () => {
+      setShowPrompt(false)
+      setIsStandalone(true)
+      localStorage.setItem('alfsouq_pwa_installed', 'true')
+    }
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
 
     return () => {
       clearTimeout(timer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
     }
   }, [pathname])
 
@@ -70,6 +79,8 @@ export default function InstallPwaPrompt() {
         const { outcome } = await deferredPrompt.userChoice
         if (outcome === 'accepted') {
           setShowPrompt(false)
+          setIsStandalone(true)
+          localStorage.setItem('alfsouq_pwa_installed', 'true')
         }
       } catch (err) {
         console.log('Install prompt error:', err)
