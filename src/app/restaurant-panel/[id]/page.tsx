@@ -59,6 +59,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     original_price: '',
     offer_price: '',
     image_url: '',
+    images: [] as string[],
     is_active: true
   })
   const [showItem3Input, setShowItem3Input] = useState(false)
@@ -347,7 +348,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     }
 
     setSavingOffer(true)
-    const primary = menuItems.find(i => i.id === offerForm.primary_item_id)
+    const primaryImg = (offerForm.images && offerForm.images.length > 0) ? offerForm.images[0] : (offerForm.image_url || null)
 
     const payload = {
       restaurant_id: id,
@@ -363,7 +364,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       description: offerForm.description || null,
       original_price: offerForm.original_price ? parseFloat(offerForm.original_price) : null,
       offer_price: parseFloat(offerForm.offer_price),
-      image_url: offerForm.image_url || null,
+      image_url: primaryImg,
+      images: offerForm.images || (primaryImg ? [primaryImg] : []),
       is_active: offerForm.is_active
     }
 
@@ -381,13 +383,23 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setOfferForm({
       primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1',
       item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1',
-      title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true
+      title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true
     })
     fetchData()
   }
 
   const handleEditOffer = (offer: any) => {
     setEditOfferId(offer.id)
+    let parsedImages: string[] = []
+    if (Array.isArray(offer.images)) {
+      parsedImages = offer.images
+    } else if (typeof offer.images === 'string') {
+      try { parsedImages = JSON.parse(offer.images) } catch (e) {}
+    }
+    if (parsedImages.length === 0 && offer.image_url) {
+      parsedImages = [offer.image_url]
+    }
+
     setOfferForm({
       primary_item_id: offer.primary_item_id || '',
       min_quantity: offer.min_quantity ? offer.min_quantity.toString() : '1',
@@ -402,6 +414,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       original_price: offer.original_price ? offer.original_price.toString() : '',
       offer_price: offer.offer_price ? offer.offer_price.toString() : '',
       image_url: offer.image_url || '',
+      images: parsedImages,
       is_active: offer.is_active
     })
     setShowOfferForm(true)
@@ -713,7 +726,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     <p className="text-xs text-slate-400 font-medium mt-0.5">{terms.offersDesc}</p>
                   </div>
                   <button
-                    onClick={() => { setEditOfferId(null); setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true }); setShowOfferForm(!showOfferForm) }}
+                    onClick={() => { setEditOfferId(null); setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true }); setShowOfferForm(!showOfferForm) }}
                     disabled={offers.length >= (restaurant?.max_offers_limit || 5) && !editOfferId}
                     className="btn btn-primary btn-sm disabled:opacity-40"
                   >
@@ -838,11 +851,25 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                       </div>
 
                       <div>
-                        <label className="f-label mb-1">صورة العرض المخصصة (اختياري)</label>
+                        <label className="f-label mb-1">
+                          {restaurant?.store_type === 'clothing'
+                            ? '📸 صور العرض المخصصة (يمكنك رفع عدة صور للعرض - صور حصراً حد أقصى 5MB للواحدة)'
+                            : '🖼️ صورة العرض المخصصة (اختياري)'}
+                        </label>
                         <p className="text-[10px] text-slate-400 font-bold mb-2">
-                          💡 في حال عدم رفع صورة مخصصة، سيقوم النظام تلقائياً بدمج صور المنتجات المختارة في العرض.
+                          💡 في حال عدم رفع صورة مخصصة، سيقوم النظام تلقائياً بدمج وتنسيق صور المنتجات المختارة في العرض.
                         </p>
-                        <ImageUpload value={offerForm.image_url} onChange={url => setOfferForm({ ...offerForm, image_url: url })} />
+                        {restaurant?.store_type === 'clothing' ? (
+                          <MultiImageUpload
+                            images={offerForm.images || (offerForm.image_url ? [offerForm.image_url] : [])}
+                            onChange={urls => setOfferForm({ ...offerForm, images: urls, image_url: urls[0] || '' })}
+                          />
+                        ) : (
+                          <ImageUpload
+                            value={offerForm.image_url}
+                            onChange={url => setOfferForm({ ...offerForm, image_url: url, images: url ? [url] : [] })}
+                          />
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between pt-2">

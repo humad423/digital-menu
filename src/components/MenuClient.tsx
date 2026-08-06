@@ -59,19 +59,63 @@ export default function MenuClient({
         id: 'offers-special',
         name: 'العروض والتخفيضات',
         icon: '🔥',
-        items: offers.map(o => ({
-          id: o.id,
-          name: o.title,
-          description: o.description,
-          price: o.offer_price,
-          original_price: o.original_price,
-          image_url: o.image_url || o.primary_item?.image_url,
-          primary_image_url: o.primary_item?.image_url,
-          bonus_image_url: o.bonus_item?.image_url,
-          min_quantity: o.min_quantity,
-          bonus_quantity: o.bonus_quantity,
-          is_offer: true
-        }))
+        items: offers.map(o => {
+          let offerImages: string[] = []
+
+          // 1. Check custom offer images
+          if (Array.isArray(o.images)) {
+            offerImages = o.images.filter(Boolean)
+          } else if (typeof o.images === 'string') {
+            try {
+              const parsed = JSON.parse(o.images)
+              if (Array.isArray(parsed)) offerImages = parsed.filter(Boolean)
+            } catch (e) {}
+          }
+
+          if (offerImages.length === 0 && o.image_url) {
+            offerImages = [o.image_url]
+          }
+
+          // 2. Collect images from primary_item, bonus_item, item3, item4
+          const collectItemImgs = (itemObj: any) => {
+            if (!itemObj) return
+            let imgs: string[] = []
+            if (Array.isArray(itemObj.images)) {
+              imgs = itemObj.images.filter(Boolean)
+            } else if (typeof itemObj.images === 'string') {
+              try {
+                const parsed = JSON.parse(itemObj.images)
+                if (Array.isArray(parsed)) imgs = parsed.filter(Boolean)
+              } catch (e) {}
+            }
+            if (imgs.length === 0 && itemObj.image_url) {
+              imgs = [itemObj.image_url]
+            }
+            imgs.forEach(imgUrl => {
+              if (!offerImages.includes(imgUrl)) offerImages.push(imgUrl)
+            })
+          }
+
+          collectItemImgs(o.primary_item)
+          collectItemImgs(o.bonus_item)
+          collectItemImgs(o.item3)
+          collectItemImgs(o.item4)
+
+          return {
+            id: o.id,
+            name: o.title,
+            description: o.description,
+            price: o.offer_price,
+            original_price: o.original_price,
+            image_url: offerImages[0] || o.image_url || o.primary_item?.image_url,
+            images: offerImages,
+            primary_image_url: o.primary_item?.image_url,
+            bonus_image_url: o.bonus_item?.image_url,
+            min_quantity: o.min_quantity,
+            bonus_quantity: o.bonus_quantity,
+            is_offer: true
+          }
+        })
       }, ...filteredCats]
     : filteredCats
 

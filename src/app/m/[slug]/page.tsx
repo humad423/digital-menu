@@ -33,7 +33,7 @@ export default async function RestaurantMenuPage({
 
     supabase
       .from('offers')
-      .select('*, primary_item:menu_items!primary_item_id(image_url, name), bonus_item:menu_items!bonus_item_id(image_url, name)')
+      .select('*, primary_item:menu_items!primary_item_id(image_url, images, name), bonus_item:menu_items!bonus_item_id(image_url, images, name), item3:menu_items!item3_id(image_url, images, name), item4:menu_items!item4_id(image_url, images, name)')
       .eq('restaurant_id', restaurant.id)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
