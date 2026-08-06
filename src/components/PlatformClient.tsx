@@ -397,25 +397,11 @@ export default function PlatformClient({
           isScrolled ? 'py-2.5 space-y-2.5' : 'py-3.5 space-y-3'
         }`}>
 
-          {/* Row 1: Logo + Location + Search Trigger + User Auth */}
+          {/* Row 1: Logo + Location + User Auth */}
           <div className="flex items-center justify-between gap-2">
             <BrandLogo size="sm" variant="light" showSubtitle={false} />
 
             <div className="flex items-center gap-2">
-              {/* Search Toggle Icon when collapsed */}
-              {isScrolled && !searchQuery && (
-                <button
-                  onClick={() => {
-                    setIsScrolled(false)
-                    setTimeout(() => searchRef.current?.focus(), 150)
-                  }}
-                  className="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700 transition cursor-pointer animate-fade-in"
-                  title="فتح البحث"
-                >
-                  <Search size={15} />
-                </button>
-              )}
-
               {/* Location Pill */}
               <button
                 onClick={requestLocation}
