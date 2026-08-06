@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
 import { Settings, X, Clock, Calendar, Phone, Image, Store, Save, AlertCircle, Bike, Plus, Trash2, CheckCircle2 } from 'lucide-react'
@@ -19,28 +19,47 @@ export default function StoreSettingsModal({
   onClose,
   onSaveSuccess
 }: StoreSettingsModalProps) {
-  if (!isOpen || !restaurant) return null
 
-  const [name, setName] = useState(restaurant.name || '')
-  const [phone, setPhone] = useState(restaurant.phone || restaurant.whatsapp_number || '')
-  const [whatsappNumber, setWhatsappNumber] = useState(restaurant.whatsapp_number || '')
-  const [logoUrl, setLogoUrl] = useState(restaurant.logo_url || '')
-  const [coverUrl, setCoverUrl] = useState(restaurant.cover_url || '')
-  const [openingTime, setOpeningTime] = useState(restaurant.opening_time || '09:00')
-  const [closingTime, setClosingTime] = useState(restaurant.closing_time || '23:00')
+  const [name, setName] = useState(restaurant?.name || '')
+  const [phone, setPhone] = useState(restaurant?.phone || restaurant?.whatsapp_number || '')
+  const [whatsappNumber, setWhatsappNumber] = useState(restaurant?.whatsapp_number || '')
+  const [logoUrl, setLogoUrl] = useState(restaurant?.logo_url || '')
+  const [coverUrl, setCoverUrl] = useState(restaurant?.cover_url || '')
+  const [openingTime, setOpeningTime] = useState(restaurant?.opening_time || '09:00')
+  const [closingTime, setClosingTime] = useState(restaurant?.closing_time || '23:00')
   const [daysOff, setDaysOff] = useState<string[]>(
-    Array.isArray(restaurant.days_off) ? restaurant.days_off : []
+    Array.isArray(restaurant?.days_off) ? restaurant.days_off : []
   )
-  const [isOnHoliday, setIsOnHoliday] = useState<boolean>(!!restaurant.is_on_holiday)
-  const [holidayMessage, setHolidayMessage] = useState(restaurant.holiday_message || '')
-  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(Number(restaurant.delivery_radius_km) || 15)
+  const [isOnHoliday, setIsOnHoliday] = useState<boolean>(!!restaurant?.is_on_holiday)
+  const [holidayMessage, setHolidayMessage] = useState(restaurant?.holiday_message || '')
+  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(Number(restaurant?.delivery_radius_km) || 15)
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>(
-    Array.isArray(restaurant.delivery_tiers) ? restaurant.delivery_tiers : []
+    Array.isArray(restaurant?.delivery_tiers) ? restaurant.delivery_tiers : []
   )
   const [newTier, setNewTier] = useState({ min_km: '', max_km: '', fee: '', is_active: true })
-
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+
+  // Re-sync state every time the modal opens with fresh restaurant data
+  useEffect(() => {
+    if (isOpen && restaurant) {
+      setName(restaurant.name || '')
+      setPhone(restaurant.phone || restaurant.whatsapp_number || '')
+      setWhatsappNumber(restaurant.whatsapp_number || '')
+      setLogoUrl(restaurant.logo_url || '')
+      setCoverUrl(restaurant.cover_url || '')
+      setOpeningTime(restaurant.opening_time || '09:00')
+      setClosingTime(restaurant.closing_time || '23:00')
+      setDaysOff(Array.isArray(restaurant.days_off) ? restaurant.days_off : [])
+      setIsOnHoliday(!!restaurant.is_on_holiday)
+      setHolidayMessage(restaurant.holiday_message || '')
+      setDeliveryRadiusKm(Number(restaurant.delivery_radius_km) || 15)
+      setDeliveryTiers(Array.isArray(restaurant.delivery_tiers) ? restaurant.delivery_tiers : [])
+      setErrorMsg('')
+    }
+  }, [isOpen, restaurant?.id])
+
+  if (!isOpen || !restaurant) return null
 
   const toggleDayOff = (dayName: string) => {
     if (daysOff.includes(dayName)) {
