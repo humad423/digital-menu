@@ -23,13 +23,13 @@ export default function MultiImageUpload({
     const rawFiles = Array.from(e.target.files || [])
     if (rawFiles.length === 0) return
 
-    // 1. Filter out invalid types
+    // 1. Filter out invalid types (Strictly Images Only)
     const validFormatFiles = rawFiles.filter(
-      file => file.type.startsWith('image/') || ALLOWED_IMAGE_TYPES.includes(file.type)
+      file => file.type.startsWith('image/') || ALLOWED_IMAGE_TYPES.some(t => file.type.includes(t.replace('image/', '')))
     )
 
     if (validFormatFiles.length < rawFiles.length) {
-      alert('تم استبعاد بعض الملفات لأنها ليست ملفات صور صالحة (PNG, JPG, WEBP, GIF, SVG).')
+      alert('عذراً، تم استبعاد بعض الملفات لأنها ليست ملفات صور صالحة (PNG, JPG, WEBP, GIF, SVG). يمنع رفع أية ملفات غير الصور.')
     }
 
     // 2. Filter out oversized files (> 5MB)

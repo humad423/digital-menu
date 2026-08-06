@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import ImageUpload from '@/components/ImageUpload'
+import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle } from 'lucide-react'
@@ -34,7 +35,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
   const [editItemId, setEditItemId] = useState<string | null>(null)
   const [itemForm, setItemForm] = useState({
     category_id: '', name: '', description: '', price: '', image_url: '', is_available: true,
-    is_offer: false, original_price: '', offer_title: ''
+    is_offer: false, original_price: '', offer_title: '', images: [] as string[], sizesText: ''
   })
   const [savingItem, setSavingItem] = useState(false)
 
@@ -174,12 +175,16 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (!itemForm.category_id || !itemForm.name || !itemForm.price) return alert('يرجى ملء الحقول المطلوبة')
     setSavingItem(true)
 
+    const primaryImg = (itemForm.images && itemForm.images.length > 0) ? itemForm.images[0] : (itemForm.image_url || null)
+    const sizesArray = itemForm.sizesText ? itemForm.sizesText.split(',').map(s => s.trim()).filter(Boolean) : []
     const payload = {
       category_id: itemForm.category_id,
       name: itemForm.name,
       description: itemForm.description || null,
       price: parseFloat(itemForm.price),
-      image_url: itemForm.image_url || null,
+      image_url: primaryImg,
+      images: itemForm.images || (primaryImg ? [primaryImg] : []),
+      sizes: sizesArray,
       is_available: itemForm.is_available,
       is_offer: itemForm.is_offer,
       original_price: itemForm.original_price ? parseFloat(itemForm.original_price) : null,
@@ -205,18 +210,37 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     setSavingItem(false)
     setShowItemForm(false)
     setEditItemId(null)
-    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
+    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '', images: [], sizesText: '' })
     fetchData()
   }
 
   const handleEditItem = (item: any) => {
     setEditItemId(item.id)
+    let parsedImages: string[] = []
+    if (Array.isArray(item.images)) {
+      parsedImages = item.images
+    } else if (typeof item.images === 'string') {
+      try { parsedImages = JSON.parse(item.images) } catch (e) {}
+    }
+    if (parsedImages.length === 0 && item.image_url) {
+      parsedImages = [item.image_url]
+    }
+
+    let parsedSizes: string[] = []
+    if (Array.isArray(item.sizes)) {
+      parsedSizes = item.sizes
+    } else if (typeof item.sizes === 'string') {
+      try { parsedSizes = JSON.parse(item.sizes) } catch (e) {}
+    }
+
     setItemForm({
       category_id: item.category_id,
       name: item.name,
       description: item.description || '',
       price: item.price.toString(),
       image_url: item.image_url || '',
+      images: parsedImages,
+      sizesText: parsedSizes.join(', '),
       is_available: item.is_available,
       is_offer: item.is_offer || false,
       original_price: item.original_price ? item.original_price.toString() : '',
@@ -537,12 +561,29 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1.5">صورة المنتج</label>
-                      <ImageUpload
-                        value={itemForm.image_url}
-                        onChange={url => setItemForm({ ...itemForm, image_url: url })}
-                      />
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        {restaurant?.store_type === 'clothing'
+                          ? '📸 صور الموديل (يمكنك رفع عدة صور - صور حصراً حد أقصى 5MB للواحدة)'
+                          : '🖼️ صورة المنتج'}
+                      </label>
+                      {restaurant?.store_type === 'clothing' ? (
+                        <MultiImageUpload
+                          images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
+                          onChange={urls => {
+                            setItemForm({
+                              ...itemForm,
+                              images: urls,
+                              image_url: urls[0] || ''
+                            })
+                          }}
+                        />
+                      ) : (
+                        <ImageUpload
+                          value={itemForm.image_url}
+                          onChange={url => setItemForm({ ...itemForm, image_url: url, images: url ? [url] : [] })}
+                        />
+                      )}
                     </div>
 
                     <div className="flex items-center pt-6">
@@ -942,7 +983,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                   <button
                     onClick={() => {
                       setEditItemId(null)
-                      setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
+                      setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '', images: [], sizesText: '' })
                       setShowItemForm(true)
                     }}
                     className="px-3.5 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-black flex items-center gap-1.5 transition shadow-sm"

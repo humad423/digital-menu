@@ -985,11 +985,28 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                           <textarea rows={2} value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="المكونات والمواصفات..." className="f-input" />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="f-label mb-1.5 block">صورة المنتج (صورة حصراً - الحد الأقصى 5 ميغابايت)</label>
-                          <ImageUpload
-                            value={itemForm.image_url}
-                            onChange={url => setItemForm({ ...itemForm, image_url: url })}
-                          />
+                          <label className="f-label mb-1.5 block">
+                            {restaurant?.store_type === 'clothing'
+                              ? '📸 صور الموديل (يمكنك رفع أكثر من صورة للموديل - صور حصراً حد أقصى 5MB للواحدة)'
+                              : '🖼️ صورة المنتج (صورة حصراً - الحد الأقصى 5 ميغابايت)'}
+                          </label>
+                          {restaurant?.store_type === 'clothing' ? (
+                            <MultiImageUpload
+                              images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
+                              onChange={urls => {
+                                setItemForm({
+                                  ...itemForm,
+                                  images: urls,
+                                  image_url: urls[0] || ''
+                                })
+                              }}
+                            />
+                          ) : (
+                            <ImageUpload
+                              value={itemForm.image_url}
+                              onChange={url => setItemForm({ ...itemForm, image_url: url, images: url ? [url] : [] })}
+                            />
+                          )}
                         </div>
                       </div>
 
