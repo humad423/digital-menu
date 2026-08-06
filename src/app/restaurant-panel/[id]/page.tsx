@@ -643,8 +643,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 </div>
               </div>
 
-              {/* Delivery Tiers Card (Only for Restaurants with Delivery) */}
-              {restaurant?.store_type === 'restaurant' && restaurant?.has_delivery !== false && (
+              {/* Delivery Tiers Card (Available for all store types with delivery) */}
+              {restaurant?.has_delivery !== false && (
                 <div className="c-card">
                   <div className="c-card-header">
                     <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
