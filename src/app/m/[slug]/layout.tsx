@@ -95,8 +95,8 @@ export default async function RestaurantLayout({
           </div>
 
           {/* Restaurant Title Overlay */}
-          <div className="absolute bottom-0 inset-x-0 z-10 px-4 pb-4 pt-8 bg-gradient-to-t from-slate-950/90 to-transparent">
-            <h1 className="text-xl font-black text-white drop-shadow-md leading-tight truncate">
+          <div className="absolute bottom-0 inset-x-0 z-10 px-4 pb-4 pt-10 bg-gradient-to-t from-slate-950/95 to-transparent">
+            <h1 className="text-2xl font-black text-white leading-tight" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
               {restaurant.name}
             </h1>
           </div>
@@ -119,10 +119,9 @@ export default async function RestaurantLayout({
               )}
             </div>
 
-            {/* Meta */}
+            {/* Meta - status only, name removed (shown in cover) */}
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-400 truncate mb-1">{restaurant.name}</p>
-              <div className="flex items-center gap-3 flex-wrap text-xs">
+              <div className="flex items-center gap-3 flex-wrap text-xs mt-0">
                 {(() => {
                   const status = getStoreStatus(restaurant)
                   return (
