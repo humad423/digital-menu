@@ -3,6 +3,7 @@ import CartButton from '@/components/CartButton'
 import UserAuthButton from '@/components/UserAuthButton'
 import RestaurantRating from '@/components/RestaurantRating'
 import StoreHeaderBanner from '@/components/StoreHeaderBanner'
+import StoreDeliveryBadge from '@/components/StoreDeliveryBadge'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, MapPin } from 'lucide-react'
@@ -130,6 +131,7 @@ export default async function RestaurantLayout({
                   )
                 })()}
                 <RestaurantRating restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
+                <StoreDeliveryBadge restaurant={restaurant} />
               </div>
             </div>
           </div>

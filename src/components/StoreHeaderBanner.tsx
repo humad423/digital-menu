@@ -2,10 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { getStoreStatus } from '@/utils/storeStatus'
-import { isStoreWithinRange } from '@/utils/distance'
+import { isStoreWithinRange, calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
+import { Bike } from 'lucide-react'
 
 export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
   const [outOfRadius, setOutOfRadius] = useState(false)
+  const [deliveryInfo, setDeliveryInfo] = useState<{
+    available: boolean
+    fee: number
+    distanceKm: number | null
+    tierName?: string
+  } | null>(null)
+
   const status = getStoreStatus(restaurant)
 
   useEffect(() => {
@@ -14,8 +22,17 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
       if (stored && restaurant.latitude && restaurant.longitude) {
         const parsed = JSON.parse(stored)
         if (parsed.lat && parsed.lng) {
+          const dist = calculateDistance(Number(parsed.lat), Number(parsed.lng), Number(restaurant.latitude), Number(restaurant.longitude))
           const within = isStoreWithinRange(Number(parsed.lat), Number(parsed.lng), restaurant)
-          if (!within) setOutOfRadius(true)
+          if (!within) {
+            setOutOfRadius(true)
+          } else {
+            const feeInfo = getDeliveryFeeForDistance(dist, restaurant.delivery_tiers, restaurant.delivery_radius_km)
+            setDeliveryInfo({
+              ...feeInfo,
+              distanceKm: dist
+            })
+          }
         }
       }
     } catch (e) {}
@@ -85,6 +102,27 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
             <p className="text-[11px] text-amber-100 font-bold leading-relaxed">
               موقعك الحالي خارج نطاق التوصيل المعتاد لهذا المطعم. يمكنك تصفح المنيو والطلب عبر الواتساب والاتفاق مع المطعم مباشرة.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Delivery Fee & Distance Info Banner (When Open & Within Delivery Radius) */}
+      {status.isOpen && !outOfRadius && deliveryInfo && deliveryInfo.available && restaurant.has_delivery !== false && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3 px-4 flex items-center justify-between gap-3 text-emerald-950 shadow-2xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Bike size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-black text-xs text-emerald-900 truncate">
+                رسوم التوصيل لموقعك: {deliveryInfo.fee === 0 ? 'مجانية 🎁' : `${deliveryInfo.fee} ₺`}
+              </p>
+              {deliveryInfo.distanceKm !== null && (
+                <p className="text-[11px] font-bold text-emerald-700 truncate">
+                  المسافة المحسوبة: {deliveryInfo.distanceKm.toFixed(1)} كم
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

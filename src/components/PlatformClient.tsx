@@ -736,7 +736,7 @@ export default function PlatformClient({
             <div className="grid grid-cols-1 gap-4">
               {filteredRestaurants.map(restaurant => {
                 const deliveryInfo = restaurant.distance !== null
-                  ? getDeliveryFeeForDistance(restaurant.distance, restaurant.delivery_tiers)
+                  ? getDeliveryFeeForDistance(restaurant.distance, restaurant.delivery_tiers, restaurant.delivery_radius_km)
                   : null
                 const restaurantCats = (restaurant.platform_category_ids || [])
                   .map((cid: string) => categories.find(c => c.id === cid))
@@ -850,11 +850,14 @@ export default function PlatformClient({
                           ) : deliveryInfo?.available ? (
                             <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1">
                               <Bike size={13} className="text-emerald-600" />
-                              <span>توصيل {deliveryInfo.fee} ₺</span>
+                              <span>توصيل {deliveryInfo.fee === 0 ? 'مجاني' : `${deliveryInfo.fee} ₺`}</span>
+                              {restaurant.distance !== null && (
+                                <span className="text-[10px] opacity-75 font-normal">({restaurant.distance.toFixed(1)} كم)</span>
+                              )}
                             </span>
                           ) : (
                             <span className="font-bold text-rose-600 bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-xl">
-                              🚫 خارج النطاق
+                              🚫 خارج نطاق التوصيل
                             </span>
                           )}
                         </div>
