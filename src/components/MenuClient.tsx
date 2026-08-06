@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import MenuItem from '@/components/MenuItem'
 import { Search, X } from 'lucide-react'
+import { trackEvent } from '@/utils/analytics'
 
 export default function MenuClient({
   restaurantId,
@@ -38,6 +39,12 @@ export default function MenuClient({
     secs.forEach(s => observer.current?.observe(s))
     return () => observer.current?.disconnect()
   }, [categories])
+
+  useEffect(() => {
+    if (restaurantId) {
+      trackEvent({ event_type: 'menu_view', store_id: restaurantId })
+    }
+  }, [restaurantId])
 
   const scrollTo = (id: string) => {
     setActiveCat(id)

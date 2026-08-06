@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { Download, X, Share, Sparkles, Loader2 } from 'lucide-react'
 
+import { trackEvent } from '@/utils/analytics'
+
 export default function InstallPwaPrompt() {
   const pathname = usePathname()
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
@@ -74,6 +76,7 @@ export default function InstallPwaPrompt() {
     const handleAppInstalled = () => {
       setShowPrompt(false)
       setIsStandalone(true)
+      trackEvent({ event_type: 'pwa_install' })
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -107,6 +110,7 @@ export default function InstallPwaPrompt() {
         if (outcome === 'accepted') {
           setShowPrompt(false)
           setIsStandalone(true)
+          trackEvent({ event_type: 'pwa_install' })
         }
       } catch (err) {
         console.log('PWA Prompt execution:', err)

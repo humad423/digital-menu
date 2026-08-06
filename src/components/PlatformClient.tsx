@@ -10,6 +10,7 @@ import UserAuthButton from '@/components/UserAuthButton'
 import BrandLogo from '@/components/BrandLogo'
 import { calculateDistance, getDeliveryFeeForDistance, isStoreWithinRange } from '@/utils/distance'
 import { getStoreStatus } from '@/utils/storeStatus'
+import { trackEvent } from '@/utils/analytics'
 
 // ═══════════════════════════════════════════════════════════
 //  ADS SLIDER (Touch + Mouse Drag + Dots + Arrows)
@@ -79,11 +80,24 @@ function AdsSlider({ ads }: { ads: any[] }) {
           {ads.map((ad) => (
             <div key={ad.id} className="flex-none w-full h-full relative">
               {ad.link_url ? (
-                <a href={ad.link_url} target="_blank" rel="noreferrer" className="block w-full h-full" draggable={false}>
+                <a
+                  href={ad.link_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block w-full h-full"
+                  draggable={false}
+                  onClick={() => trackEvent({ event_type: 'ad_click', ad_id: ad.id })}
+                >
                   <img src={ad.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
                 </a>
               ) : (
-                <img src={ad.image_url} alt="" className="w-full h-full object-cover" draggable={false} />
+                <img
+                  src={ad.image_url}
+                  alt=""
+                  className="w-full h-full object-cover cursor-pointer"
+                  draggable={false}
+                  onClick={() => trackEvent({ event_type: 'ad_click', ad_id: ad.id })}
+                />
               )}
             </div>
           ))}
@@ -274,6 +288,10 @@ export default function PlatformClient({
       requestLocation()
     }
   }, [requestLocation])
+
+  useEffect(() => {
+    trackEvent({ event_type: 'page_view' })
+  }, [])
 
 
 

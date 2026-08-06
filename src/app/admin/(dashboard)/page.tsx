@@ -6,14 +6,16 @@ import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
+import AdminAnalyticsTab from '@/components/AdminAnalyticsTab'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon } from 'lucide-react'
+import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, BarChart3 } from 'lucide-react'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
 const TABS = [
   { key: 'restaurants', label: 'المتاجر', Icon: Store },
+  { key: 'analytics', label: 'التحليلات والنمو 📊', Icon: BarChart3 },
   { key: 'offers', label: 'العروض والتخفيضات', Icon: Flame },
   { key: 'map', label: 'الخريطة التفاعلية 🗺️', Icon: MapIcon },
   { key: 'categories', label: 'التصنيفات', Icon: LayoutGrid },
@@ -412,6 +414,13 @@ export default function AdminDashboard() {
               <p className="text-sm font-bold text-slate-400">جاري تحميل البيانات...</p>
             </div>
           </div>
+        )}
+
+        {/* ══════════════════════════════════════
+            ANALYTICS TAB
+        ══════════════════════════════════════ */}
+        {!loading && activeTab === 'analytics' && (
+          <AdminAnalyticsTab restaurants={restaurants} />
         )}
 
         {/* ══════════════════════════════════════
