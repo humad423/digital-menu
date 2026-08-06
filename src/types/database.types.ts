@@ -23,6 +23,8 @@ export interface Database {
           latitude: number | null
           longitude: number | null
           delivery_radius_km: number | null
+          store_type: string | null
+          has_delivery: boolean | null
         }
         Insert: {
           id?: string
@@ -37,6 +39,8 @@ export interface Database {
           latitude?: number | null
           longitude?: number | null
           delivery_radius_km?: number | null
+          store_type?: string | null
+          has_delivery?: boolean | null
         }
         Update: {
           id?: string
@@ -51,6 +55,8 @@ export interface Database {
           latitude?: number | null
           longitude?: number | null
           delivery_radius_km?: number | null
+          store_type?: string | null
+          has_delivery?: boolean | null
         }
       }
       categories: {
@@ -90,6 +96,9 @@ export interface Database {
           is_offer: boolean
           original_price: number | null
           offer_title: string | null
+          images: any
+          sizes: any
+          colors: any
         }
         Insert: {
           id?: string
@@ -104,6 +113,9 @@ export interface Database {
           is_offer?: boolean
           original_price?: number | null
           offer_title?: string | null
+          images?: any
+          sizes?: any
+          colors?: any
         }
         Update: {
           id?: string
@@ -118,6 +130,9 @@ export interface Database {
           is_offer?: boolean
           original_price?: number | null
           offer_title?: string | null
+          images?: any
+          sizes?: any
+          colors?: any
         }
       }
       ads: {
@@ -314,6 +329,10 @@ export interface Database {
           link_url: string | null
           sort_order: number | null
           is_active: boolean | null
+          target_region: string | null
+          latitude: number | null
+          longitude: number | null
+          radius_km: number | null
         }
         Insert: {
           id?: string
@@ -322,6 +341,10 @@ export interface Database {
           link_url?: string | null
           sort_order?: number | null
           is_active?: boolean | null
+          target_region?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          radius_km?: number | null
         }
         Update: {
           id?: string
@@ -330,6 +353,10 @@ export interface Database {
           link_url?: string | null
           sort_order?: number | null
           is_active?: boolean | null
+          target_region?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          radius_km?: number | null
         }
       }
       restaurant_platform_categories: {
@@ -346,6 +373,36 @@ export interface Database {
           platform_category_id?: string
         }
       }
+      service_zones: {
+        Row: {
+          id: string
+          created_at: string
+          name: string
+          latitude: number
+          longitude: number
+          radius_km: number
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          name: string
+          latitude: number
+          longitude: number
+          radius_km?: number
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          name?: string
+          latitude?: number
+          longitude?: number
+          radius_km?: number
+          is_active?: boolean
+        }
+      }
     }
   }
 }
+

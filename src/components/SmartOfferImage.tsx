@@ -3,6 +3,9 @@
 interface SmartOfferImageProps {
   primaryImage?: string | null
   bonusImage?: string | null
+  item3Image?: string | null
+  item4Image?: string | null
+  itemImages?: (string | null | undefined)[]
   customImage?: string | null
   minQuantity?: number
   bonusQuantity?: number
@@ -12,47 +15,95 @@ interface SmartOfferImageProps {
 export default function SmartOfferImage({
   primaryImage,
   bonusImage,
+  item3Image,
+  item4Image,
+  itemImages,
   customImage,
   minQuantity = 1,
   bonusQuantity = 1,
   className = "w-full h-full"
 }: SmartOfferImageProps) {
   // If custom image is uploaded, display it directly
-  if (customImage) {
+  if (customImage && customImage.trim() !== '') {
     return (
-      <div className={`relative overflow-hidden bg-gray-100 ${className}`}>
+      <div className={`relative overflow-hidden bg-slate-100 ${className}`}>
         <img src={customImage} alt="" className="w-full h-full object-cover" />
       </div>
     )
   }
 
+  // Gather list of item images from all props
+  let images: string[] = []
+  if (Array.isArray(itemImages) && itemImages.length > 0) {
+    images = itemImages.filter((img): img is string => typeof img === 'string' && img.trim() !== '')
+  } else {
+    images = [primaryImage, bonusImage, item3Image, item4Image].filter((img): img is string => typeof img === 'string' && img.trim() !== '')
+  }
+
+  // 0 images: Fallback gradient
+  if (images.length === 0) {
+    return (
+      <div className={`relative overflow-hidden bg-gradient-to-br from-orange-500/20 via-amber-500/10 to-slate-900 flex items-center justify-center ${className}`}>
+        <span className="text-3xl drop-shadow-md">🏷️</span>
+      </div>
+    )
+  }
+
+  // 1 image: Full cover
+  if (images.length === 1) {
+    return (
+      <div className={`relative overflow-hidden bg-slate-100 ${className}`}>
+        <img src={images[0]} alt="" className="w-full h-full object-cover" />
+        {minQuantity > 1 && (
+          <div className="absolute top-2 right-2 bg-slate-950/80 backdrop-blur-md text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/20">
+            {minQuantity}x
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 2 images: 2-split vertical (50% / 50%)
+  if (images.length === 2) {
+    return (
+      <div className={`relative overflow-hidden bg-slate-200 grid grid-cols-2 gap-0.5 ${className}`}>
+        <div className="w-full h-full overflow-hidden relative">
+          <img src={images[0]} alt="" className="w-full h-full object-cover" />
+        </div>
+        <div className="w-full h-full overflow-hidden relative">
+          <img src={images[1]} alt="" className="w-full h-full object-cover" />
+        </div>
+      </div>
+    )
+  }
+
+  // 3 images: 1 large on right (50%) + 2 stacked on left (50%)
+  if (images.length === 3) {
+    return (
+      <div className={`relative overflow-hidden bg-slate-200 grid grid-cols-2 gap-0.5 ${className}`}>
+        <div className="w-full h-full overflow-hidden relative">
+          <img src={images[0]} alt="" className="w-full h-full object-cover" />
+        </div>
+        <div className="grid grid-rows-2 gap-0.5 w-full h-full">
+          <div className="w-full h-full overflow-hidden relative">
+            <img src={images[1]} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div className="w-full h-full overflow-hidden relative">
+            <img src={images[2]} alt="" className="w-full h-full object-cover" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 4+ images: 2x2 grid (4 equal quadrants)
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-br from-orange-100 to-amber-50 rounded-xl ${className}`}>
-      {/* Primary Image */}
-      {primaryImage ? (
-        <img src={primaryImage} alt="" className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-3xl">🍽️</div>
-      )}
-
-      {/* Quantity Badge (e.g. 5x) */}
-      {minQuantity > 1 && (
-        <div className="absolute top-2 right-2 bg-black/75 backdrop-blur-md text-white text-xs font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">
-          {minQuantity}x
+    <div className={`relative overflow-hidden bg-slate-200 grid grid-cols-2 grid-rows-2 gap-0.5 ${className}`}>
+      {images.slice(0, 4).map((img, idx) => (
+        <div key={idx} className="w-full h-full overflow-hidden relative">
+          <img src={img} alt="" className="w-full h-full object-cover" />
         </div>
-      )}
-
-      {/* Bonus Image Overlay */}
-      {bonusImage && (
-        <div className="absolute bottom-1.5 left-1.5 flex items-center">
-          <div className="w-10 h-10 rounded-full border-2 border-white shadow-xl bg-white overflow-hidden relative z-10 shrink-0">
-            <img src={bonusImage} alt="" className="w-full h-full object-cover" />
-          </div>
-          <div className="px-1.5 py-0.5 rounded-full bg-orange-600 text-white flex items-center justify-center text-[10px] font-black shadow-md -mr-2 z-20 border border-white">
-            {bonusQuantity > 1 ? `+${bonusQuantity}` : '+'}
-          </div>
-        </div>
-      )}
+      ))}
     </div>
   )
 }

@@ -7,6 +7,8 @@ import { Search, X } from 'lucide-react'
 export default function MenuClient({
   restaurantId,
   restaurantName = 'المطعم',
+  storeType = 'restaurant',
+  restaurant,
   categories,
   menuItems,
   ads,
@@ -14,6 +16,8 @@ export default function MenuClient({
 }: {
   restaurantId: string
   restaurantName?: string
+  storeType?: string
+  restaurant?: any
   categories: any[]
   menuItems: any[]
   ads: any[]
@@ -38,7 +42,7 @@ export default function MenuClient({
   const scrollTo = (id: string) => {
     setActiveCat(id)
     const el = document.getElementById(`cat-sec-${id}`)
-    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 75, behavior: 'smooth' })
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 110, behavior: 'smooth' })
   }
 
   const filteredCats = categories.map(cat => ({
@@ -49,74 +53,77 @@ export default function MenuClient({
     )
   })).filter(c => c.items.length > 0)
 
-  const formattedOffers = (offers || [])
-    .filter(o => o.title.includes(searchQuery) || (o.description && o.description.includes(searchQuery)))
-    .map(o => ({
-      id: `offer-${o.id}`,
-      name: o.title,
-      description: o.description,
-      price: o.offer_price,
-      original_price: o.original_price,
-      image_url: o.image_url || o.primary_item?.image_url,
-      primary_image_url: o.primary_item?.image_url,
-      bonus_image_url: o.bonus_item?.image_url,
-      min_quantity: o.min_quantity,
-      bonus_quantity: o.bonus_quantity,
-      is_offer: true,
-      offer_title: o.min_quantity > 1 ? `🔥 ${o.min_quantity}X` : o.bonus_item ? '🎁 هدية' : '🏷️ خصم',
-      category_id: 'offers-special'
-    }))
-
-  const displayCats = [
-    ...(formattedOffers.length > 0 ? [{ id: 'offers-special', name: '🔥 العروض والبكجات', icon: null, items: formattedOffers }] : []),
-    ...filteredCats
-  ]
+  // Merge special offers into categories if exists
+  const displayCats = offers.length > 0 && !searchQuery
+    ? [{
+        id: 'offers-special',
+        name: 'العروض والتخفيضات',
+        icon: '🔥',
+        items: offers.map(o => ({
+          id: o.id,
+          name: o.title,
+          description: o.description,
+          price: o.offer_price,
+          original_price: o.original_price,
+          image_url: o.image_url || o.primary_item?.image_url,
+          primary_image_url: o.primary_item?.image_url,
+          bonus_image_url: o.bonus_item?.image_url,
+          min_quantity: o.min_quantity,
+          bonus_quantity: o.bonus_quantity,
+          is_offer: true
+        }))
+      }, ...filteredCats]
+    : filteredCats
 
   return (
-    <div className="pb-8" dir="rtl">
+    <div className="pb-24">
 
-      {/* ── Search Input ── */}
-      <div className="relative mb-3">
-        <input
-          ref={searchRef}
-          type="text"
-          placeholder={`ابحث في منيو ${restaurantName}...`}
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="w-full bg-white border border-slate-200/80 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition shadow-xs"
-        />
-        <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        {searchQuery && (
-          <button
-            onClick={() => { setSearchQuery(''); searchRef.current?.focus() }}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-          >
-            <X size={15} />
-          </button>
-        )}
+      {/* ── Search Bar ── */}
+      <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 -mx-4 px-4 border-b border-slate-200/80 shadow-2xs">
+        <div className="relative">
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder={
+              storeType === 'supermarket'
+                ? 'ابحث في منتجات وعروض السوبرماركت...'
+                : storeType === 'clothing'
+                ? 'ابحث في تشكيلة الموديلات والألبسة...'
+                : 'ابحث في المنتجات والكتالوج...'
+            }
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 shadow-2xs transition"
+          />
+          <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* ── Category Sticky Bar ── */}
-      {!searchQuery && displayCats.length > 1 && (
-        <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 -mx-4 px-4 border-b border-slate-200/60 flex gap-2 overflow-x-auto hide-scrollbar">
+      {/* ── Category Pill Tabs ── */}
+      {!searchQuery && categories.length > 1 && (
+        <div className="sticky top-[54px] z-20 bg-slate-50/95 backdrop-blur-md py-2 -mx-4 px-4 border-b border-slate-200/60 flex gap-2 overflow-x-auto hide-scrollbar">
           {displayCats.map(cat => {
             const isActive = activeCat === cat.id
-            const isOfferTab = cat.id === 'offers-special'
             return (
               <button
                 key={cat.id}
                 onClick={() => scrollTo(cat.id)}
-                className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-95 border ${
+                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
                   isActive
-                    ? 'text-white border-transparent shadow-sm'
-                    : isOfferTab
-                    ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
-                    : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-100'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
                 }`}
-                style={isActive ? { background: 'var(--color-primary, #F97316)', borderColor: 'var(--color-primary, #F97316)' } : {}}
               >
-                {cat.icon && <span>{cat.icon}</span>}
-                <span>{isOfferTab ? '🔥 العروض' : cat.name}</span>
+                <span>{cat.id === 'offers-special' ? '🔥' : (cat.icon || '🍽️')}</span>
+                <span>{cat.name}</span>
               </button>
             )
           })}
@@ -133,20 +140,20 @@ export default function MenuClient({
           </div>
         ) : (
           displayCats.map(cat => (
-            <section key={cat.id} id={`cat-sec-${cat.id}`} className="scroll-mt-20">
+            <section key={cat.id} id={`cat-sec-${cat.id}`} className="scroll-mt-28">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">{cat.id === 'offers-special' ? '🔥' : (cat.icon || '🍽️')}</span>
+                <span className="text-base">{cat.id === 'offers-special' ? '🔥' : (cat.icon || (storeType === 'clothing' ? '👗' : storeType === 'supermarket' ? '🛒' : '🍽️'))}</span>
                 <h2 className="text-base font-black text-slate-900 flex-1 truncate">
-                  {cat.id === 'offers-special' ? 'العروض والبكجات' : cat.name}
+                  {cat.id === 'offers-special' ? 'العروض والتخفيضات' : cat.name}
                 </h2>
                 <span className="bg-slate-200 text-slate-700 text-xs font-black px-2.5 py-0.5 rounded-full">
                   {cat.items.length}
                 </span>
               </div>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {cat.items.map((item: any) => (
-                  <MenuItem key={item.id} item={item} restaurantId={restaurantId} />
+                  <MenuItem key={item.id} item={item} restaurantId={restaurantId} storeType={storeType} hasDelivery={restaurant?.has_delivery !== false} />
                 ))}
               </div>
             </section>

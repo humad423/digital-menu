@@ -10,7 +10,8 @@ export default async function Home() {
     { data: restaurants },
     { data: categories },
     { data: ads },
-    { data: offers }
+    { data: offers },
+    { data: serviceZones }
   ] = await Promise.all([
     supabase
       .from('restaurants')
@@ -30,10 +31,17 @@ export default async function Home() {
 
     supabase
       .from('offers')
-      .select('*, restaurants(id, name, slug, latitude, longitude, delivery_radius_km)')
+      .select('*, restaurants(id, name, slug, latitude, longitude, delivery_radius_km), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
       .eq('is_active', true)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(50),
+
+    supabase
+      .from('service_zones')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true })
   ])
 
   // Flatten: add platform_category_ids array and average rating to each restaurant
@@ -58,8 +66,10 @@ export default async function Home() {
           categories={categories || []}
           ads={ads || []}
           offers={offers || []}
+          serviceZones={serviceZones || []}
         />
       </div>
     </main>
   )
+
 }

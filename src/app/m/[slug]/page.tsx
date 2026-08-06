@@ -13,12 +13,12 @@ export default async function RestaurantMenuPage({
   const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name')
+    .select('id, name, store_type, has_delivery, primary_color, cover_url, logo_url')
     .eq('slug', slug)
     .maybeSingle()
 
   if (!restaurant) {
-    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المطعم غير موجود أو قد يكون الرابط غير صحيح.</div>
+    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر أو المطعم غير موجود أو قد يكون الرابط غير صحيح.</div>
   }
 
   const [
@@ -50,13 +50,15 @@ export default async function RestaurantMenuPage({
     : { data: [] }
 
   if (!categories || categories.length === 0) {
-    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">القائمة قيد التجهيز لهذا المطعم...</div>
+    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر قيد التجهيز حالياً...</div>
   }
 
   return (
     <MenuClient
       restaurantId={restaurant.id}
       restaurantName={restaurant.name}
+      storeType={restaurant.store_type || 'restaurant'}
+      restaurant={restaurant}
       categories={categories || []}
       menuItems={menuItems || []}
       ads={[]}

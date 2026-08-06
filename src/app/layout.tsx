@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ألف سوق | Alfsouq - منصة المطاعم والعروض الأولى",
-  description: "ألف سوق (alfsouq.com) - المنصة التجارية الشاملة لتصفح أحدث المطاعم والوجبات والعروض التنافسية وتسهيل الطلب المباشر.",
+  title: "ألف سوق | Alfsouq - المنصة التجارية الشاملة للمتاجر والعروض",
+  description: "ألف سوق (alfsouq.com) - المنصة التجارية الشاملة لتصفح أحدث المتاجر والمطاعم والمنتجات والعروض التنافسية وتسهيل الطلب المباشر.",
 };
 
 export default function RootLayout({

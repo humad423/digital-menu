@@ -107,7 +107,7 @@ export default function ReviewsClient({
         {/* Add Rating Form */}
         {showAddForm && (
           <form onSubmit={handleSubmitRating} className="bg-white rounded-3xl p-5 shadow-sm border border-orange-200 space-y-4 animate-fade-in">
-            <h3 className="font-black text-sm text-gray-900 text-center">شاركنا رأيك في الوجبات والخدمة ⭐</h3>
+            <h3 className="font-black text-sm text-gray-900 text-center">شاركنا رأيك في المنتجات والخدمة ⭐</h3>
 
             {/* Star Selector */}
             <div className="flex justify-center gap-3 text-3xl">
@@ -131,7 +131,7 @@ export default function ReviewsClient({
                 rows={3}
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="اكتب تعليقك حول طعم الطعام ونظافة الوجبات..."
+                placeholder="اكتب تعليقك حول جودة المنتجات وسرعة الخدمة..."
                 className="w-full p-3 border border-gray-200 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-orange-100 bg-gray-50 focus:bg-white transition"
               ></textarea>
             </div>

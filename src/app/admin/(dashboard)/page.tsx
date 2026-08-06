@@ -4,11 +4,20 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone } from 'lucide-react'
+import SmartOfferImage from '@/components/SmartOfferImage'
+import StoreSettingsModal from '@/components/StoreSettingsModal'
+import { getStoreStatus } from '@/utils/storeStatus'
+import dynamicImport from 'next/dynamic'
+import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon } from 'lucide-react'
+
+const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
 const TABS = [
-  { key: 'restaurants', label: 'المطاعم', Icon: Store },
+  { key: 'restaurants', label: 'المتاجر', Icon: Store },
+  { key: 'offers', label: 'العروض والتخفيضات', Icon: Flame },
+  { key: 'map', label: 'الخريطة التفاعلية 🗺️', Icon: MapIcon },
   { key: 'categories', label: 'التصنيفات', Icon: LayoutGrid },
+  { key: 'zones', label: 'المناطق الجغرافية', Icon: MapPin },
   { key: 'ads', label: 'الإعلانات', Icon: ImageIcon },
   { key: 'orders', label: 'الطلبات', Icon: ClipboardList },
 ] as const
@@ -21,23 +30,43 @@ export default function AdminDashboard() {
   const [platformAds, setPlatformAds] = useState<any[]>([])
   const [restaurantCategoryMap, setRestaurantCategoryMap] = useState<Record<string, string[]>>({})
   const [orders, setOrders] = useState<any[]>([])
+  const [serviceZones, setServiceZones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('restaurants')
+  const [selectedStoreForSettings, setSelectedStoreForSettings] = useState<any>(null)
+
+  const [allOffers, setAllOffers] = useState<any[]>([])
+  const [offerSearchQuery, setOfferSearchQuery] = useState('')
 
   const supabase = createClient()
 
+  const [ownerPhoneMap, setOwnerPhoneMap] = useState<Record<string, string>>({})
+
   const fetchData = async () => {
     setLoading(true)
-    const [resRes, catRes, adsRes, relRes, ordRes] = await Promise.all([
+    const [resRes, catRes, adsRes, relRes, ordRes, zonesRes, profRes, offersRes] = await Promise.all([
       supabase.from('restaurants').select('*').order('created_at', { ascending: false }),
       supabase.from('platform_categories').select('*').order('created_at', { ascending: true }),
       supabase.from('platform_ads').select('*').order('sort_order', { ascending: true }),
       supabase.from('restaurant_platform_categories').select('*'),
       supabase.from('orders').select('*, restaurants(name)').order('created_at', { ascending: false }),
+      supabase.from('service_zones').select('*').order('created_at', { ascending: true }),
+      supabase.from('profiles').select('restaurant_id, phone').eq('role', 'restaurant_owner'),
+      supabase.from('offers').select('*, restaurants(id, name, slug), primary_item:menu_items!primary_item_id(name, image_url), bonus_item:menu_items!bonus_item_id(name, image_url), item3:menu_items!item3_id(name, image_url), item4:menu_items!item4_id(name, image_url)').order('sort_order', { ascending: true }).order('created_at', { ascending: false })
     ])
     if (resRes.data) setRestaurants(resRes.data)
     if (catRes.data) setPlatformCategories(catRes.data)
     if (adsRes.data) setPlatformAds(adsRes.data)
+    if (offersRes.data) {
+      const sorted = [...offersRes.data].sort((a, b) => {
+        const orderA = (a.sort_order && a.sort_order > 0) ? a.sort_order : 999999
+        const orderB = (b.sort_order && b.sort_order > 0) ? b.sort_order : 999999
+        if (orderA !== orderB) return orderA - orderB
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+      })
+      const normalized = sorted.map((off, idx) => ({ ...off, sort_order: idx + 1 }))
+      setAllOffers(normalized)
+    }
     if (relRes.data) {
       const map: Record<string, string[]> = {}
       relRes.data.forEach(r => {
@@ -46,8 +75,48 @@ export default function AdminDashboard() {
       })
       setRestaurantCategoryMap(map)
     }
+    if (profRes.data) {
+      const pMap: Record<string, string> = {}
+      profRes.data.forEach(p => {
+        if (p.restaurant_id && p.phone) pMap[p.restaurant_id] = p.phone
+      })
+      setOwnerPhoneMap(pMap)
+    }
     if (ordRes.data) setOrders(ordRes.data)
+    if (zonesRes.data) setServiceZones(zonesRes.data)
     setLoading(false)
+  }
+
+  const movePlatformOfferToRank = async (targetOfferId: string, targetRank: number) => {
+    let list = [...allOffers].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    const currentIndex = list.findIndex(o => o.id === targetOfferId)
+    if (currentIndex === -1) return
+
+    const [movedOffer] = list.splice(currentIndex, 1)
+    const clampedRank = Math.max(1, Math.min(targetRank, list.length + 1))
+    list.splice(clampedRank - 1, 0, movedOffer)
+
+    const updatedList = list.map((off, idx) => ({ ...off, sort_order: idx + 1 }))
+    setAllOffers(updatedList)
+
+    await Promise.all(
+      updatedList.map(off =>
+        supabase.from('offers').update({ sort_order: off.sort_order }).eq('id', off.id)
+      )
+    )
+  }
+
+  const togglePlatformOfferActive = async (offer: any) => {
+    const newStatus = !offer.is_active
+    setAllOffers(prev => prev.map(o => o.id === offer.id ? { ...o, is_active: newStatus } : o))
+    await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id)
+  }
+
+  const deletePlatformOffer = async (offerId: string, title: string) => {
+    if (confirm(`هل أنت متأكد من حذف العرض "${title}" من المنصة بالكامل؟`)) {
+      setAllOffers(prev => prev.filter(o => o.id !== offerId))
+      await supabase.from('offers').delete().eq('id', offerId)
+    }
   }
 
   useEffect(() => { fetchData() }, [])
@@ -55,7 +124,12 @@ export default function AdminDashboard() {
   // ── Restaurants ─────────────────────────────────────────────────
   const [showResForm, setShowResForm] = useState(false)
   const [editResId, setEditResId] = useState<string | null>(null)
-  const emptyRes = { name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '', logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5' }
+  const emptyRes = {
+    name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '',
+    logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
+    max_offers_limit: '5', store_type: 'restaurant', has_delivery: true,
+    opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false
+  }
   const [resForm, setResForm] = useState(emptyRes)
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([])
   const [savingRes, setSavingRes] = useState(false)
@@ -73,6 +147,13 @@ export default function AdminDashboard() {
       latitude: resForm.latitude ? parseFloat(resForm.latitude) : null,
       longitude: resForm.longitude ? parseFloat(resForm.longitude) : null,
       delivery_radius_km: resForm.delivery_radius_km ? parseFloat(resForm.delivery_radius_km) : 5,
+      max_offers_limit: resForm.max_offers_limit ? parseInt(resForm.max_offers_limit) : 5,
+      store_type: resForm.store_type || 'restaurant',
+      has_delivery: resForm.has_delivery,
+      opening_time: resForm.opening_time || '09:00',
+      closing_time: resForm.closing_time || '23:00',
+      days_off: resForm.days_off || [],
+      is_on_holiday: resForm.is_on_holiday || false,
     }
     let restaurantId = editResId
     if (editResId) {
@@ -109,7 +190,21 @@ export default function AdminDashboard() {
 
   const handleEditRes = (r: any) => {
     setEditResId(r.id)
-    setResForm({ name: r.name, slug: r.slug, primary_color: r.primary_color || '#ea580c', whatsapp_number: r.whatsapp_number, owner_phone: r.owner_phone || '', logo_url: r.logo_url || '', cover_url: r.cover_url || '', latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '', delivery_radius_km: r.delivery_radius_km?.toString() || '5' })
+    const currentOwnerPhone = ownerPhoneMap[r.id] || r.owner_phone || ''
+    setResForm({
+      name: r.name, slug: r.slug, primary_color: r.primary_color || '#ea580c',
+      whatsapp_number: r.whatsapp_number || '', owner_phone: currentOwnerPhone,
+      logo_url: r.logo_url || '', cover_url: r.cover_url || '',
+      latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '',
+      delivery_radius_km: r.delivery_radius_km?.toString() || '5',
+      max_offers_limit: r.max_offers_limit?.toString() || '5',
+      store_type: r.store_type || 'restaurant',
+      has_delivery: r.has_delivery !== false,
+      opening_time: r.opening_time || '09:00',
+      closing_time: r.closing_time || '23:00',
+      days_off: Array.isArray(r.days_off) ? r.days_off : [],
+      is_on_holiday: !!r.is_on_holiday
+    })
     setSelectedCatIds(restaurantCategoryMap[r.id] || [])
     setShowResForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -138,9 +233,64 @@ export default function AdminDashboard() {
     if (confirm('حذف التصنيف؟')) { await supabase.from('platform_categories').delete().eq('id', id); fetchData() }
   }
 
+  // ── Service Zones ────────────────────────────────────────────────
+  const [showZoneForm, setShowZoneForm] = useState(false)
+  const [editZoneId, setEditZoneId] = useState<string | null>(null)
+  const emptyZone = { name: '', latitude: '', longitude: '', radius_km: '15', is_active: true }
+  const [zoneForm, setZoneForm] = useState(emptyZone)
+  const [savingZone, setSavingZone] = useState(false)
+
+  const handleZoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingZone(true)
+    const payload = {
+      name: zoneForm.name.trim(),
+      latitude: parseFloat(zoneForm.latitude),
+      longitude: parseFloat(zoneForm.longitude),
+      radius_km: parseFloat(zoneForm.radius_km) || 15,
+      is_active: zoneForm.is_active
+    }
+    if (editZoneId) {
+      await supabase.from('service_zones').update(payload).eq('id', editZoneId)
+    } else {
+      await supabase.from('service_zones').insert([payload])
+    }
+    setSavingZone(false)
+    setShowZoneForm(false)
+    setEditZoneId(null)
+    setZoneForm(emptyZone)
+    fetchData()
+  }
+
+  const handleEditZone = (z: any) => {
+    setEditZoneId(z.id)
+    setZoneForm({
+      name: z.name,
+      latitude: z.latitude.toString(),
+      longitude: z.longitude.toString(),
+      radius_km: z.radius_km.toString(),
+      is_active: z.is_active
+    })
+    setShowZoneForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDeleteZone = async (id: string, name: string) => {
+    if (confirm(`هل أنت متأكد من حذف المنطقة الجغرافية "${name}"؟`)) {
+      await supabase.from('service_zones').delete().eq('id', id)
+      fetchData()
+    }
+  }
+
+  const toggleZoneActive = async (z: any) => {
+    await supabase.from('service_zones').update({ is_active: !z.is_active }).eq('id', z.id)
+    fetchData()
+  }
+
   // ── Platform Ads ────────────────────────────────────────────────
   const [showAdForm, setShowAdForm] = useState(false)
-  const [adForm, setAdForm] = useState({
+  const [editAdId, setEditAdId] = useState<string | null>(null)
+  const emptyAdForm = {
     image_url: '',
     link_url: '',
     sort_order: 0,
@@ -148,24 +298,57 @@ export default function AdminDashboard() {
     latitude: null as number | null,
     longitude: null as number | null,
     radius_km: null as number | null
-  })
+  }
+  const [adForm, setAdForm] = useState(emptyAdForm)
 
   const handleAdSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!adForm.image_url) return alert('الصورة مطلوبة')
 
-    const { error } = await supabase.from('platform_ads').insert([adForm])
-    if (error) {
-      const { latitude, longitude, radius_km, ...fallbackForm } = adForm
-      const { error: err2 } = await supabase.from('platform_ads').insert([fallbackForm])
-      if (err2) {
-        const { target_region, ...cleanForm } = fallbackForm
-        await supabase.from('platform_ads').insert([cleanForm])
+    const payload = {
+      image_url: adForm.image_url,
+      link_url: adForm.link_url || null,
+      sort_order: adForm.sort_order || 0,
+      target_region: adForm.target_region || 'جميع المناطق',
+      latitude: adForm.latitude,
+      longitude: adForm.longitude,
+      radius_km: adForm.radius_km
+    }
+
+    if (editAdId) {
+      const { error } = await supabase.from('platform_ads').update(payload).eq('id', editAdId)
+      if (error) {
+        console.error('Error updating ad:', error)
+        alert('حدث خطأ أثناء تعديل الإعلان: ' + error.message)
+        return
+      }
+    } else {
+      const { error } = await supabase.from('platform_ads').insert([payload])
+      if (error) {
+        console.error('Error inserting ad:', error)
+        alert('حدث خطأ أثناء حفظ الإعلان: ' + error.message)
+        return
       }
     }
     setShowAdForm(false)
-    setAdForm({ image_url: '', link_url: '', sort_order: 0, target_region: 'جميع المناطق', latitude: null, longitude: null, radius_km: null })
+    setEditAdId(null)
+    setAdForm(emptyAdForm)
     fetchData()
+  }
+
+  const handleEditAd = (ad: any) => {
+    setEditAdId(ad.id)
+    setAdForm({
+      image_url: ad.image_url || '',
+      link_url: ad.link_url || '',
+      sort_order: ad.sort_order || 0,
+      target_region: ad.target_region || 'جميع المناطق',
+      latitude: ad.latitude ?? null,
+      longitude: ad.longitude ?? null,
+      radius_km: ad.radius_km ?? null
+    })
+    setShowAdForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const deleteAd = async (id: string) => {
@@ -263,12 +446,25 @@ export default function AdminDashboard() {
                   <form onSubmit={handleResSubmit} className="space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="f-label">اسم المطعم *</label>
-                        <input type="text" required value={resForm.name} onChange={e => setResForm({ ...resForm, name: e.target.value })} className="f-input" placeholder="مثال: مطعم الأصيل" />
+                        <label className="f-label">اسم النشاط / المحل *</label>
+                        <input type="text" required value={resForm.name} onChange={e => setResForm({ ...resForm, name: e.target.value })} className="f-input" placeholder="مثال: سوبرماركت الخير" />
+                      </div>
+                      <div>
+                        <label className="f-label">نوع النشاط التجاري *</label>
+                        <select
+                          value={resForm.store_type || 'restaurant'}
+                          onChange={e => setResForm({ ...resForm, store_type: e.target.value })}
+                          className="f-input"
+                        >
+                          <option value="restaurant">🍔 مطعم / مأكولات</option>
+                          <option value="supermarket">🛒 سوبر ماركت / مواد غذائية</option>
+                          <option value="clothing">👗 محلات ألبسة وموضة</option>
+                          <option value="other">🎁 خدمات ومتاجر أخرى</option>
+                        </select>
                       </div>
                       <div>
                         <label className="f-label">الرابط (Slug) *</label>
-                        <input type="text" required dir="ltr" value={resForm.slug} onChange={e => setResForm({ ...resForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="f-input text-left" placeholder="alasil" />
+                        <input type="text" required dir="ltr" value={resForm.slug} onChange={e => setResForm({ ...resForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="f-input text-left" placeholder="alalkhair-market" />
                       </div>
                       <div>
                         <label className="f-label">رقم الواتساب *</label>
@@ -281,8 +477,8 @@ export default function AdminDashboard() {
                           <span className="text-xs font-mono text-slate-500 uppercase">{resForm.primary_color}</span>
                         </div>
                       </div>
-                      <div className="md:col-span-2">
-                        <label className="f-label">📱 رقم هاتف صاحب المطعم (لتسجيل الدخول)</label>
+                      <div>
+                        <label className="f-label">📱 رقم هاتف المحل/المالك (لتسجيل الدخول)</label>
                         <input type="text" dir="ltr" placeholder="5352574134 أو +905352574134" value={resForm.owner_phone} onChange={e => setResForm({ ...resForm, owner_phone: e.target.value })} className="f-input text-left" />
                       </div>
                     </div>
@@ -320,6 +516,84 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
+                    {/* Delivery Option Toggle */}
+                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                      <input
+                        type="checkbox"
+                        id="has_delivery"
+                        checked={resForm.has_delivery}
+                        onChange={e => setResForm({ ...resForm, has_delivery: e.target.checked })}
+                        className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer"
+                      />
+                      <label htmlFor="has_delivery" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                        🛵 يقدّم خدمة التوصيل للمنازل (عند إلغاء التفعيل سيظهر كـ "استلام من الفرع / تصفح فقط")
+                      </label>
+                    </div>
+
+                    {/* Working Hours & Days Off */}
+                    <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-black text-sm text-slate-800 flex items-center gap-1.5">
+                          <span>⏰</span> ساعات العمل وأيام العطلة الرسمية
+                        </h4>
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-black text-amber-900">
+                          <input
+                            type="checkbox"
+                            checked={resForm.is_on_holiday}
+                            onChange={e => setResForm({ ...resForm, is_on_holiday: e.target.checked })}
+                            className="w-4 h-4 accent-amber-600 rounded"
+                          />
+                          <span>🌴 إغلاق مؤقت / في عطلة</span>
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="f-label">وقت الفتح ⏰</label>
+                          <input
+                            type="time"
+                            value={resForm.opening_time}
+                            onChange={e => setResForm({ ...resForm, opening_time: e.target.value })}
+                            className="f-input text-center font-bold bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="f-label">وقت الإغلاق 🌙</label>
+                          <input
+                            type="time"
+                            value={resForm.closing_time}
+                            onChange={e => setResForm({ ...resForm, closing_time: e.target.value })}
+                            className="f-input text-center font-bold bg-white"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="f-label mb-1">أيام العطلة الأسبوعية (اختياري)</label>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(day => {
+                            const isSelected = (resForm.days_off || []).includes(day)
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => {
+                                  const current = resForm.days_off || []
+                                  const next = current.includes(day) ? current.filter(d => d !== day) : [...current, day]
+                                  setResForm({ ...resForm, days_off: next })
+                                }}
+                                className={`px-3 py-1 rounded-xl text-xs font-black transition-all border ${
+                                  isSelected
+                                    ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                                }`}
+                              >
+                                {isSelected ? '✓ ' : ''}{day}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Location */}
                     <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-3">
                       <div className="flex items-center justify-between gap-3">
@@ -337,7 +611,7 @@ export default function AdminDashboard() {
                           <MapPin size={14} /> موقعي الحالي
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className="f-label">الإحداثيات (lat, lng)</label>
                           <input type="text" dir="ltr" placeholder="41.0082, 28.9784"
@@ -360,6 +634,12 @@ export default function AdminDashboard() {
                           <input type="number" min="1" max="100" step="0.5" value={resForm.delivery_radius_km}
                             onChange={e => setResForm({ ...resForm, delivery_radius_km: e.target.value })}
                             className="f-input bg-white" />
+                        </div>
+                        <div>
+                          <label className="f-label">الحد الأقصى للعروض</label>
+                          <input type="number" min="1" max="100" value={resForm.max_offers_limit}
+                            onChange={e => setResForm({ ...resForm, max_offers_limit: e.target.value })}
+                            className="f-input bg-white font-black text-orange-600" placeholder="5" />
                         </div>
                       </div>
                       {resForm.latitude && resForm.longitude ? (
@@ -410,9 +690,25 @@ export default function AdminDashboard() {
                       </div>
                       {/* Body */}
                       <div className="p-4 flex-1 flex flex-col">
-                        <div className="mb-3">
-                          <h3 className="font-black text-base text-slate-900">{r.name}</h3>
-                          <p className="text-xs text-slate-400 font-mono mt-0.5" dir="ltr">/m/{r.slug}</p>
+                        <div className="mb-3 flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-black text-base text-slate-900">{r.name}</h3>
+                            <p className="text-xs text-slate-400 font-mono mt-0.5" dir="ltr">/m/{r.slug}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="badge badge-gray font-bold">
+                              {r.store_type === 'supermarket' ? '🛒 سوبرماركت' : r.store_type === 'clothing' ? '👗 ألبسة' : r.store_type === 'other' ? '🎁 متجر' : '🍔 مطعم'}
+                            </span>
+                            {(() => {
+                              const status = getStoreStatus(r)
+                              return (
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                                  <span>{status.statusText}</span>
+                                </span>
+                              )
+                            })()}
+                          </div>
                         </div>
                         {cats.length > 0 && (
                           <div className="flex flex-wrap gap-1 mb-3">
@@ -421,25 +717,48 @@ export default function AdminDashboard() {
                             ))}
                           </div>
                         )}
-                        {r.whatsapp_number && (
-                          <p className="text-xs text-slate-400 flex items-center gap-1 mb-3">
-                            <Phone size={11} /> {r.whatsapp_number}
-                          </p>
-                        )}
+                        {/* Login Phone & WhatsApp Details */}
+                        <div className="space-y-1.5 mb-3 bg-slate-50 border border-slate-100 p-2.5 rounded-2xl text-xs">
+                          <div className="flex items-center justify-between gap-1 text-slate-800 font-bold">
+                            <span className="flex items-center gap-1">
+                              <Phone size={11} className="text-amber-600 shrink-0" />
+                              هاتف دخول اللوحة:
+                            </span>
+                            <span dir="ltr" className="font-mono text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md text-[11px]">
+                              {ownerPhoneMap[r.id] || r.owner_phone || 'غير مسجّل'}
+                            </span>
+                          </div>
+                          {r.whatsapp_number && (
+                            <div className="flex items-center justify-between gap-1 text-slate-500 font-medium">
+                              <span className="flex items-center gap-1">
+                                <Phone size={11} className="text-emerald-500 shrink-0" />
+                                واتساب الزبائن:
+                              </span>
+                              <span dir="ltr" className="font-mono text-slate-700">
+                                {r.whatsapp_number}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         <div className="mt-auto flex flex-col gap-2">
-                          <div className="flex gap-2">
-                            <button onClick={() => handleEditRes(r)} className="btn btn-ghost btn-sm flex-1">
-                              <Settings size={14} /> إعدادات
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button onClick={() => handleEditRes(r)} className="btn btn-ghost btn-sm text-slate-700 bg-slate-100 hover:bg-slate-200 font-bold">
+                              <Edit size={13} /> تعديل البيانات ✏️
                             </button>
-                            <Link href={`/admin/restaurant/${r.id}`} className="btn btn-sm flex-[2] bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100">
-                              <Edit size={14} /> إدارة المنيو
+                            <button onClick={() => setSelectedStoreForSettings(r)} className="btn btn-ghost btn-sm text-orange-700 bg-orange-50 border border-orange-100 hover:bg-orange-100 font-bold">
+                              <Settings size={13} /> الدوام والعطلات ⚙️
+                            </button>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <Link href={`/admin/restaurant/${r.id}`} className="btn btn-sm flex-1 bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 font-bold">
+                              <Utensils size={14} /> إدارة عناصر المنيو والعروض
                             </Link>
-                            <button onClick={() => handleDeleteRes(r.id, r.name)} className="btn btn-danger btn-sm">
+                            <button onClick={() => handleDeleteRes(r.id, r.name)} className="btn btn-danger btn-sm shrink-0">
                               <Trash2 size={14} />
                             </button>
                           </div>
-                          <Link href="/dashboard" target="_blank" className="btn btn-sm bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100 w-full">
-                            🏪 لوحة صاحب المطعم
+                          <Link href="/dashboard" target="_blank" className="btn btn-sm bg-slate-900 text-slate-200 hover:bg-slate-800 w-full text-xs font-bold">
+                            🏪 دخول كصاحب متجر
                           </Link>
                         </div>
                       </div>
@@ -448,6 +767,19 @@ export default function AdminDashboard() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════
+            MAP TAB
+        ══════════════════════════════════════ */}
+        {!loading && activeTab === 'map' && (
+          <div className="animate-fade-in-up">
+            <AdminInteractiveMap
+              restaurants={restaurants}
+              serviceZones={serviceZones}
+              platformAds={platformAds}
+            />
           </div>
         )}
 
@@ -519,6 +851,195 @@ export default function AdminDashboard() {
         )}
 
         {/* ══════════════════════════════════════
+            SERVICE ZONES TAB
+        ══════════════════════════════════════ */}
+        {!loading && activeTab === 'zones' && (
+          <div className="animate-fade-in-up">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-black text-slate-800">المناطق الجغرافية والمسميات</h2>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">{serviceZones.length} منطقة معرفة في النظام</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditZoneId(null)
+                  setZoneForm(emptyZone)
+                  setShowZoneForm(!showZoneForm)
+                }}
+                className="btn btn-primary"
+              >
+                <Plus size={16} /> منطقة جديدة
+              </button>
+            </div>
+
+            {showZoneForm && (
+              <div className="c-card mb-6 animate-slide-down">
+                <div className="c-card-header">
+                  <h3 className="font-black text-slate-800">{editZoneId ? 'تعديل منطقة جغرافية' : 'إضافة منطقة جغرافية جديدة'}</h3>
+                  <button onClick={() => { setShowZoneForm(false); setEditZoneId(null) }} className="btn btn-ghost btn-sm"><X size={16} /></button>
+                </div>
+                <div className="c-card-body">
+                  <form onSubmit={handleZoneSubmit} className="space-y-4">
+                    <div>
+                      <label className="f-label">اسم المنطقة بالعربية (يظهر للزبون)</label>
+                      <input
+                        type="text"
+                        required
+                        value={zoneForm.name}
+                        onChange={e => setZoneForm({ ...zoneForm, name: e.target.value })}
+                        className="f-input"
+                        placeholder="مثال: شايروفا / كيبزة"
+                      />
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-bold mb-1">
+                          🔗 لصق الإحداثيات مباشرة أو رابط Google Maps
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          placeholder="40.8167, 29.3750"
+                          onChange={e => {
+                            const val = e.target.value
+                            const match = val.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/)
+                            if (match) {
+                              setZoneForm(prev => ({ ...prev, latitude: match[1], longitude: match[2] }))
+                            }
+                          }}
+                          className="f-input text-left"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="f-label">خط العرض (Lat)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={zoneForm.latitude}
+                            onChange={e => setZoneForm({ ...zoneForm, latitude: e.target.value })}
+                            className="f-input"
+                            placeholder="40.8167"
+                          />
+                        </div>
+                        <div>
+                          <label className="f-label">خط الطول (Lng)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={zoneForm.longitude}
+                            onChange={e => setZoneForm({ ...zoneForm, longitude: e.target.value })}
+                            className="f-input"
+                            placeholder="29.3750"
+                          />
+                        </div>
+                        <div>
+                          <label className="f-label">نصف القطر (كم)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            required
+                            min="0.5"
+                            value={zoneForm.radius_km}
+                            onChange={e => setZoneForm({ ...zoneForm, radius_km: e.target.value })}
+                            className="f-input"
+                            placeholder="15"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="zone_active"
+                        checked={zoneForm.is_active}
+                        onChange={e => setZoneForm({ ...zoneForm, is_active: e.target.checked })}
+                        className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500"
+                      />
+                      <label htmlFor="zone_active" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                        تفعيل التغطية لهذه المنطقة
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button type="button" onClick={() => { setShowZoneForm(false); setEditZoneId(null) }} className="btn btn-ghost">إلغاء</button>
+                      <button type="submit" disabled={savingZone} className="btn btn-dark">
+                        {savingZone ? 'جاري الحفظ...' : editZoneId ? '💾 حفظ التعديلات' : '➕ إضافة المنطقة'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="c-card overflow-hidden">
+              {serviceZones.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <p className="text-4xl mb-2">📍</p>
+                  <p className="font-bold">لا توجد مناطق جغرافية بعد</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>اسم المنطقة</th>
+                        <th>خط العرض والطول</th>
+                        <th>نصف القطر</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {serviceZones.map(zone => (
+                        <tr key={zone.id}>
+                          <td className="font-black text-slate-900">{zone.name}</td>
+                          <td className="font-mono text-xs text-slate-600" dir="ltr">
+                            {zone.latitude}, {zone.longitude}
+                          </td>
+                          <td>
+                            <span className="badge badge-gray">{zone.radius_km} كم</span>
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => toggleZoneActive(zone)}
+                              className={`badge cursor-pointer transition ${zone.is_active ? 'badge-green' : 'badge-amber'}`}
+                            >
+                              {zone.is_active ? 'مفعّلة' : 'معطّلة'}
+                            </button>
+                          </td>
+                          <td>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditZone(zone)}
+                                className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteZone(zone.id, zone.name)}
+                                className="btn btn-danger btn-sm"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════
             ADS TAB
         ══════════════════════════════════════ */}
         {!loading && activeTab === 'ads' && (
@@ -528,7 +1049,14 @@ export default function AdminDashboard() {
                 <h2 className="text-lg font-black text-slate-800">الإعلانات والسلايدر</h2>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">{platformAds.length} إعلان نشط</p>
               </div>
-              <button onClick={() => setShowAdForm(!showAdForm)} className="btn btn-primary">
+              <button
+                onClick={() => {
+                  setEditAdId(null)
+                  setAdForm(emptyAdForm)
+                  setShowAdForm(!showAdForm)
+                }}
+                className="btn btn-primary"
+              >
                 <Plus size={16} /> إعلان جديد
               </button>
             </div>
@@ -536,8 +1064,8 @@ export default function AdminDashboard() {
             {showAdForm && (
               <div className="c-card mb-6 animate-slide-down">
                 <div className="c-card-header">
-                  <h3 className="font-black text-slate-800">إضافة إعلان جديد</h3>
-                  <button onClick={() => setShowAdForm(false)} className="btn btn-ghost btn-sm"><X size={16} /></button>
+                  <h3 className="font-black text-slate-800">{editAdId ? 'تعديل الإعلان' : 'إضافة إعلان جديد'}</h3>
+                  <button onClick={() => { setShowAdForm(false); setEditAdId(null) }} className="btn btn-ghost btn-sm"><X size={16} /></button>
                 </div>
                 <div className="c-card-body">
                   <form onSubmit={handleAdSubmit} className="space-y-4">
@@ -558,7 +1086,7 @@ export default function AdminDashboard() {
                             if (e.target.value === 'all') {
                               setAdForm({ ...adForm, target_region: 'جميع المناطق', latitude: null, longitude: null, radius_km: null })
                             } else {
-                              setAdForm({ ...adForm, target_region: 'GPS Geofence', latitude: 40.825378, longitude: 29.384052, radius_km: 15 })
+                              setAdForm({ ...adForm, target_region: 'GPS Geofence', latitude: adForm.latitude || 40.825378, longitude: adForm.longitude || 29.384052, radius_km: adForm.radius_km || 15 })
                             }
                           }}
                           className="f-input mb-3"
@@ -626,16 +1154,16 @@ export default function AdminDashboard() {
                         )}
                       </div>
 
-
-
                     </div>
                     <div className="w-28">
                       <label className="f-label">الترتيب</label>
                       <input type="number" value={adForm.sort_order} onChange={e => setAdForm({ ...adForm, sort_order: parseInt(e.target.value) || 0 })} className="f-input" />
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button type="button" onClick={() => setShowAdForm(false)} className="btn btn-ghost">إلغاء</button>
-                      <button type="submit" className="btn btn-dark">💾 حفظ الإعلان</button>
+                      <button type="button" onClick={() => { setShowAdForm(false); setEditAdId(null) }} className="btn btn-ghost">إلغاء</button>
+                      <button type="submit" className="btn btn-dark">
+                        {editAdId ? '💾 حفظ التعديلات' : '💾 حفظ الإعلان'}
+                      </button>
                     </div>
                   </form>
                 </div>
@@ -653,16 +1181,204 @@ export default function AdminDashboard() {
                   <div key={ad.id} className="relative group rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-[21/9]">
                     <img src={ad.image_url} alt="" className="w-full h-full object-cover" />
                     <div className="absolute top-2.5 right-2.5 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black px-2.5 py-1 rounded-full border border-white/20 z-10">
-                      📍 {ad.target_region || 'جميع المناطق'}
+                      📍 {ad.latitude !== null && ad.longitude !== null ? `موقع جغرافي (${ad.radius_km || 15} كم)` : (ad.target_region || 'جميع المناطق')}
                     </div>
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
-                      <button onClick={() => deleteAd(ad.id)} className="btn btn-danger">
+                      <button
+                        onClick={() => handleEditAd(ad)}
+                        className="btn btn-ghost btn-sm text-blue-600 bg-white hover:bg-slate-100 font-bold border-0"
+                      >
+                        <Edit size={16} /> تعديل
+                      </button>
+                      <button onClick={() => deleteAd(ad.id)} className="btn btn-danger btn-sm">
                         <Trash2 size={16} /> حذف
                       </button>
                     </div>
 
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════
+            OFFERS TAB (Super Admin Platform Offers Management & Reordering)
+        ══════════════════════════════════════ */}
+        {!loading && activeTab === 'offers' && (
+          <div className="animate-fade-in-up space-y-5">
+            {/* Header & Stats */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs">
+              <div>
+                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <span>🔥</span> قسم العروض والتخفيضات بالمنصة
+                </h2>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  إجمالي {allOffers.length} عرض بالمنصة — التحكم بالأولوية لـ {allOffers.filter(o => o.is_active).length} عرض نشط
+                </p>
+              </div>
+
+              {/* Search Input */}
+              <div className="w-full sm:w-72">
+                <input
+                  type="text"
+                  placeholder="ابحث بـ اسم العرض أو المتجر..."
+                  value={offerSearchQuery}
+                  onChange={e => setOfferSearchQuery(e.target.value)}
+                  className="f-input"
+                />
+              </div>
+            </div>
+
+            {/* Notice Banner */}
+            <div className="p-4 bg-amber-50 border border-amber-200/80 rounded-2xl text-amber-800 text-xs font-bold flex items-center gap-2 shadow-2xs">
+              <span className="text-lg">💡</span>
+              <div>
+                <strong>الترتيب المباشر للسوبر أدمن:</strong>
+                <p className="font-normal text-amber-700/90 mt-0.5">
+                  الرقم الأصغر في حقل (الأولوية) يعطي العرض أولوية الظهور في العارض الترويجي بالصفحة الرئيسية للمنصة (الـ 10 عروض الأولى). التحديث فوري ومباشر!
+                </p>
+              </div>
+            </div>
+
+            {/* Offers List Table / Cards */}
+            {allOffers.filter(o => !offerSearchQuery || o.title.toLowerCase().includes(offerSearchQuery.toLowerCase()) || o.restaurants?.name?.toLowerCase().includes(offerSearchQuery.toLowerCase())).length === 0 ? (
+              <div className="c-card text-center py-16">
+                <p className="text-5xl mb-3">🏷️</p>
+                <p className="font-bold text-slate-400">لا توجد عروض ترويجية مطابقة للبحث</p>
+              </div>
+            ) : (
+              <div className="c-card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>أولوية الترتيب</th>
+                        <th>بطاقة العرض</th>
+                        <th>المتجر التابع له</th>
+                        <th>السعر النهائي</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allOffers
+                        .filter(o => !offerSearchQuery || o.title.toLowerCase().includes(offerSearchQuery.toLowerCase()) || o.restaurants?.name?.toLowerCase().includes(offerSearchQuery.toLowerCase()))
+                        .map((offer, idx) => {
+                          const store = offer.restaurants
+                          return (
+                            <tr key={offer.id}>
+                              <td>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => movePlatformOfferToRank(offer.id, idx)}
+                                    className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] flex items-center justify-center transition disabled:opacity-20 disabled:pointer-events-none"
+                                    title="ترتيب للأعلى"
+                                  >
+                                    ▲
+                                  </button>
+                                  <select
+                                    value={offer.sort_order || (idx + 1)}
+                                    onChange={e => movePlatformOfferToRank(offer.id, parseInt(e.target.value))}
+                                    className="bg-amber-50 border border-amber-300 font-black text-orange-600 text-center py-1 px-2 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer"
+                                  >
+                                    {allOffers.map((_, i) => (
+                                      <option key={i + 1} value={i + 1}>
+                                        الترتيب #{i + 1}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    disabled={idx === allOffers.length - 1}
+                                    onClick={() => movePlatformOfferToRank(offer.id, idx + 2)}
+                                    className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] flex items-center justify-center transition disabled:opacity-20 disabled:pointer-events-none"
+                                    title="ترتيب للأسفل"
+                                  >
+                                    ▼
+                                  </button>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="flex items-center gap-3">
+                                  <SmartOfferImage
+                                    primaryImage={offer.primary_item?.image_url}
+                                    bonusImage={offer.bonus_item?.image_url}
+                                    item3Image={offer.item3?.image_url}
+                                    item4Image={offer.item4?.image_url}
+                                    customImage={offer.image_url}
+                                    minQuantity={offer.min_quantity}
+                                    bonusQuantity={offer.bonus_quantity}
+                                    className="w-12 h-12 rounded-xl shrink-0 border border-slate-200"
+                                  />
+                                  <div>
+                                    <h4 className="font-black text-xs text-slate-900 line-clamp-1">{offer.title}</h4>
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      {offer.min_quantity > 1 ? `${offer.min_quantity}X ` : ''}{offer.primary_item?.name || 'منتج'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <span className="font-black text-xs text-slate-800 bg-slate-100 px-2.5 py-1 rounded-xl">
+                                  {store?.name || 'غير معروف'}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="font-black text-orange-600 text-xs">{offer.offer_price} ₺</span>
+                                  {offer.original_price && (
+                                    <span className="text-[10px] text-slate-400 line-through">{offer.original_price} ₺</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td>
+                                <button
+                                  onClick={() => togglePlatformOfferActive(offer)}
+                                  className={`badge cursor-pointer transition ${offer.is_active ? 'badge-green' : 'badge-red'}`}
+                                >
+                                  {offer.is_active ? 'نشط' : 'معطّل'}
+                                </button>
+                              </td>
+                              <td>
+                                <div className="flex items-center gap-1.5">
+                                  {store?.slug && (
+                                    <a
+                                      href={`/m/${store.slug}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="btn btn-ghost btn-sm text-slate-600 hover:text-orange-600 p-1.5"
+                                      title="معاينة المتجر"
+                                    >
+                                      <ExternalLink size={14} />
+                                    </a>
+                                  )}
+                                  {store?.id && (
+                                    <Link
+                                      href={`/admin/restaurant/${store.id}`}
+                                      className="btn btn-ghost btn-sm text-blue-600 p-1.5"
+                                      title="إدارة متجر العرض"
+                                    >
+                                      <Edit size={14} />
+                                    </Link>
+                                  )}
+                                  <button
+                                    onClick={() => deletePlatformOffer(offer.id, offer.title)}
+                                    className="btn btn-danger btn-sm p-1.5"
+                                    title="حذف العرض"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -689,8 +1405,8 @@ export default function AdminDashboard() {
                     <thead>
                       <tr>
                         <th>رقم الطلب</th>
-                        <th>المطعم</th>
-                        <th>الوجبات</th>
+                        <th>المتجر / النشاط</th>
+                        <th>المنتجات والطلبات</th>
                         <th>الإجمالي</th>
                         <th>الموقع</th>
                         <th>الوقت</th>
@@ -753,6 +1469,12 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+      <StoreSettingsModal
+        restaurant={selectedStoreForSettings}
+        isOpen={!!selectedStoreForSettings}
+        onClose={() => setSelectedStoreForSettings(null)}
+        onSaveSuccess={fetchData}
+      />
     </div>
   )
 }

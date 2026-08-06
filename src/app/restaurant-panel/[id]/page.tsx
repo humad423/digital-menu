@@ -3,8 +3,10 @@
 import { useState, useEffect, use } from 'react'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
+import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X } from 'lucide-react'
+import StoreSettingsModal from '@/components/StoreSettingsModal'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -22,6 +24,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [authenticatedOwner, setAuthenticatedOwner] = useState<any>(null)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   // ── Sub-category State ─────────────────────────────────────────
   const [newCatName, setNewCatName] = useState('')
@@ -34,7 +37,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [editItemId, setEditItemId] = useState<string | null>(null)
   const [itemForm, setItemForm] = useState({
     category_id: '', name: '', description: '', price: '', image_url: '', is_available: true,
-    is_offer: false, original_price: '', offer_title: ''
+    is_offer: false, original_price: '', offer_title: '', images: [] as string[], sizesText: ''
   })
   const [savingItem, setSavingItem] = useState(false)
 
@@ -47,6 +50,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     min_quantity: '1',
     bonus_item_id: '',
     bonus_quantity: '1',
+    item3_id: '',
+    item3_quantity: '1',
+    item4_id: '',
+    item4_quantity: '1',
     title: '',
     description: '',
     original_price: '',
@@ -54,6 +61,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     image_url: '',
     is_active: true
   })
+  const [showItem3Input, setShowItem3Input] = useState(false)
+  const [showItem4Input, setShowItem4Input] = useState(false)
   const [savingOffer, setSavingOffer] = useState(false)
 
   // Verify standalone restaurant owner session
@@ -194,12 +203,16 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (!itemForm.category_id || !itemForm.name || !itemForm.price) return alert('يرجى ملء الحقول المطلوبة')
     setSavingItem(true)
 
+    const primaryImg = (itemForm.images && itemForm.images.length > 0) ? itemForm.images[0] : (itemForm.image_url || null)
+    const sizesArray = itemForm.sizesText ? itemForm.sizesText.split(',').map(s => s.trim()).filter(Boolean) : []
     const payload = {
       category_id: itemForm.category_id,
       name: itemForm.name,
       description: itemForm.description || null,
       price: parseFloat(itemForm.price),
-      image_url: itemForm.image_url || null,
+      image_url: primaryImg,
+      images: itemForm.images || (primaryImg ? [primaryImg] : []),
+      sizes: sizesArray,
       is_available: itemForm.is_available,
       is_offer: itemForm.is_offer,
       original_price: itemForm.original_price ? parseFloat(itemForm.original_price) : null,
@@ -209,14 +222,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (editItemId) {
       const { error } = await supabase.from('menu_items').update(payload).eq('id', editItemId)
       if (error) {
-        alert('خطأ في حفظ الوجبة: ' + error.message)
+        alert('خطأ في حفظ المنتج: ' + error.message)
         setSavingItem(false)
         return
       }
     } else {
       const { error } = await supabase.from('menu_items').insert([payload])
       if (error) {
-        alert('خطأ في إضافة الوجبة: ' + error.message)
+        alert('خطأ في إضافة المنتج: ' + error.message)
         setSavingItem(false)
         return
       }
@@ -225,18 +238,37 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setSavingItem(false)
     setShowItemForm(false)
     setEditItemId(null)
-    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
+    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
     fetchData()
   }
 
   const handleEditItem = (item: any) => {
     setEditItemId(item.id)
+    let parsedImages: string[] = []
+    if (Array.isArray(item.images)) {
+      parsedImages = item.images
+    } else if (typeof item.images === 'string') {
+      try { parsedImages = JSON.parse(item.images) } catch (e) {}
+    }
+    if (parsedImages.length === 0 && item.image_url) {
+      parsedImages = [item.image_url]
+    }
+
+    let parsedSizes: string[] = []
+    if (Array.isArray(item.sizes)) {
+      parsedSizes = item.sizes
+    } else if (typeof item.sizes === 'string') {
+      try { parsedSizes = JSON.parse(item.sizes) } catch (e) {}
+    }
+
     setItemForm({
       category_id: item.category_id,
       name: item.name,
       description: item.description || '',
       price: item.price.toString(),
       image_url: item.image_url || '',
+      images: parsedImages,
+      sizesText: parsedSizes.join(', '),
       is_available: item.is_available,
       is_offer: item.is_offer || false,
       original_price: item.original_price ? item.original_price.toString() : '',
@@ -251,94 +283,96 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     fetchData()
   }
 
-  const deleteItem = async (itemId: string, name: string) => {
-    if (confirm(`حذف الوجبة "${name}"؟`)) {
-      await supabase.from('menu_items').delete().eq('id', itemId)
+  const deleteItem = async (id: string, name: string) => {
+    if (confirm(`حذف المنتج "${name}"؟`)) {
+      await supabase.from('menu_items').delete().eq('id', id)
       fetchData()
     }
   }
 
   // ── Auto Offer Calculation ──────────────────────────────────────
-  const handlePrimaryItemChange = (itemId: string) => {
-    const primary = menuItems.find(i => i.id === itemId)
-    const bonus = menuItems.find(i => i.id === offerForm.bonus_item_id)
-    const minQty = parseInt(offerForm.min_quantity) || 1
-    const bonusQty = parseInt(offerForm.bonus_quantity) || 1
+  const recalculateOfferTotals = (form: typeof offerForm) => {
+    const p = menuItems.find(i => i.id === form.primary_item_id)
+    const b1 = menuItems.find(i => i.id === form.bonus_item_id)
+    const b2 = menuItems.find(i => i.id === form.item3_id)
+    const b3 = menuItems.find(i => i.id === form.item4_id)
+
+    const qp = parseInt(form.min_quantity) || 1
+    const qb1 = parseInt(form.bonus_quantity) || 1
+    const qb2 = parseInt(form.item3_quantity) || 1
+    const qb3 = parseInt(form.item4_quantity) || 1
 
     let origPrice = 0
-    let autoTitle = ''
+    const titles: string[] = []
 
-    if (primary) {
-      origPrice += (primary.price || 0) * minQty
-      autoTitle = `${minQty} ${primary.name}`
+    if (p) {
+      origPrice += (p.price || 0) * qp
+      titles.push(`${qp > 1 ? qp + ' ' : ''}${p.name}`)
     }
-    if (bonus) {
-      origPrice += (bonus.price || 0) * bonusQty
-      autoTitle += bonusQty > 1 ? ` + ${bonusQty} ${bonus.name}` : ` + ${bonus.name}`
+    if (b1) {
+      origPrice += (b1.price || 0) * qb1
+      titles.push(`${qb1 > 1 ? qb1 + ' ' : ''}${b1.name}`)
+    }
+    if (b2) {
+      origPrice += (b2.price || 0) * qb2
+      titles.push(`${qb2 > 1 ? qb2 + ' ' : ''}${b2.name}`)
+    }
+    if (b3) {
+      origPrice += (b3.price || 0) * qb3
+      titles.push(`${qb3 > 1 ? qb3 + ' ' : ''}${b3.name}`)
     }
 
-    setOfferForm(prev => ({
-      ...prev,
-      primary_item_id: itemId,
-      original_price: origPrice > 0 ? origPrice.toString() : prev.original_price,
-      title: autoTitle || prev.title
-    }))
+    return {
+      original_price: origPrice > 0 ? origPrice.toString() : form.original_price,
+      title: titles.length > 0 ? titles.join(' + ') : form.title
+    }
   }
 
-  const handleBonusItemChange = (bonusId: string) => {
-    const primary = menuItems.find(i => i.id === offerForm.primary_item_id)
-    const bonus = menuItems.find(i => i.id === bonusId)
-    const minQty = parseInt(offerForm.min_quantity) || 1
-    const bonusQty = parseInt(offerForm.bonus_quantity) || 1
-
-    let origPrice = 0
-    let autoTitle = ''
-
-    if (primary) {
-      origPrice += (primary.price || 0) * minQty
-      autoTitle = `${minQty} ${primary.name}`
-    }
-    if (bonus) {
-      origPrice += (bonus.price || 0) * bonusQty
-      autoTitle += bonusQty > 1 ? ` + ${bonusQty} ${bonus.name} مجاناً` : ` + ${bonus.name} مجاناً`
-    }
-
-    setOfferForm(prev => ({
-      ...prev,
-      bonus_item_id: bonusId,
-      original_price: origPrice > 0 ? origPrice.toString() : prev.original_price,
-      title: autoTitle || prev.title
-    }))
+  const updateOfferField = (field: string, value: any) => {
+    setOfferForm(prev => {
+      const updated = { ...prev, [field]: value }
+      const totals = recalculateOfferTotals(updated)
+      return {
+        ...updated,
+        original_price: totals.original_price,
+        title: totals.title || updated.title
+      }
+    })
   }
 
   const handleSaveOffer = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!offerForm.primary_item_id || !offerForm.offer_price || !offerForm.title) {
-      return alert('يرجى اختيار الوجبة الرئيسية وتحديد سعر العرض وعنوانه')
+      return alert('يرجى اختيار المنتج الأساسي وتحديد سعر العرض وعنوانه')
     }
 
     setSavingOffer(true)
     const primary = menuItems.find(i => i.id === offerForm.primary_item_id)
-    const bonus = menuItems.find(i => i.id === offerForm.bonus_item_id)
 
     const payload = {
       restaurant_id: id,
       primary_item_id: offerForm.primary_item_id,
       min_quantity: parseInt(offerForm.min_quantity) || 1,
       bonus_item_id: offerForm.bonus_item_id || null,
-      bonus_quantity: parseInt(offerForm.bonus_quantity) || 1,
+      bonus_quantity: offerForm.bonus_item_id ? (parseInt(offerForm.bonus_quantity) || 1) : 1,
+      item3_id: offerForm.item3_id || null,
+      item3_quantity: offerForm.item3_id ? (parseInt(offerForm.item3_quantity) || 1) : 1,
+      item4_id: offerForm.item4_id || null,
+      item4_quantity: offerForm.item4_id ? (parseInt(offerForm.item4_quantity) || 1) : 1,
       title: offerForm.title,
       description: offerForm.description || null,
       original_price: offerForm.original_price ? parseFloat(offerForm.original_price) : null,
       offer_price: parseFloat(offerForm.offer_price),
-      image_url: offerForm.image_url || primary?.image_url || null,
+      image_url: offerForm.image_url || null,
       is_active: offerForm.is_active
     }
 
     if (editOfferId) {
       await supabase.from('offers').update(payload).eq('id', editOfferId)
     } else {
-      await supabase.from('offers').insert([payload])
+      const { data: maxOffer } = await supabase.from('offers').select('sort_order').order('sort_order', { ascending: false }).limit(1)
+      const nextRank = (maxOffer && maxOffer[0]?.sort_order && maxOffer[0].sort_order > 0) ? (maxOffer[0].sort_order + 1) : 1
+      await supabase.from('offers').insert([{ ...payload, sort_order: nextRank }])
     }
 
     setSavingOffer(false)
@@ -346,6 +380,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setEditOfferId(null)
     setOfferForm({
       primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1',
+      item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1',
       title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true
     })
     fetchData()
@@ -354,14 +389,18 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const handleEditOffer = (offer: any) => {
     setEditOfferId(offer.id)
     setOfferForm({
-      primary_item_id: offer.primary_item_id,
+      primary_item_id: offer.primary_item_id || '',
       min_quantity: offer.min_quantity ? offer.min_quantity.toString() : '1',
       bonus_item_id: offer.bonus_item_id || '',
       bonus_quantity: offer.bonus_quantity ? offer.bonus_quantity.toString() : '1',
-      title: offer.title,
+      item3_id: offer.item3_id || '',
+      item3_quantity: offer.item3_quantity ? offer.item3_quantity.toString() : '1',
+      item4_id: offer.item4_id || '',
+      item4_quantity: offer.item4_quantity ? offer.item4_quantity.toString() : '1',
+      title: offer.title || '',
       description: offer.description || '',
       original_price: offer.original_price ? offer.original_price.toString() : '',
-      offer_price: offer.offer_price.toString(),
+      offer_price: offer.offer_price ? offer.offer_price.toString() : '',
       image_url: offer.image_url || '',
       is_active: offer.is_active
     })
@@ -405,6 +444,92 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500" dir="rtl">المطعم غير موجود</div>
   }
 
+  const terms = (() => {
+    const st = restaurant?.store_type
+    if (st === 'supermarket') {
+      return {
+        previewBtn: 'معاينة الماركت 👁️',
+        itemLabel: 'المنتجات والعروض',
+        subCatsHeader: 'أقسام الماركت الفرعية',
+        countUnit: 'منتَج',
+        offersHeader: 'إدارة العروض والتخفيضات 🏷️',
+        offersDesc: 'عروض وتخفيضات تظهر في أعلى الماركت للزبائن',
+        newOfferBtn: 'عرض تخفيض جديد',
+        noOffersText: 'لا توجد عروض تخفيض حالياً لهذا الماركت',
+        primaryItemLabel: 'المنتَج الأساسي *',
+        bonusItemLabel: 'منتَج مجاني إضافي (اختياري)',
+        itemsHeader: 'عروض المنتجات والمواد الغذائية',
+        newItemBtn: 'منتَج / عرض جديد',
+        editItemTitle: 'تعديل المنتَج / العرض',
+        newItemTitle: 'إضافة منتَج أو عرض للماركت',
+        itemNameLabel: 'اسم المنتج / العرض *',
+        itemNamePlaceholder: 'مثال: زيت زيتون 1 لتر',
+        itemPriceLabel: 'سعر العرض (TL) *',
+      }
+    }
+    if (st === 'clothing') {
+      return {
+        previewBtn: 'معاينة المعرض 👁️',
+        itemLabel: 'تشكيلة الموديلات',
+        subCatsHeader: 'أقسام التشكيلة الفرعية',
+        countUnit: 'موديل',
+        offersHeader: 'إدارة عروض الأزياء والتخفيضات 👗',
+        offersDesc: 'عروض وموديلات مميزة تظهر أعلى قسم الألبسة',
+        newOfferBtn: 'عرض جديد',
+        noOffersText: 'لا توجد عروض تخفيض حالياً لهذا المتجر',
+        primaryItemLabel: 'الموديل الأساسي *',
+        bonusItemLabel: 'قطعة إضافية مع العرض (اختياري)',
+        itemsHeader: 'تشكيلة الأزياء والموديلات',
+        newItemBtn: 'موديل جديد',
+        editItemTitle: 'تعديل بيانات الموديل',
+        newItemTitle: 'إضافة موديل ألبسة جديد',
+        itemNameLabel: 'اسم القطعة / الموديل *',
+        itemNamePlaceholder: 'مثال: فستان سهرة مخمل',
+        itemPriceLabel: 'السعر (TL) *',
+      }
+    }
+    if (st === 'other') {
+      return {
+        previewBtn: 'معاينة المتجر 👁️',
+        itemLabel: 'المنتجات والخدمات',
+        subCatsHeader: 'أقسام المتجر الفرعية',
+        countUnit: 'عنصر',
+        offersHeader: 'إدارة العروض والتخفيضات 🎁',
+        offersDesc: 'عروض تظهر في أعلى المتجر للزبائن',
+        newOfferBtn: 'عرض جديد',
+        noOffersText: 'لا توجد عروض حالياً لهذا المتجر',
+        primaryItemLabel: 'العنصر الأساسي *',
+        bonusItemLabel: 'عنصر إضافي مع العرض (اختياري)',
+        itemsHeader: 'المنتجات والخدمات',
+        newItemBtn: 'عنصر جديد',
+        editItemTitle: 'تعديل البيانات',
+        newItemTitle: 'إضافة منتَج أو خدمة جديدة',
+        itemNameLabel: 'اسم المنتج / الخدمة *',
+        itemNamePlaceholder: 'مثال: ساعة ذكية Smart Watch',
+        itemPriceLabel: 'السعر (TL) *',
+      }
+    }
+    return {
+      previewBtn: 'معاينة المتجر 👁️',
+      itemLabel: 'المنتجات',
+      subCatsHeader: 'أقسام المتجر الفرعية',
+      countUnit: 'منتَج',
+      offersHeader: 'إدارة العروض والتخفيضات 🏷️',
+      offersDesc: 'عروض وتخفيضات تظهر في أعلى المتجر للزبائن',
+      newOfferBtn: 'عرض جديد',
+      noOffersText: 'لا توجد عروض ترويجية حالياً لهذا المتجر',
+      primaryItemLabel: 'المنتَج الأساسي *',
+      bonusItemLabel: 'منتَج مجاني إضافي (اختياري)',
+      itemsHeader: 'المنتجات',
+      newItemBtn: 'منتَج جديد',
+      editItemTitle: 'تعديل المنتَج',
+      newItemTitle: 'إضافة منتَج جديد',
+      itemNameLabel: 'اسم المنتج *',
+      itemNamePlaceholder: 'مثال: اسم المنتج هنا...',
+      itemPriceLabel: 'السعر (TL) *',
+    }
+  })()
+
   return (
     <div className="min-h-screen flex flex-col" dir="rtl" style={{ background: 'var(--content-bg)' }}>
       {/* ── Unified Header ── */}
@@ -420,13 +545,22 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="btn btn-ghost text-orange-400 border-orange-500/30 hover:bg-orange-500/20 btn-sm flex items-center gap-1.5"
+            title="إعدادات المتجر وساعات الدوام"
+          >
+            <Settings size={15} />
+            <span>الإعدادات ⚙️</span>
+          </button>
+
           <a
             href={getMainDomainMenuUrl(restaurant.slug)}
             target="_blank"
             rel="noreferrer"
             className="btn btn-ghost text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white btn-sm hidden sm:flex"
           >
-            معاينة المنيو 👁️
+            {terms.previewBtn}
           </a>
 
           <button onClick={handleLogout} className="btn btn-danger btn-sm border-red-900/50 bg-red-500/15 text-red-400 hover:bg-red-500/25">
@@ -443,7 +577,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           <div className="grid grid-cols-3 gap-3 mb-6 animate-fade-in-up">
             {[
               { label: 'الأقسام', value: categories.length, color: '#3B82F6', emoji: '📁' },
-              { label: 'الوجبات', value: menuItems.length, color: '#10B981', emoji: '🍱' },
+              { label: terms.itemLabel, value: menuItems.length, color: '#10B981', emoji: '🍱' },
               { label: 'العروض', value: offers.length, color: '#F97316', emoji: '🔥' },
             ].map(s => (
               <div key={s.label} className="stat-card">
@@ -465,7 +599,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
               {/* Categories Card */}
               <div className="c-card">
                 <div className="c-card-header">
-                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>📁</span> أقسام المنيو</h3>
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>📁</span> {terms.subCatsHeader}</h3>
                   <span className="badge badge-gray">{categories.length}</span>
                 </div>
                 <div className="c-card-body">
@@ -489,7 +623,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                       <div key={cat.id} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition">
                         <div>
                           <span className="font-bold text-sm text-slate-800">{cat.name}</span>
-                          <span className="text-xs text-slate-400 mr-2">{menuItems.filter(m => m.category_id === cat.id).length} وجبة</span>
+                          <span className="text-xs text-slate-400 mr-2">{menuItems.filter(m => m.category_id === cat.id).length} {terms.countUnit}</span>
                         </div>
                         <div className="flex gap-1">
                           <button onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setEditCatSort(cat.sort_order || 0) }}
@@ -509,56 +643,58 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 </div>
               </div>
 
-              {/* Delivery Tiers Card */}
-              <div className="c-card">
-                <div className="c-card-header">
-                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
-                  {savingTiers && <span className="text-xs text-orange-500 font-bold animate-pulse">حفظ...</span>}
-                </div>
-                <div className="c-card-body">
-                  <form onSubmit={handleAddTier} className="space-y-3 mb-4 bg-orange-50 p-3 rounded-2xl border border-orange-100">
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { label: 'من (كم)', key: 'min_km', placeholder: '0' },
-                        { label: 'إلى (كم)', key: 'max_km', placeholder: '10' },
-                        { label: 'الأجرة TL', key: 'fee', placeholder: '25' },
-                      ].map(f => (
-                        <div key={f.key}>
-                          <label className="f-label">{f.label}</label>
-                          <input type="number" step="0.5" required placeholder={f.placeholder}
-                            value={(newTier as any)[f.key]}
-                            onChange={e => setNewTier({ ...newTier, [f.key]: e.target.value })}
-                            className="f-input" />
+              {/* Delivery Tiers Card (Only for Restaurants with Delivery) */}
+              {restaurant?.store_type === 'restaurant' && restaurant?.has_delivery !== false && (
+                <div className="c-card">
+                  <div className="c-card-header">
+                    <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
+                    {savingTiers && <span className="text-xs text-orange-500 font-bold animate-pulse">حفظ...</span>}
+                  </div>
+                  <div className="c-card-body">
+                    <form onSubmit={handleAddTier} className="space-y-3 mb-4 bg-orange-50 p-3 rounded-2xl border border-orange-100">
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: 'من (كم)', key: 'min_km', placeholder: '0' },
+                          { label: 'إلى (كم)', key: 'max_km', placeholder: '10' },
+                          { label: 'الأجرة TL', key: 'fee', placeholder: '25' },
+                        ].map(f => (
+                          <div key={f.key}>
+                            <label className="f-label">{f.label}</label>
+                            <input type="number" step="0.5" required placeholder={f.placeholder}
+                              value={(newTier as any)[f.key]}
+                              onChange={e => setNewTier({ ...newTier, [f.key]: e.target.value })}
+                              className="f-input" />
+                          </div>
+                        ))}
+                      </div>
+                      <button type="submit" className="btn btn-primary w-full">
+                        <Plus size={15} /> إضافة شريحة
+                      </button>
+                    </form>
+
+                    <div className="space-y-2">
+                      {deliveryTiers.map((tier, idx) => (
+                        <div key={idx} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          <div>
+                            <p className="font-black text-xs text-slate-800">{tier.min_km} – {tier.max_km} كم</p>
+                            <p className="text-xs text-orange-500 font-bold">{tier.fee} TL</p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => toggleTierActive(idx)}
+                              className={`badge cursor-pointer ${tier.is_active ? 'badge-green' : 'badge-red'}`}>
+                              {tier.is_active ? 'مفعّل' : 'معطّل'}
+                            </button>
+                            <button onClick={() => deleteTier(idx)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={13} /></button>
+                          </div>
                         </div>
                       ))}
+                      {deliveryTiers.length === 0 && (
+                        <p className="text-center text-slate-400 text-xs py-3">لا توجد شرائح توصيل بعد</p>
+                      )}
                     </div>
-                    <button type="submit" className="btn btn-primary w-full">
-                      <Plus size={15} /> إضافة شريحة
-                    </button>
-                  </form>
-
-                  <div className="space-y-2">
-                    {deliveryTiers.map((tier, idx) => (
-                      <div key={idx} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                        <div>
-                          <p className="font-black text-xs text-slate-800">{tier.min_km} – {tier.max_km} كم</p>
-                          <p className="text-xs text-orange-500 font-bold">{tier.fee} TL</p>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <button onClick={() => toggleTierActive(idx)}
-                            className={`badge cursor-pointer ${tier.is_active ? 'badge-green' : 'badge-red'}`}>
-                            {tier.is_active ? 'مفعّل' : 'معطّل'}
-                          </button>
-                          <button onClick={() => deleteTier(idx)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={13} /></button>
-                        </div>
-                      </div>
-                    ))}
-                    {deliveryTiers.length === 0 && (
-                      <p className="text-center text-slate-400 text-xs py-3">لا توجد شرائح توصيل بعد</p>
-                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* ── RIGHT MAIN: Items + Offers ── */}
@@ -568,54 +704,123 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
               <div className="c-card border-t-4 border-t-orange-400">
                 <div className="c-card-header">
                   <div>
-                    <h3 className="font-black text-slate-800 flex items-center gap-2"><span>🔥</span> العروض والبكجات</h3>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">عروض تظهر في أعلى المنيو للزبائن</p>
+                    <h3 className="font-black text-slate-800 flex items-center gap-2">
+                      <span>🔥</span> {terms.offersHeader}
+                      <span className="text-xs text-orange-600 font-bold bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
+                        {offers.length} / {restaurant?.max_offers_limit || 5} متاح
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">{terms.offersDesc}</p>
                   </div>
                   <button
-                    onClick={() => { setEditOfferId(null); setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true }); setShowOfferForm(!showOfferForm) }}
-                    className="btn btn-primary btn-sm"
+                    onClick={() => { setEditOfferId(null); setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true }); setShowOfferForm(!showOfferForm) }}
+                    disabled={offers.length >= (restaurant?.max_offers_limit || 5) && !editOfferId}
+                    className="btn btn-primary btn-sm disabled:opacity-40"
                   >
-                    <Plus size={15} /> عرض جديد
+                    <Plus size={15} /> {terms.newOfferBtn}
                   </button>
                 </div>
+
+                {offers.length >= (restaurant?.max_offers_limit || 5) && !showOfferForm && (
+                  <div className="mx-4 mb-4 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs font-bold text-center flex items-center justify-center gap-2">
+                    <span>⚠️</span>
+                    <span>لقد بلغت الحد الأقصى للعروض المتاحة لمتجرك ({restaurant?.max_offers_limit || 5} عروض). تواصل مع إدارة المنصة لزيادة الحد.</span>
+                  </div>
+                )}
 
                 {showOfferForm && (
                   <div className="mx-4 mb-4 bg-orange-50 border border-orange-200 rounded-2xl p-4 animate-slide-down">
                     <h4 className="font-black text-slate-800 mb-3">{editOfferId ? 'تعديل العرض' : 'إنشاء عرض جديد'}</h4>
                     <form onSubmit={handleSaveOffer} className="space-y-3">
+                      {/* Product 1 */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100">
                         <div className="md:col-span-2">
-                          <label className="f-label">الوجبة الرئيسية *</label>
-                          <select required value={offerForm.primary_item_id} onChange={e => handlePrimaryItemChange(e.target.value)} className="f-input">
-                            <option value="">اختر وجبة...</option>
+                          <label className="f-label">المنتج الأول (الأساسي) *</label>
+                          <select required value={offerForm.primary_item_id} onChange={e => updateOfferField('primary_item_id', e.target.value)} className="f-input">
+                            <option value="">اختر المنتج الأول...</option>
                             {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
                           </select>
                         </div>
                         <div>
                           <label className="f-label">الكمية</label>
                           <input type="number" min="1" required value={offerForm.min_quantity}
-                            onChange={e => setOfferForm({ ...offerForm, min_quantity: e.target.value })} className="f-input text-center" />
+                            onChange={e => updateOfferField('min_quantity', e.target.value)} className="f-input text-center" />
                         </div>
                       </div>
 
+                      {/* Product 2 */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100">
                         <div className="md:col-span-2">
-                          <label className="f-label">وجبة هدية إضافية (اختياري)</label>
-                          <select value={offerForm.bonus_item_id} onChange={e => handleBonusItemChange(e.target.value)} className="f-input">
-                            <option value="">بدون وجبة إضافية</option>
+                          <label className="f-label">المنتج الثاني (اختياري)</label>
+                          <select value={offerForm.bonus_item_id} onChange={e => updateOfferField('bonus_item_id', e.target.value)} className="f-input">
+                            <option value="">بدون منتج ثاني</option>
                             {menuItems.map(item => <option key={item.id} value={item.id}>🎁 {item.name} ({item.price} ₺)</option>)}
                           </select>
                         </div>
                         <div>
                           <label className="f-label">كميتها</label>
                           <input type="number" min="1" value={offerForm.bonus_quantity} disabled={!offerForm.bonus_item_id}
-                            onChange={e => setOfferForm({ ...offerForm, bonus_quantity: e.target.value })} className="f-input text-center" />
+                            onChange={e => updateOfferField('bonus_quantity', e.target.value)} className="f-input text-center" />
                         </div>
                       </div>
 
+                      {/* Product 3 (Hidden by default until needed) */}
+                      {(offerForm.item3_id || showItem3Input) && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100 animate-slide-down">
+                          <div className="md:col-span-2">
+                            <label className="f-label flex items-center justify-between">
+                              <span>المنتج الثالث (اختياري)</span>
+                              <button type="button" onClick={() => { updateOfferField('item3_id', ''); setShowItem3Input(false); }} className="text-red-500 text-[10px]">إلغاء ✕</button>
+                            </label>
+                            <select value={offerForm.item3_id} onChange={e => updateOfferField('item3_id', e.target.value)} className="f-input">
+                              <option value="">اختر المنتج الثالث...</option>
+                              {menuItems.map(item => <option key={item.id} value={item.id}>🎁 {item.name} ({item.price} ₺)</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="f-label">كميتها</label>
+                            <input type="number" min="1" value={offerForm.item3_quantity} disabled={!offerForm.item3_id}
+                              onChange={e => updateOfferField('item3_quantity', e.target.value)} className="f-input text-center" />
+                          </div>
+                        </div>
+                      )}
+
+                      {!offerForm.item3_id && !showItem3Input && (
+                        <button type="button" onClick={() => setShowItem3Input(true)} className="w-full py-2 border border-dashed border-orange-300 hover:border-orange-500 rounded-xl text-orange-600 font-bold text-xs flex items-center justify-center gap-1 transition bg-white/50 hover:bg-white">
+                          + إضافة منتج ثالث للعرض
+                        </button>
+                      )}
+
+                      {/* Product 4 (Hidden by default until Product 3 is active) */}
+                      {(offerForm.item4_id || showItem4Input) && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100 animate-slide-down">
+                          <div className="md:col-span-2">
+                            <label className="f-label flex items-center justify-between">
+                              <span>المنتج الرابع (اختياري)</span>
+                              <button type="button" onClick={() => { updateOfferField('item4_id', ''); setShowItem4Input(false); }} className="text-red-500 text-[10px]">إلغاء ✕</button>
+                            </label>
+                            <select value={offerForm.item4_id} onChange={e => updateOfferField('item4_id', e.target.value)} className="f-input">
+                              <option value="">اختر المنتج الرابع...</option>
+                              {menuItems.map(item => <option key={item.id} value={item.id}>🎁 {item.name} ({item.price} ₺)</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="f-label">كميتها</label>
+                            <input type="number" min="1" value={offerForm.item4_quantity} disabled={!offerForm.item4_id}
+                              onChange={e => updateOfferField('item4_quantity', e.target.value)} className="f-input text-center" />
+                          </div>
+                        </div>
+                      )}
+
+                      {(offerForm.item3_id || showItem3Input) && !offerForm.item4_id && !showItem4Input && (
+                        <button type="button" onClick={() => setShowItem4Input(true)} className="w-full py-2 border border-dashed border-orange-300 hover:border-orange-500 rounded-xl text-orange-600 font-bold text-xs flex items-center justify-center gap-1 transition bg-white/50 hover:bg-white">
+                          + إضافة منتج رابع للعرض
+                        </button>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="f-label">عنوان العرض *</label>
+                          <label className="f-label">عنوان العرض الترويجي *</label>
                           <input type="text" required value={offerForm.title} onChange={e => setOfferForm({ ...offerForm, title: e.target.value })} className="f-input" />
                         </div>
                         <div>
@@ -632,7 +837,15 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between">
+                      <div>
+                        <label className="f-label mb-1">صورة العرض المخصصة (اختياري)</label>
+                        <p className="text-[10px] text-slate-400 font-bold mb-2">
+                          💡 في حال عدم رفع صورة مخصصة، سيقوم النظام تلقائياً بدمج صور المنتجات المختارة في العرض.
+                        </p>
+                        <ImageUpload value={offerForm.image_url} onChange={url => setOfferForm({ ...offerForm, image_url: url })} />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2">
                         <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
                           <input type="checkbox" checked={offerForm.is_active} onChange={e => setOfferForm({ ...offerForm, is_active: e.target.checked })} className="w-4 h-4 accent-orange-500" />
                           تفعيل فوراً للزبائن
@@ -651,16 +864,27 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 <div className="c-card-body pt-0">
                   {offers.length === 0 && !showOfferForm ? (
                     <div className="text-center py-8 border-2 border-dashed border-orange-200 rounded-2xl">
-                      <p className="text-slate-400 text-sm font-medium">لا توجد عروض مضافة بعد</p>
+                      <p className="text-slate-400 text-sm font-medium">{terms.noOffersText}</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {offers.map(offer => {
                         const primaryItem = menuItems.find(i => i.id === offer.primary_item_id)
                         const bonusItem = menuItems.find(i => i.id === offer.bonus_item_id)
+                        const item3 = menuItems.find(i => i.id === offer.item3_id)
+                        const item4 = menuItems.find(i => i.id === offer.item4_id)
                         return (
                           <div key={offer.id} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
-                            <SmartOfferImage primaryImage={primaryItem?.image_url} bonusImage={bonusItem?.image_url} minQuantity={offer.min_quantity} bonusQuantity={offer.bonus_quantity} className="w-16 h-16 rounded-xl shrink-0" />
+                            <SmartOfferImage
+                              primaryImage={primaryItem?.image_url}
+                              bonusImage={bonusItem?.image_url}
+                              item3Image={item3?.image_url}
+                              item4Image={item4?.image_url}
+                              customImage={offer.image_url}
+                              minQuantity={offer.min_quantity}
+                              bonusQuantity={offer.bonus_quantity}
+                              className="w-16 h-16 rounded-xl shrink-0"
+                            />
                             <div className="flex-1 min-w-0">
                               <h4 className="font-black text-sm text-slate-900 truncate">{offer.title}</h4>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -688,15 +912,18 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
               <div className="c-card">
                 <div className="c-card-header">
                   <div>
-                    <h3 className="font-black text-slate-800 flex items-center gap-2"><span>🍱</span> الوجبات والمنتجات</h3>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">{menuItems.length} وجبة في {categories.length} قسم</p>
+                    <h3 className="font-black text-slate-800 flex items-center gap-2">
+                      <span>{restaurant?.store_type === 'clothing' ? '👗' : restaurant?.store_type === 'supermarket' ? '🛒' : '📦'}</span>
+                      {restaurant?.store_type === 'clothing' ? 'تشكيلة الأزياء والموديلات' : restaurant?.store_type === 'supermarket' ? 'عروض المنتجات والمواد الغذائية' : 'المنتجات'}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">{menuItems.length} عنصر في {categories.length} قسم</p>
                   </div>
                   <button
-                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '' }) }}
+                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '' }) }}
                     disabled={categories.length === 0}
                     className="btn btn-dark btn-sm disabled:opacity-40"
                   >
-                    <Plus size={15} /> وجبة جديدة
+                    <Plus size={15} /> {restaurant?.store_type === 'clothing' ? 'موديل جديد' : 'منتَج جديد'}
                   </button>
                 </div>
 
@@ -708,7 +935,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
                 {showItemForm && categories.length > 0 && (
                   <div className="mx-4 mb-4 bg-slate-50 border border-slate-200 rounded-2xl p-4 animate-slide-down">
-                    <h4 className="font-black text-slate-800 mb-3">{editItemId ? 'تعديل وجبة' : 'إضافة وجبة جديدة'}</h4>
+                    <h4 className="font-black text-slate-800 mb-3">
+                      {editItemId
+                        ? (restaurant?.store_type === 'clothing' ? 'تعديل بيانات الموديل' : 'تعديل المنتَج')
+                        : (restaurant?.store_type === 'clothing' ? 'إضافة موديل ألبسة جديد' : 'إضافة منتَج جديد')}
+                    </h4>
                     <form onSubmit={handleSaveItem} className="space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
@@ -719,32 +950,51 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                           </select>
                         </div>
                         <div>
-                          <label className="f-label">اسم الوجبة *</label>
-                          <input type="text" required value={itemForm.name} onChange={e => setItemForm({ ...itemForm, name: e.target.value })} placeholder="اسم الوجبة..." className="f-input" />
+                          <label className="f-label">
+                            {restaurant?.store_type === 'clothing' ? 'اسم القطعة / الموديل *' : 'اسم المنتج *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={itemForm.name}
+                            onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
+                            placeholder={restaurant?.store_type === 'clothing' ? 'مثال: فستان سهرة مخمل' : 'اسم المنتج...'}
+                            className="f-input"
+                          />
                         </div>
                         <div>
-                          <label className="f-label">السعر (TL) *</label>
+                          <label className="f-label">
+                            {restaurant?.store_type === 'supermarket' ? 'سعر العرض (TL) *' : 'السعر (TL) *'}
+                          </label>
                           <input type="number" step="0.5" required value={itemForm.price} onChange={e => setItemForm({ ...itemForm, price: e.target.value })} className="f-input text-orange-600 font-black" />
                         </div>
-                        <div>
-                          <label className="f-label">صورة الوجبة</label>
-                          <ImageUpload value={itemForm.image_url} onChange={url => setItemForm({ ...itemForm, image_url: url })} />
-                        </div>
+                        {restaurant?.store_type === 'clothing' && (
+                          <div>
+                            <label className="f-label">القياسات المتاحة (افصل بينها بفاصلة)</label>
+                            <input
+                              type="text"
+                              placeholder="مثال: S, M, L, XL"
+                              value={itemForm.sizesText || ''}
+                              onChange={e => setItemForm({ ...itemForm, sizesText: e.target.value })}
+                              className="f-input"
+                            />
+                          </div>
+                        )}
                         <div className="md:col-span-2">
-                          <label className="f-label">الوصف (اختياري)</label>
-                          <textarea rows={2} value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="المكونات والتفاصيل..." className="f-input" />
+                          <label className="f-label">الوصف والتفاصيل (اختياري)</label>
+                          <textarea rows={2} value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="المكونات والمواصفات..." className="f-input" />
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-1">
                         <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
                           <input type="checkbox" checked={itemForm.is_available} onChange={e => setItemForm({ ...itemForm, is_available: e.target.checked })} className="w-4 h-4 accent-green-500" />
-                          متوفرة للطلب؟
+                          متوفر للطلب؟
                         </label>
                         <div className="flex gap-2">
                           <button type="button" onClick={() => setShowItemForm(false)} className="btn btn-ghost btn-sm">إلغاء</button>
                           <button type="submit" disabled={savingItem} className="btn btn-dark btn-sm">
-                            {savingItem ? 'حفظ...' : '💾 حفظ الوجبة'}
+                            {savingItem ? 'حفظ...' : '💾 حفظ المنتج'}
                           </button>
                         </div>
                       </div>
@@ -755,8 +1005,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 <div className="c-card-body pt-0">
                   {categories.length > 0 && menuItems.length === 0 && !showItemForm ? (
                     <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-2xl">
-                      <p className="text-4xl mb-2">🍱</p>
-                      <p className="text-slate-400 text-sm font-medium">لا توجد وجبات مضافة بعد</p>
+                      <p className="text-4xl mb-2">📦</p>
+                      <p className="text-slate-400 text-sm font-medium">لا توجد منتجات مضافة بعد</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -766,11 +1016,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                           <div key={cat.id}>
                             <div className="flex items-center gap-2 mb-2.5">
                               <h4 className="font-black text-sm text-slate-800">{cat.name}</h4>
-                              <span className="badge badge-gray">{items.length} وجبة</span>
+                              <span className="badge badge-gray">{items.length} منتَج</span>
                             </div>
                             {items.length === 0 ? (
                               <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-400 text-xs">
-                                لا توجد وجبات في هذا القسم بعد
+                                لا توجد منتجات في هذا القسم بعد
                               </div>
                             ) : (
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -811,6 +1061,13 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           </div>
         </div>
       </main>
+
+      <StoreSettingsModal
+        restaurant={restaurant}
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onSaveSuccess={fetchData}
+      />
     </div>
   )
 }

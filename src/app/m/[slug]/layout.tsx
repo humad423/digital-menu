@@ -5,6 +5,7 @@ import RestaurantRating from '@/components/RestaurantRating'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, MapPin } from 'lucide-react'
+import { getStoreStatus } from '@/utils/storeStatus'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ export default async function RestaurantLayout({
   const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km')
+    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, has_delivery')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -78,9 +79,10 @@ export default async function RestaurantLayout({
           {/* Back Button */}
           <Link
             href="/"
-            className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-black/30 backdrop-blur-md text-white border border-white/20 flex items-center justify-center active:scale-90 transition"
+            className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-slate-900/70 backdrop-blur-md text-white border border-white/25 flex items-center justify-center shadow-md active:scale-90 hover:bg-slate-900/90 transition"
+            title="العودة للرئيسية"
           >
-            <ArrowRight size={18} />
+            <ArrowRight size={19} />
           </Link>
 
           {/* User Auth */}
@@ -97,7 +99,7 @@ export default async function RestaurantLayout({
         </div>
 
         {/* Info Box */}
-        <div className="max-w-xl mx-auto px-4 -mt-4 relative z-20">
+        <div className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 -mt-4 relative z-20">
           <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3">
             {/* Logo */}
             <div className="w-14 h-14 rounded-2xl bg-white p-1 border-2 border-slate-100 shadow-xs shrink-0 overflow-hidden">
@@ -117,10 +119,16 @@ export default async function RestaurantLayout({
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-slate-400 truncate mb-1">{restaurant.name}</p>
               <div className="flex items-center gap-3 flex-wrap text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="font-bold text-slate-600">مفتوح الآن</span>
-                </div>
+                {(() => {
+                  const status = getStoreStatus(restaurant)
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${status.dotClass}`} />
+                      <span className="font-bold text-slate-700">{status.statusText}</span>
+                      {status.subText && <span className="text-[10px] text-slate-400 font-bold">({status.subText})</span>}
+                    </div>
+                  )
+                })()}
                 <RestaurantRating restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
               </div>
             </div>
@@ -129,11 +137,35 @@ export default async function RestaurantLayout({
       </div>
 
       {/* Main Content Container */}
-      <main className="max-w-xl mx-auto px-4 mt-4">
+      <main className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 mt-4">
         {children}
       </main>
 
-      <CartButton restaurant={restaurant} />
+      {restaurant.has_delivery === false ? (
+        <div className="fixed bottom-4 left-4 right-4 z-40 max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto">
+          <div className="bg-slate-900 text-white rounded-2xl p-3 px-4 shadow-xl border border-slate-800 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base shrink-0">🏪</span>
+              <div className="min-w-0">
+                <p className="font-black text-xs text-white truncate">استلام من الفرع / تصفح فقط</p>
+                <p className="text-[10px] text-slate-400 font-bold truncate">هذا المحل لا يقدّم خدمة التوصيل للمنازل</p>
+              </div>
+            </div>
+            {restaurant.whatsapp_number && (
+              <a
+                href={`https://wa.me/${restaurant.whatsapp_number.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition shadow-sm shrink-0"
+              >
+                💬 تواصل واتساب
+              </a>
+            )}
+          </div>
+        </div>
+      ) : (
+        <CartButton restaurant={restaurant} />
+      )}
     </div>
   )
 }

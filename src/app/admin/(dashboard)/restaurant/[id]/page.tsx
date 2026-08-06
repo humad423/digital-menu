@@ -4,8 +4,9 @@ import { useState, useEffect, use } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
+import StoreSettingsModal from '@/components/StoreSettingsModal'
 import { useAuth } from '@/context/AuthContext'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { getMainDomainMenuUrl } from '@/utils/url'
 
@@ -21,6 +22,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
   const [categories, setCategories]   = useState<any[]>([])
   const [menuItems, setMenuItems]     = useState<any[]>([])
   const [loading, setLoading]         = useState(true)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
   const supabase = createClient()
 
   // ── Sub-category State ─────────────────────────────────────────
@@ -47,6 +49,10 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     min_quantity: '1',
     bonus_item_id: '',
     bonus_quantity: '1',
+    item3_id: '',
+    item3_quantity: '1',
+    item4_id: '',
+    item4_quantity: '1',
     title: '',
     description: '',
     original_price: '',
@@ -54,7 +60,11 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     image_url: '',
     is_active: true
   })
+  const [showAdminItem3Input, setShowAdminItem3Input] = useState(false)
+  const [showAdminItem4Input, setShowAdminItem4Input] = useState(false)
   const [savingOffer, setSavingOffer] = useState(false)
+  const [maxOffersLimitInput, setMaxOffersLimitInput] = useState<number>(5)
+  const [savingMaxOffers, setSavingMaxOffers] = useState(false)
 
   // ── Delivery Tiers State ─────────────────────────────────────────
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>([])
@@ -68,6 +78,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
       if (resData) {
         setRestaurant(resData)
+        setMaxOffersLimitInput(resData.max_offers_limit || 5)
         setDeliveryTiers(resData.delivery_tiers || [
           { min_km: 0, max_km: 10, fee: 25, is_active: true },
           { min_km: 10, max_km: 20, fee: 50, is_active: true },
@@ -180,14 +191,14 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (editItemId) {
       const { error } = await supabase.from('menu_items').update(payload).eq('id', editItemId)
       if (error) {
-        alert('خطأ في حفظ الوجبة: ' + error.message)
+        alert('خطأ في حفظ المنتج: ' + error.message)
         setSavingItem(false)
         return
       }
     } else {
       const { error } = await supabase.from('menu_items').insert([payload])
       if (error) {
-        alert('خطأ في إضافة الوجبة: ' + error.message)
+        alert('خطأ في إضافة المنتج: ' + error.message)
         setSavingItem(false)
         return
       }
@@ -223,63 +234,60 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
   }
 
   const deleteItem = async (itemId: string, name: string) => {
-    if (confirm(`حذف الوجبة "${name}"؟`)) {
+    if (confirm(`حذف المنتج "${name}"؟`)) {
       await supabase.from('menu_items').delete().eq('id', itemId)
       fetchData()
     }
   }
 
   // ── Auto Offer Calculation ──────────────────────────────────────
-  const handlePrimaryItemChange = (itemId: string) => {
-    const primary = menuItems.find(i => i.id === itemId)
-    const bonus = menuItems.find(i => i.id === offerForm.bonus_item_id)
-    const minQty = parseInt(offerForm.min_quantity) || 1
-    const bonusQty = parseInt(offerForm.bonus_quantity) || 1
+  const recalculateAdminOfferTotals = (form: typeof offerForm) => {
+    const p = menuItems.find(i => i.id === form.primary_item_id)
+    const b1 = menuItems.find(i => i.id === form.bonus_item_id)
+    const b2 = menuItems.find(i => i.id === form.item3_id)
+    const b3 = menuItems.find(i => i.id === form.item4_id)
+
+    const qp = parseInt(form.min_quantity) || 1
+    const qb1 = parseInt(form.bonus_quantity) || 1
+    const qb2 = parseInt(form.item3_quantity) || 1
+    const qb3 = parseInt(form.item4_quantity) || 1
 
     let origPrice = 0
-    let autoTitle = ''
+    const titles: string[] = []
 
-    if (primary) {
-      origPrice += (primary.price || 0) * minQty
-      autoTitle = `${minQty} ${primary.name}`
+    if (p) {
+      origPrice += (p.price || 0) * qp
+      titles.push(`${qp > 1 ? qp + ' ' : ''}${p.name}`)
     }
-    if (bonus) {
-      origPrice += (bonus.price || 0) * bonusQty
-      autoTitle += bonusQty > 1 ? ` + ${bonusQty} ${bonus.name}` : ` + ${bonus.name}`
+    if (b1) {
+      origPrice += (b1.price || 0) * qb1
+      titles.push(`${qb1 > 1 ? qb1 + ' ' : ''}${b1.name}`)
+    }
+    if (b2) {
+      origPrice += (b2.price || 0) * qb2
+      titles.push(`${qb2 > 1 ? qb2 + ' ' : ''}${b2.name}`)
+    }
+    if (b3) {
+      origPrice += (b3.price || 0) * qb3
+      titles.push(`${qb3 > 1 ? qb3 + ' ' : ''}${b3.name}`)
     }
 
-    setOfferForm(prev => ({
-      ...prev,
-      primary_item_id: itemId,
-      original_price: origPrice > 0 ? origPrice.toString() : prev.original_price,
-      title: autoTitle || prev.title
-    }))
+    return {
+      original_price: origPrice > 0 ? origPrice.toString() : form.original_price,
+      title: titles.length > 0 ? titles.join(' + ') : form.title
+    }
   }
 
-  const handleBonusItemChange = (bonusId: string) => {
-    const primary = menuItems.find(i => i.id === offerForm.primary_item_id)
-    const bonus = menuItems.find(i => i.id === bonusId)
-    const minQty = parseInt(offerForm.min_quantity) || 1
-    const bonusQty = parseInt(offerForm.bonus_quantity) || 1
-
-    let origPrice = 0
-    let autoTitle = ''
-
-    if (primary) {
-      origPrice += (primary.price || 0) * minQty
-      autoTitle = `${minQty} ${primary.name}`
-    }
-    if (bonus) {
-      origPrice += (bonus.price || 0) * bonusQty
-      autoTitle += bonusQty > 1 ? ` + ${bonusQty} ${bonus.name}` : ` + ${bonus.name}`
-    }
-
-    setOfferForm(prev => ({
-      ...prev,
-      bonus_item_id: bonusId,
-      original_price: origPrice > 0 ? origPrice.toString() : prev.original_price,
-      title: autoTitle || prev.title
-    }))
+  const updateAdminOfferField = (field: string, value: any) => {
+    setOfferForm(prev => {
+      const updated = { ...prev, [field]: value }
+      const totals = recalculateAdminOfferTotals(updated)
+      return {
+        ...updated,
+        original_price: totals.original_price,
+        title: totals.title || updated.title
+      }
+    })
   }
 
   // ── Offer CRUD ──────────────────────────────────────────────────
@@ -293,7 +301,11 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       primary_item_id: offerForm.primary_item_id,
       min_quantity: parseInt(offerForm.min_quantity) || 1,
       bonus_item_id: offerForm.bonus_item_id || null,
-      bonus_quantity: parseInt(offerForm.bonus_quantity) || 1,
+      bonus_quantity: offerForm.bonus_item_id ? (parseInt(offerForm.bonus_quantity) || 1) : 1,
+      item3_id: offerForm.item3_id || null,
+      item3_quantity: offerForm.item3_id ? (parseInt(offerForm.item3_quantity) || 1) : 1,
+      item4_id: offerForm.item4_id || null,
+      item4_quantity: offerForm.item4_id ? (parseInt(offerForm.item4_quantity) || 1) : 1,
       title: offerForm.title,
       description: offerForm.description || null,
       original_price: offerForm.original_price ? parseFloat(offerForm.original_price) : null,
@@ -306,14 +318,20 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       const { error } = await supabase.from('offers').update(payload).eq('id', editOfferId)
       if (error) alert('خطأ في حفظ العرض: ' + error.message)
     } else {
-      const { error } = await supabase.from('offers').insert([payload])
+      const { data: maxOffer } = await supabase.from('offers').select('sort_order').order('sort_order', { ascending: false }).limit(1)
+      const nextRank = (maxOffer && maxOffer[0]?.sort_order && maxOffer[0].sort_order > 0) ? (maxOffer[0].sort_order + 1) : 1
+      const { error } = await supabase.from('offers').insert([{ ...payload, sort_order: nextRank }])
       if (error) alert('خطأ في إنشاء العرض: ' + error.message)
     }
 
     setSavingOffer(false)
     setShowOfferForm(false)
     setEditOfferId(null)
-    setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true })
+    setOfferForm({
+      primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1',
+      item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1',
+      title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true
+    })
     fetchData()
   }
 
@@ -324,6 +342,10 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       min_quantity: (offer.min_quantity || 1).toString(),
       bonus_item_id: offer.bonus_item_id || '',
       bonus_quantity: (offer.bonus_quantity || 1).toString(),
+      item3_id: offer.item3_id || '',
+      item3_quantity: (offer.item3_quantity || 1).toString(),
+      item4_id: offer.item4_id || '',
+      item4_quantity: (offer.item4_quantity || 1).toString(),
       title: offer.title || '',
       description: offer.description || '',
       original_price: offer.original_price ? offer.original_price.toString() : '',
@@ -333,6 +355,17 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     })
     setShowOfferForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleSaveMaxOffersLimit = async () => {
+    setSavingMaxOffers(true)
+    const { error } = await supabase.from('restaurants').update({ max_offers_limit: maxOffersLimitInput }).eq('id', id)
+    if (error) alert('خطأ في حفظ الحد: ' + error.message)
+    else {
+      setRestaurant((prev: any) => ({ ...prev, max_offers_limit: maxOffersLimitInput }))
+      alert(`تم تحديث الحد الأقصى للعروض لـ ${restaurant?.name || 'هذا المتجر'} إلى (${maxOffersLimitInput} عروض) بنجاح!`)
+    }
+    setSavingMaxOffers(false)
   }
 
   const deleteOffer = async (offerId: string, title: string) => {
@@ -397,15 +430,26 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-black text-white">{restaurant.name}</h1>
                 <span className="bg-orange-500/20 text-orange-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-500/30">
-                  إدارة المنيو (المدير)
+                  {restaurant.store_type === 'supermarket' ? 'إدارة الماركت (الأدمن)' : restaurant.store_type === 'clothing' ? 'إدارة المعرض (الأدمن)' : restaurant.store_type === 'other' ? 'إدارة المتجر (الأدمن)' : 'إدارة المنيو (الأدمن)'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-bold">تحكم كامل بالأقسام والوجبات والعروض وشغف التوصيل</p>
+              <p className="text-[11px] text-slate-400 font-bold">
+                {restaurant.store_type === 'supermarket' ? 'تحكم كامل بالأقسام والمنتجات والعروض وأجور التوصيل' : restaurant.store_type === 'clothing' ? 'تحكم كامل بتشكيلة الأزياء والموديلات والقياسات' : 'تحكم كامل بالأقسام والوجبات والعروض وأجور التوصيل'}
+              </p>
             </div>
           </div>
 
-          {/* Left: Preview + Logout */}
+          {/* Left: Preview + Settings + Logout */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30 text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+              title="إعدادات المتجر وساعات الدوام"
+            >
+              <Settings size={14} />
+              <span>الإعدادات ⚙️</span>
+            </button>
+
             <a
               href={getMainDomainMenuUrl(restaurant.slug)}
               target="_blank"
@@ -413,7 +457,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
               className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-sm"
             >
               <Eye size={14} className="text-orange-400" />
-              <span>معاينة المنيو</span>
+              <span>{restaurant.store_type === 'supermarket' ? 'معاينة الماركت' : restaurant.store_type === 'clothing' ? 'معاينة المعرض' : restaurant.store_type === 'other' ? 'معاينة المتجر' : 'معاينة المنيو'}</span>
             </a>
 
 
@@ -441,7 +485,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                 <div className="flex items-center justify-between mb-4 border-b border-slate-700/60 pb-3">
                   <h3 className="font-black text-base text-white flex items-center gap-2">
                     <Utensils size={18} className="text-orange-400" />
-                    <span>{editItemId ? 'تعديل الوجبة' : 'إضافة وجبة جديدة'}</span>
+                    <span>{editItemId ? 'تعديل المنتج' : 'إضافة منتَج جديد'}</span>
                   </h3>
                   <button
                     onClick={() => { setShowItemForm(false); setEditItemId(null); }}
@@ -469,10 +513,10 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1.5">اسم الوجبة *</label>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">اسم المنتج *</label>
                       <input
                         type="text"
-                        placeholder="مثال: وجبة شاوما سوبر"
+                        placeholder="أدخل اسم المنتج..."
                         value={itemForm.name}
                         onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
                         required
@@ -482,7 +526,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">وصف الوجبة / المكونات</label>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">وصف المنتج والتفاصيل</label>
                     <textarea
                       rows={2}
                       placeholder="مثال: تتضمن 2 سندويش شاورما كبير + بطاطا + صوص ثوم وقلم مخلل..."
@@ -507,7 +551,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1.5">صورة الوجبة</label>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">صورة المنتج</label>
                       <ImageUpload
                         value={itemForm.image_url}
                         onChange={url => setItemForm({ ...itemForm, image_url: url })}
@@ -522,7 +566,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                           onChange={e => setItemForm({ ...itemForm, is_available: e.target.checked })}
                           className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
                         />
-                        <span className="text-xs font-bold text-slate-200">الوجبة متوفرة للطلب الان</span>
+                        <span className="text-xs font-bold text-slate-200">المنتج متوفر للطلب الآن</span>
                       </label>
                     </div>
                   </div>
@@ -540,7 +584,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                       disabled={savingItem}
                       className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black shadow-md transition disabled:opacity-50"
                     >
-                      {savingItem ? 'جاري الحفظ...' : editItemId ? 'تحديث الوجبة' : 'حفظ وإضافة الوجبة'}
+                      {savingItem ? 'جاري الحفظ...' : editItemId ? 'تحديث المنتج' : 'حفظ وإضافة المنتج'}
                     </button>
                   </div>
                 </form>
@@ -548,31 +592,58 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
             )}
 
             {/* 2. OFFERS & BUNDLES SECTION */}
-            <div className="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-5 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-5 shadow-lg space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-700/60">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-sm">
                     🔥
                   </div>
                   <div>
-                    <h3 className="font-black text-sm text-white">إدارة العروض والبكجات</h3>
+                    <h3 className="font-black text-sm text-white flex items-center gap-2">
+                      <span>إدارة العروض والبكجات</span>
+                      <span className="text-[10px] text-orange-400 font-bold bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                        {offers.length} / {restaurant?.max_offers_limit || 5} متاح
+                      </span>
+                    </h3>
                     <p className="text-[11px] text-slate-400 font-bold">أنشئ عروض تخفيض أو بكجات تجميعية تظهر للزبائن أعلى المنيو</p>
                   </div>
                 </div>
 
-                {!showOfferForm && (
-                  <button
-                    onClick={() => {
-                      setEditOfferId(null)
-                      setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true })
-                      setShowOfferForm(true)
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black flex items-center gap-1.5 transition shadow-sm"
-                  >
-                    <Plus size={15} />
-                    <span>إضافة عرض / بكج</span>
-                  </button>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Admin control for Max Offers Limit */}
+                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1">
+                    <span className="text-[11px] font-bold text-slate-300">الحد المتاح:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={maxOffersLimitInput}
+                      onChange={e => setMaxOffersLimitInput(parseInt(e.target.value) || 1)}
+                      className="w-12 bg-slate-800 text-orange-400 font-black text-center text-xs rounded-lg py-0.5 border border-slate-700 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveMaxOffersLimit}
+                      disabled={savingMaxOffers}
+                      className="px-2 py-0.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-black text-[11px] transition disabled:opacity-50"
+                    >
+                      {savingMaxOffers ? '...' : 'تحديث'}
+                    </button>
+                  </div>
+
+                  {!showOfferForm && (
+                    <button
+                      onClick={() => {
+                        setEditOfferId(null)
+                        setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true })
+                        setShowOfferForm(true)
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black flex items-center gap-1.5 transition shadow-sm"
+                    >
+                      <Plus size={15} />
+                      <span>إضافة عرض</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Offer Builder Form */}
@@ -588,16 +659,17 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                   </div>
 
                   <form onSubmit={handleSaveOffer} className="space-y-3">
+                    {/* Product 1 */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-1">الوجبة الرئيسية *</label>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">المنتج الأول (الأساسي) *</label>
                         <select
                           value={offerForm.primary_item_id}
-                          onChange={e => handlePrimaryItemChange(e.target.value)}
+                          onChange={e => updateAdminOfferField('primary_item_id', e.target.value)}
                           required
                           className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
                         >
-                          <option value="">اختر الوجبة الرئيسية...</option>
+                          <option value="">اختر المنتج الأول...</option>
                           {menuItems.map(i => (
                             <option key={i.id} value={i.id}>{i.name} ({i.price} ₺)</option>
                           ))}
@@ -605,26 +677,27 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-1">الكمية من الوجبة الرئيسية</label>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">الكمية من المنتج الأول</label>
                         <input
                           type="number"
                           min="1"
                           value={offerForm.min_quantity}
-                          onChange={e => setOfferForm({ ...offerForm, min_quantity: e.target.value })}
+                          onChange={e => updateAdminOfferField('min_quantity', e.target.value)}
                           className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
                         />
                       </div>
                     </div>
 
+                    {/* Product 2 */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-1">وجبة كهدية أو إضافية (اختياري)</label>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">المنتج الثاني (اختياري)</label>
                         <select
                           value={offerForm.bonus_item_id}
-                          onChange={e => handleBonusItemChange(e.target.value)}
+                          onChange={e => updateAdminOfferField('bonus_item_id', e.target.value)}
                           className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
                         >
-                          <option value="">بدون هدية...</option>
+                          <option value="">بدون منتج ثاني...</option>
                           {menuItems.map(i => (
                             <option key={i.id} value={i.id}>{i.name} ({i.price} ₺)</option>
                           ))}
@@ -632,27 +705,107 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-1">عنوان العرض الترويجي *</label>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">كمية المنتج الثاني</label>
                         <input
-                          type="text"
-                          placeholder="مثال: عرض 2 مارغريتا + 1 كولا مجاناً"
-                          value={offerForm.title}
-                          onChange={e => setOfferForm({ ...offerForm, title: e.target.value })}
-                          required
+                          type="number"
+                          min="1"
+                          value={offerForm.bonus_quantity}
+                          disabled={!offerForm.bonus_item_id}
+                          onChange={e => updateAdminOfferField('bonus_quantity', e.target.value)}
                           className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
                         />
                       </div>
                     </div>
 
+                    {/* Product 3 (Hidden by default until needed) */}
+                    {(offerForm.item3_id || showAdminItem3Input) && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-slide-down bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/60">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[11px] font-bold text-slate-300">المنتج الثالث (اختياري)</label>
+                            <button type="button" onClick={() => { updateAdminOfferField('item3_id', ''); setShowAdminItem3Input(false); }} className="text-red-400 text-[10px]">إلغاء ✕</button>
+                          </div>
+                          <select
+                            value={offerForm.item3_id}
+                            onChange={e => updateAdminOfferField('item3_id', e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
+                          >
+                            <option value="">اختر المنتج الثالث...</option>
+                            {menuItems.map(i => (
+                              <option key={i.id} value={i.id}>{i.name} ({i.price} ₺)</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">كمية المنتج الثالث</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={offerForm.item3_quantity}
+                            disabled={!offerForm.item3_id}
+                            onChange={e => updateAdminOfferField('item3_quantity', e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {!offerForm.item3_id && !showAdminItem3Input && (
+                      <button type="button" onClick={() => setShowAdminItem3Input(true)} className="w-full py-2 border border-dashed border-orange-500/40 hover:border-orange-500 rounded-xl text-orange-400 font-bold text-xs flex items-center justify-center gap-1 transition bg-slate-800/30 hover:bg-slate-800/80">
+                        + إضافة منتج ثالث للعرض
+                      </button>
+                    )}
+
+                    {/* Product 4 (Hidden by default until Product 3 is active) */}
+                    {(offerForm.item4_id || showAdminItem4Input) && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-slide-down bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/60">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[11px] font-bold text-slate-300">المنتج الرابع (اختياري)</label>
+                            <button type="button" onClick={() => { updateAdminOfferField('item4_id', ''); setShowAdminItem4Input(false); }} className="text-red-400 text-[10px]">إلغاء ✕</button>
+                          </div>
+                          <select
+                            value={offerForm.item4_id}
+                            onChange={e => updateAdminOfferField('item4_id', e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
+                          >
+                            <option value="">اختر المنتج الرابع...</option>
+                            {menuItems.map(i => (
+                              <option key={i.id} value={i.id}>{i.name} ({i.price} ₺)</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">كمية المنتج الرابع</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={offerForm.item4_quantity}
+                            disabled={!offerForm.item4_id}
+                            onChange={e => updateAdminOfferField('item4_quantity', e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {(offerForm.item3_id || showAdminItem3Input) && !offerForm.item4_id && !showAdminItem4Input && (
+                      <button type="button" onClick={() => setShowAdminItem4Input(true)} className="w-full py-2 border border-dashed border-orange-500/40 hover:border-orange-500 rounded-xl text-orange-400 font-bold text-xs flex items-center justify-center gap-1 transition bg-slate-800/30 hover:bg-slate-800/80">
+                        + إضافة منتج رابع للعرض
+                      </button>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-1">السعر الأصلي قبل الخصم (₺)</label>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">عنوان العرض الترويجي *</label>
                         <input
-                          type="number"
-                          step="0.01"
-                          placeholder="180"
-                          value={offerForm.original_price}
-                          onChange={e => setOfferForm({ ...offerForm, original_price: e.target.value })}
+                          type="text"
+                          placeholder="مثال: عرض 2 عباية + فستان + حقيبة"
+                          value={offerForm.title}
+                          onChange={e => setOfferForm({ ...offerForm, title: e.target.value })}
+                          required
                           className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
                         />
                       </div>
@@ -669,6 +822,26 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                           className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">السعر الأصلي قبل الخصم (₺)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="180"
+                          value={offerForm.original_price}
+                          onChange={e => setOfferForm({ ...offerForm, original_price: e.target.value })}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">صورة العرض المخصصة (اختياري)</label>
+                      <p className="text-[10px] text-slate-400 font-bold mb-1.5">
+                        💡 عند ترك هذا الخيار فارغاً، سيقوم النظام تلقائياً بدمج وتنسيق صور المنتجات المختارة في العرض.
+                      </p>
+                      <ImageUpload value={offerForm.image_url} onChange={url => setOfferForm({ ...offerForm, image_url: url })} />
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
@@ -695,44 +868,72 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
               <div className="space-y-2.5">
                 {offers.length === 0 ? (
                   <p className="text-xs text-slate-500 font-bold text-center py-4 border border-dashed border-slate-700 rounded-2xl">
-                    لا توجد عروض مضاعفة أو بكجات حالياً لـ هذا المطعم.
+                    لا توجد عروض ترويجية مضافة حالياً لهذا المتجر.
                   </p>
                 ) : (
-                  offers.map(offer => (
-                    <div key={offer.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-3 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center font-bold text-base shrink-0">
-                          🔥
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="font-black text-xs text-white truncate">{offer.title}</h4>
-                          <div className="flex items-center gap-2 mt-0.5 text-[11px] font-bold">
-                            <span className="text-orange-400 font-black">{offer.offer_price} ₺</span>
-                            {offer.original_price && (
-                              <span className="text-slate-500 line-through">{offer.original_price} ₺</span>
-                            )}
+                  offers.map(offer => {
+                    const primaryItem = menuItems.find(i => i.id === offer.primary_item_id)
+                    const bonusItem = menuItems.find(i => i.id === offer.bonus_item_id)
+                    const item3 = menuItems.find(i => i.id === offer.item3_id)
+                    const item4 = menuItems.find(i => i.id === offer.item4_id)
+                    return (
+                      <div key={offer.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <SmartOfferImage
+                            primaryImage={primaryItem?.image_url}
+                            bonusImage={bonusItem?.image_url}
+                            item3Image={item3?.image_url}
+                            item4Image={item4?.image_url}
+                            customImage={offer.image_url}
+                            minQuantity={offer.min_quantity}
+                            bonusQuantity={offer.bonus_quantity}
+                            className="w-12 h-12 rounded-xl shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <h4 className="font-black text-xs text-white truncate">{offer.title}</h4>
+                            <div className="flex items-center gap-2 mt-0.5 text-[11px] font-bold">
+                              <span className="text-orange-400 font-black">{offer.offer_price} ₺</span>
+                              {offer.original_price && (
+                                <span className="text-slate-500 line-through">{offer.original_price} ₺</span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          onClick={() => handleEditOffer(offer)}
-                          className="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center transition"
-                          title="تعديل العرض"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button
-                          onClick={() => deleteOffer(offer.id, offer.title)}
-                          className="w-8 h-8 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center justify-center transition"
-                          title="حذف العرض"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Super Admin sort order controls */}
+                          <div className="flex items-center gap-1 bg-slate-800/90 px-2 py-1 rounded-xl border border-slate-700">
+                            <span className="text-[10px] text-slate-400 font-bold">ترتيب:</span>
+                            <input
+                              type="number"
+                              value={offer.sort_order || 0}
+                              onChange={async e => {
+                                const val = parseInt(e.target.value) || 0
+                                await supabase.from('offers').update({ sort_order: val }).eq('id', offer.id)
+                                fetchData()
+                              }}
+                              className="w-10 bg-slate-900 text-orange-400 font-black text-center text-xs rounded border border-slate-700 outline-none focus:border-orange-500"
+                            />
+                          </div>
+
+                          <button
+                            onClick={() => handleEditOffer(offer)}
+                            className="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center transition"
+                            title="تعديل العرض"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            onClick={() => deleteOffer(offer.id, offer.title)}
+                            className="w-8 h-8 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center justify-center transition"
+                            title="حذف العرض"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
@@ -745,8 +946,8 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                     🍱
                   </div>
                   <div>
-                    <h3 className="font-black text-sm text-white">المنتجات والوجبات</h3>
-                    <p className="text-[11px] text-slate-400 font-bold">{menuItems.length} وجبة في {categories.length} قسم</p>
+                    <h3 className="font-black text-sm text-white">المنتجات</h3>
+                    <p className="text-[11px] text-slate-400 font-bold">{menuItems.length} منتَج في {categories.length} قسم</p>
                   </div>
                 </div>
 
@@ -760,7 +961,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                     className="px-3.5 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-black flex items-center gap-1.5 transition shadow-sm"
                   >
                     <Plus size={15} />
-                    <span>وجبة جديدة</span>
+                    <span>منتَج جديد</span>
                   </button>
                 )}
               </div>
@@ -775,13 +976,13 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                         <span>{cat.name}</span>
                       </h4>
                       <span className="bg-slate-700/80 text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        {itemsInCat.length} وجبة
+                        {itemsInCat.length} منتَج
                       </span>
                     </div>
 
                     {itemsInCat.length === 0 ? (
                       <p className="text-[11px] text-slate-500 font-bold text-center py-3 bg-slate-900/50 rounded-xl border border-dashed border-slate-800">
-                        لا توجد وجبات في هذا القسم بعد
+                        لا توجد منتجات في هذا القسم بعد
                       </p>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -824,7 +1025,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                               <button
                                 onClick={() => handleEditItem(item)}
                                 className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center transition"
-                                title="تعديل الوجبة"
+                                title="تعديل المنتج"
                               >
                                 <Edit size={13} />
                               </button>
@@ -832,7 +1033,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                               <button
                                 onClick={() => deleteItem(item.id, item.name)}
                                 className="w-7 h-7 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center justify-center transition"
-                                title="حذف الوجبة"
+                                title="حذف المنتج"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -859,7 +1060,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                   <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-sm">
                     📂
                   </div>
-                  <h3 className="font-black text-sm text-white">أقسام المنيو الفرعية</h3>
+                  <h3 className="font-black text-sm text-white">أقسام المتجر الفرعية</h3>
                 </div>
                 <span className="bg-slate-700 text-slate-300 text-xs font-black px-2.5 py-0.5 rounded-full">
                   {categories.length}
@@ -920,7 +1121,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                         <GripVertical size={15} className="text-slate-500 shrink-0" />
                         <span className="font-black text-xs text-white truncate">{cat.name}</span>
                         <span className="text-[10px] text-slate-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full shrink-0">
-                          {count} وجبة
+                          {count} منتَج
                         </span>
                       </div>
 
@@ -1036,6 +1237,12 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
         </div>
       </main>
 
+      <StoreSettingsModal
+        restaurant={restaurant}
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onSaveSuccess={fetchData}
+      />
     </div>
   )
 }

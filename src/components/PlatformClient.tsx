@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, MapPin, Clock, ChevronLeft, ChevronRight, X, Bike, Star, Sparkles, Loader2 } from 'lucide-react'
+import { Search, MapPin, Clock, ChevronLeft, ChevronRight, X, Bike, Star, Sparkles, Loader2, ArrowUpDown } from 'lucide-react'
 
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import UserAuthButton from '@/components/UserAuthButton'
 import BrandLogo from '@/components/BrandLogo'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
+import { getStoreStatus } from '@/utils/storeStatus'
 
 // ═══════════════════════════════════════════════════════════
 //  ADS SLIDER (Touch + Mouse Drag + Dots + Arrows)
@@ -134,15 +135,21 @@ export default function PlatformClient({
   restaurants,
   categories,
   ads,
-  offers = []
+  offers = [],
+  serviceZones = []
 }: {
   restaurants: any[]
   categories: any[]
   ads: any[]
   offers?: any[]
+  serviceZones?: any[]
 }) {
-  const [activeCat, setActiveCat]     = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [activeCat, setActiveCat]         = useState<string | null>(null)
+  const [searchQuery, setSearchQuery]     = useState('')
+  const [activeStoreType, setActiveStoreType] = useState<string>('all')
+  const [sortBy, setSortBy]               = useState<'distance' | 'rating' | 'delivery_fee' | 'newest'>('distance')
+  const [showAllRanked, setShowAllRanked] = useState(false)
+  const [showAllLatest, setShowAllLatest] = useState(false)
   const offersRef   = useRef<HTMLDivElement>(null)
   const searchRef   = useRef<HTMLInputElement>(null)
 
@@ -176,61 +183,98 @@ export default function PlatformClient({
   })
 
   const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) return
+    if (typeof window === 'undefined') return
     setLocStatus('locating')
 
-    navigator.geolocation.getCurrentPosition(
-      async p => {
-        const coords = { lat: p.coords.latitude, lng: p.coords.longitude }
-        setUserLoc(coords)
-        setLocStatus('granted')
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('alfsouq_user_loc', JSON.stringify(coords))
-          localStorage.setItem('alfsouq_loc_status', 'granted')
+    const processCoords = async (lat: number, lng: number, isPrecise: boolean) => {
+      const coords = { lat, lng }
+      setUserLoc(coords)
+      setLocStatus(isPrecise ? 'granted' : 'default')
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('alfsouq_user_loc', JSON.stringify(coords))
+        if (isPrecise) localStorage.setItem('alfsouq_loc_status', 'granted')
+      }
+
+      // Determine area name: 1. Custom Zones (Closest) -> 2. Default Region -> 3. Reverse Geocoding API
+      try {
+        let areaName = ''
+
+        // 1. Custom Admin Defined Zones (Resolve overlaps by choosing closest zone center)
+        if (serviceZones && serviceZones.length > 0) {
+          const matchingZones = serviceZones
+            .map(z => ({
+              ...z,
+              dist: calculateDistance(lat, lng, z.latitude, z.longitude)
+            }))
+            .filter(z => z.dist <= (z.radius_km || 15))
+            .sort((a, b) => a.dist - b.dist)
+
+          if (matchingZones.length > 0) {
+            areaName = matchingZones[0].name
+          }
         }
 
-        // Reverse geocode to get main district or combined regions within 15km
-        try {
-          const distCayirova = calculateDistance(coords.lat, coords.lng, 40.8167, 29.3750)
-          const distGebze    = calculateDistance(coords.lat, coords.lng, 40.8028, 29.4307)
-
-          let areaName = ''
-          if (distCayirova <= 15 && distGebze <= 15) {
-            areaName = 'شايروفا / كيبزة'
-          } else {
-            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lng}&localityLanguage=ar`)
-            if (res.ok) {
-              const data = await res.json()
-              areaName = data.city || data.localityInfo?.administrative?.[2]?.name || data.localityInfo?.administrative?.[1]?.name || ''
-            }
+        // 2. Major Region / City Name directly from Reverse Geocoding Maps API in Arabic if no custom zone matched
+        if (!areaName) {
+          const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=ar`)
+          if (res.ok) {
+            const data = await res.json()
+            areaName = data.city || data.localityInfo?.administrative?.[2]?.name || data.localityInfo?.administrative?.[1]?.name || ''
           }
+        }
 
-          if (areaName) {
-            setUserArea(areaName)
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('alfsouq_user_area', areaName)
-            }
+        if (areaName) {
+          setUserArea(areaName)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('alfsouq_user_area', areaName)
           }
-        } catch (err) {}
-
-      },
-      err => {
-        console.warn('Location request error/denied:', err)
-        if (typeof window !== 'undefined' && localStorage.getItem('alfsouq_loc_status') === 'granted') {
-          setLocStatus('granted')
         } else {
-          setLocStatus('default')
+          setUserArea('موقعي الحالي')
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('alfsouq_user_area')
+          }
         }
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-    )
-  }, [])
+      } catch (err) {
+        console.warn('Error resolving area name:', err)
+      }
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        p => processCoords(p.coords.latitude, p.coords.longitude, true),
+        async err => {
+          console.warn('GPS location request denied or error, falling back to approximate IP location:', err)
+          setLocStatus('default')
+          // Approximate Location via IP Geolocation API
+          try {
+            const ipRes = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ar')
+            if (ipRes.ok) {
+              const data = await ipRes.json()
+              if (data.latitude && data.longitude) {
+                await processCoords(data.latitude, data.longitude, false)
+                return
+              }
+            }
+          } catch (ipErr) {
+            console.warn('IP location fallback error:', ipErr)
+          }
+          // Final fallback to default coordinates if IP lookup also fails
+          await processCoords(40.8167, 29.3750, false)
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      )
+    } else {
+      processCoords(40.8167, 29.3750, false)
+    }
+  }, [serviceZones])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !localStorage.getItem('alfsouq_loc_status')) {
       requestLocation()
     }
   }, [requestLocation])
+
 
 
 
@@ -245,12 +289,36 @@ export default function PlatformClient({
   const allowedIds = new Set(withDist.map(r => r.id))
 
   const filteredRestaurants = withDist.filter(r => {
-    const catMatches    = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
-    const searchMatches = r.name.toLowerCase().includes(searchQuery.toLowerCase())
-    return catMatches && searchMatches
-  }).sort((a, b) => (a.distance !== null && b.distance !== null) ? a.distance - b.distance : 0)
+    const storeTypeMatches = activeStoreType === 'all' ? true : (r.store_type || 'restaurant') === activeStoreType
+    const catMatches       = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
+    const searchMatches    = r.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return storeTypeMatches && catMatches && searchMatches
+  }).sort((a, b) => {
+    if (sortBy === 'rating') {
+      const rateA = parseFloat(a.avg_rating) || 0
+      const rateB = parseFloat(b.avg_rating) || 0
+      if (rateB !== rateA) return rateB - rateA
+    } else if (sortBy === 'delivery_fee') {
+      const feeA = a.distance !== null ? (getDeliveryFeeForDistance(a.distance, a.delivery_tiers)?.fee ?? 999) : 999
+      const feeB = b.distance !== null ? (getDeliveryFeeForDistance(b.distance, b.delivery_tiers)?.fee ?? 999) : 999
+      if (feeA !== feeB) return feeA - feeB
+    } else if (sortBy === 'newest') {
+      const dateA = new Date(a.created_at || 0).getTime()
+      const dateB = new Date(b.created_at || 0).getTime()
+      if (dateB !== dateA) return dateB - dateA
+    }
+
+    if (a.distance !== null && b.distance !== null) return a.distance - b.distance
+    return 0
+  })
 
   const filteredOffers = (offers || []).filter(o => allowedIds.has(o.restaurants?.id || o.restaurant_id))
+
+  const rankedOffers = [...filteredOffers].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+  const visibleRankedOffers = rankedOffers.slice(0, 10)
+
+  const latestOffers = [...filteredOffers].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+  const visibleLatestOffers = latestOffers.slice(0, 10)
 
   const filteredAds = (ads || []).filter(ad => {
     // 1. General ads (no lat/lng/radius specified) -> Show to ALL
@@ -291,7 +359,7 @@ export default function PlatformClient({
 
       {/* ── TOP HEADER ── */}
       <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-lg border-b border-slate-800">
-        <div className="max-w-xl mx-auto px-4 py-3.5 space-y-3">
+        <div className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 py-3.5 space-y-3">
 
           {/* Row 1: Logo + Location + User Auth */}
           <div className="flex items-center justify-between gap-3">
@@ -313,9 +381,7 @@ export default function PlatformClient({
                   ? 'جاري التحديد...'
                   : userArea
                   ? userArea
-                  : locationStatus === 'granted'
-                  ? 'موقعي الحالي'
-                  : 'شايروفا / كيبزة'}
+                  : 'موقعي الحالي'}
               </span>
 
             </button>
@@ -329,7 +395,7 @@ export default function PlatformClient({
             <input
               ref={searchRef}
               type="text"
-              placeholder="ابحث عن مطعم أو وجبة..."
+              placeholder="ابحث عن مطعم أو سوبرماركت أو محل..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full bg-slate-800/90 border border-slate-700/80 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-white placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition"
@@ -345,11 +411,41 @@ export default function PlatformClient({
             )}
           </div>
 
+          {/* Row 3: Business Type Selector Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-0.5 pb-1 -mx-1 px-1">
+            {[
+              { key: 'all', label: 'الكل', icon: '🛍️' },
+              { key: 'restaurant', label: 'مطاعم', icon: '🍔' },
+              { key: 'supermarket', label: 'سوبر ماركت', icon: '🛒' },
+              { key: 'clothing', label: 'ألبسة وموضة', icon: '👗' },
+              { key: 'other', label: 'متاجر أخرى', icon: '🎁' },
+            ].map(tab => {
+              const isActive = activeStoreType === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => {
+                    setActiveStoreType(tab.key)
+                    setActiveCat(null)
+                  }}
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 ${
+                    isActive
+                      ? 'bg-orange-500 text-white shadow-xs'
+                      : 'bg-slate-800/90 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/60'
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
         </div>
       </header>
 
       {/* ── MAIN CONTAINER ── */}
-      <main className="max-w-xl mx-auto px-4 mt-5 space-y-6">
+      <main className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 mt-5 space-y-6">
 
         {/* Location Notice Banner */}
         {locationStatus === 'default' && (
@@ -375,19 +471,22 @@ export default function PlatformClient({
         )}
 
 
-        {/* ── SPECIAL OFFERS ── */}
-        {filteredOffers && filteredOffers.length > 0 && !searchQuery && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
+        {/* ── 1. FEATURED RANKED OFFERS SECTION (Top - Strictly sorted by sort_order) ── */}
+        {rankedOffers && rankedOffers.length > 0 && !searchQuery && (
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
+                <div className="w-7 h-7 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
                   🔥
                 </div>
-                <h2 className="text-base font-black text-slate-900">عروض اليوم</h2>
-                <span className="bg-slate-200 text-slate-700 text-xs font-black px-2 py-0.5 rounded-full">
-                  {filteredOffers.length}
-                </span>
+                <h2 className="text-base font-black text-slate-900">العروض المميزة</h2>
               </div>
+              <Link
+                href="/offers"
+                className="text-[11px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-full border border-orange-200 transition"
+              >
+                عرض الكل ⟵
+              </Link>
             </div>
 
             {/* Slider */}
@@ -400,18 +499,18 @@ export default function PlatformClient({
               className={`flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 hide-scrollbar scroll-smooth snap-x snap-mandatory ${isDragOffer ? 'cursor-grabbing' : 'cursor-grab'}`}
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              {filteredOffers.map(offer => {
+              {visibleRankedOffers.map(offer => {
                 const res = offer.restaurants
                 if (!res) return null
                 return (
                   <Link
-                    key={offer.id}
+                    key={`ranked-${offer.id}`}
                     href={`/m/${res.slug}`}
-                    className="w-60 sm:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all active:scale-98 overflow-hidden snap-start block relative"
+                    className="w-60 sm:w-64 shrink-0 bg-white rounded-2xl border border-orange-200/60 shadow-2xs hover:shadow-md transition-all active:scale-98 overflow-hidden snap-start block relative"
                   >
                     {/* Offer Badge */}
-                    <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">
-                      {offer.min_quantity > 1 ? `🔥 ${offer.min_quantity}X` : offer.bonus_item ? '🎁 هدية' : '🏷️ خصم'}
+                    <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs">
+                      {offer.min_quantity > 1 ? `🔥 ${offer.min_quantity}X` : offer.bonus_item ? '🎁 هدية' : '🏷️ مميز'}
                     </div>
 
                     {/* Image */}
@@ -419,6 +518,8 @@ export default function PlatformClient({
                       <SmartOfferImage
                         primaryImage={offer.primary_item?.image_url}
                         bonusImage={offer.bonus_item?.image_url}
+                        item3Image={offer.item3?.image_url}
+                        item4Image={offer.item4?.image_url}
                         customImage={offer.image_url}
                         minQuantity={offer.min_quantity}
                         bonusQuantity={offer.bonus_quantity}
@@ -441,6 +542,98 @@ export default function PlatformClient({
                   </Link>
                 )
               })}
+
+              <Link
+                href="/offers"
+                className="w-40 shrink-0 bg-orange-50 hover:bg-orange-100/80 rounded-2xl border-2 border-dashed border-orange-300 flex flex-col items-center justify-center gap-1.5 p-4 text-orange-700 transition active:scale-95 text-center font-black text-xs snap-start"
+              >
+                <span className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                  +
+                </span>
+                <span>عرض جميع العروض</span>
+                <span className="text-[10px] text-orange-500 font-bold">كل التخفيضات ⟵</span>
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {/* ── 2. LATEST FRESH OFFERS SECTION (Bottom - Strictly sorted by created_at) ── */}
+        {latestOffers && latestOffers.length > 0 && !searchQuery && (
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                  ✨
+                </div>
+                <h2 className="text-base font-black text-slate-900">العروض الحديثة</h2>
+              </div>
+              <Link
+                href="/offers"
+                className="text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full border border-blue-200 transition"
+              >
+                عرض الكل ⟵
+              </Link>
+            </div>
+
+            {/* Slider */}
+            <div
+              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 hide-scrollbar scroll-smooth snap-x snap-mandatory cursor-grab"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              {visibleLatestOffers.map(offer => {
+                const res = offer.restaurants
+                if (!res) return null
+                return (
+                  <Link
+                    key={`latest-${offer.id}`}
+                    href={`/m/${res.slug}`}
+                    className="w-60 sm:w-64 shrink-0 bg-white rounded-2xl border border-blue-200/60 shadow-2xs hover:shadow-md transition-all active:scale-98 overflow-hidden snap-start block relative"
+                  >
+                    {/* New Badge */}
+                    <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs">
+                      ✨ حديث جداً
+                    </div>
+
+                    {/* Image */}
+                    <div className="h-32 w-full bg-slate-100 relative">
+                      <SmartOfferImage
+                        primaryImage={offer.primary_item?.image_url}
+                        bonusImage={offer.bonus_item?.image_url}
+                        item3Image={offer.item3?.image_url}
+                        item4Image={offer.item4?.image_url}
+                        customImage={offer.image_url}
+                        minQuantity={offer.min_quantity}
+                        bonusQuantity={offer.bonus_quantity}
+                        className="w-full h-full"
+                      />
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-3">
+                      <p className="text-[11px] font-bold text-slate-400 truncate mb-0.5">{res.name}</p>
+                      <h3 className="font-black text-xs text-slate-900 truncate mb-2">{offer.title}</h3>
+
+                      <div className="flex items-baseline gap-2 pt-2 border-t border-slate-100">
+                        <span className="text-sm font-black text-blue-600">{offer.offer_price} ₺</span>
+                        {offer.original_price && (
+                          <span className="text-[11px] font-bold text-slate-400 line-through">{offer.original_price} ₺</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+
+              <Link
+                href="/offers"
+                className="w-40 shrink-0 bg-blue-50 hover:bg-blue-100/80 rounded-2xl border-2 border-dashed border-blue-300 flex flex-col items-center justify-center gap-1.5 p-4 text-blue-700 transition active:scale-95 text-center font-black text-xs snap-start"
+              >
+                <span className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                  +
+                </span>
+                <span>عرض جميع العروض</span>
+                <span className="text-[10px] text-blue-500 font-bold">كل التخفيضات ⟵</span>
+              </Link>
             </div>
           </section>
         )}
@@ -484,14 +677,41 @@ export default function PlatformClient({
 
         {/* ── RESTAURANTS GRID ── */}
         <section>
-          <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center justify-between mb-3.5 gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-black text-slate-900">
-                {searchQuery ? 'نتائج البحث' : activeCat ? 'مطاعم التصنيف' : 'مطاعم قريبة منك'}
+                {searchQuery
+                  ? 'نتائج البحث'
+                  : activeCat
+                  ? 'المتاجر والتصنيفات'
+                  : activeStoreType === 'supermarket'
+                  ? 'سوبر ماركت ومتاجر الموائد'
+                  : activeStoreType === 'clothing'
+                  ? 'محلات ألبسة وموضة'
+                  : activeStoreType === 'other'
+                  ? 'متاجر وخدمات أخرى'
+                  : activeStoreType === 'restaurant'
+                  ? 'مطاعم قريبة منك'
+                  : 'متاجر ومطاعم قريبة منك'}
               </h2>
               <span className="bg-slate-200 text-slate-700 text-xs font-black px-2.5 py-0.5 rounded-full">
                 {filteredRestaurants.length}
               </span>
+            </div>
+
+            {/* Sorting Select Dropdown */}
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200/90 rounded-2xl px-2.5 py-1.5 shadow-2xs">
+              <ArrowUpDown size={13} className="text-orange-500 shrink-0" />
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as any)}
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer pr-1"
+              >
+                <option value="distance">📍 الأقرب مسافة</option>
+                <option value="rating">⭐ الأعلى تقييماً</option>
+                <option value="delivery_fee">🚚 الأقل توصيلاً</option>
+                <option value="newest">✨ الأحدث إضافـة</option>
+              </select>
             </div>
           </div>
 
@@ -502,7 +722,7 @@ export default function PlatformClient({
               <p className="text-xs text-slate-400 font-bold">حاول تغيير كلمة البحث أو التصنيف</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredRestaurants.map(restaurant => {
                 const deliveryInfo = restaurant.distance !== null
                   ? getDeliveryFeeForDistance(restaurant.distance, restaurant.delivery_tiers)
@@ -545,16 +765,25 @@ export default function PlatformClient({
                         </div>
                       )}
 
-                      {/* Category Tags */}
-                      {restaurantCats.length > 0 && (
-                        <div className="absolute top-3 right-3 flex flex-wrap gap-1">
-                          {restaurantCats.slice(0, 2).map((c: any) => (
-                            <div key={c.id} className="bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <span>{c.icon}</span><span>{c.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {/* Category Tags & Store Type Badge */}
+                      <div className="absolute top-3 right-3 flex flex-wrap gap-1">
+                        {restaurant.store_type && restaurant.store_type !== 'restaurant' && (
+                          <div className="bg-orange-600 text-white backdrop-blur-md text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                            <span>
+                              {restaurant.store_type === 'supermarket'
+                                ? '🛒 سوبر ماركت'
+                                : restaurant.store_type === 'clothing'
+                                ? '👗 محلات ألبسة'
+                                : '🎁 متجر'}
+                            </span>
+                          </div>
+                        )}
+                        {restaurantCats.slice(0, 2).map((c: any) => (
+                          <div key={c.id} className="bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span>{c.icon}</span><span>{c.name}</span>
+                          </div>
+                        ))}
+                      </div>
 
                       {/* Restaurant Title Overlay */}
                       <div className="absolute bottom-3 right-3 left-16">
@@ -581,6 +810,17 @@ export default function PlatformClient({
                     {/* Card Footer Details */}
                     <div className="p-3.5 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {/* Store Open / Closed / Holiday Status */}
+                        {(() => {
+                          const status = getStoreStatus(restaurant)
+                          return (
+                            <div className={`px-2.5 py-0.5 rounded-full border text-[11px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                              <span>{status.statusText}</span>
+                            </div>
+                          )
+                        })()}
+
                         {/* Rating */}
                         <div className="bg-amber-50 text-amber-800 border border-amber-200/80 px-2.5 py-0.5 rounded-full text-xs font-black flex items-center gap-1">
                           <Star size={11} className="text-amber-500 fill-amber-500" />
@@ -590,8 +830,12 @@ export default function PlatformClient({
                           )}
                         </div>
 
-                        {/* Delivery Fee */}
-                        {deliveryInfo?.available ? (
+                        {/* Delivery Fee / Pickup Status */}
+                        {restaurant.has_delivery === false ? (
+                          <div className="bg-slate-100 text-slate-700 border border-slate-200/90 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
+                            <span>🏪 استلام من الفرع</span>
+                          </div>
+                        ) : deliveryInfo?.available ? (
                           <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-black flex items-center gap-1">
                             <Bike size={12} className="text-emerald-600" />
                             <span>توصيل {deliveryInfo.fee} ₺</span>

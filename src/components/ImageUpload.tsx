@@ -18,9 +18,28 @@ export default function ImageUpload({
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'o2iy0uxo'
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default'
 
+  const MAX_FILE_SIZE_MB = 5
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // 1. Validate File Type
+    if (!file.type.startsWith('image/') && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      alert('عذراً، يرجى اختيار ملف صورة صالح (JPG, PNG, WEBP, GIF, SVG).')
+      e.target.value = ''
+      return
+    }
+
+    // 2. Validate File Size (Max 5 MB)
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1)
+      alert(`حجم الصورة (${fileSizeMB} ميغابايت) يتجاوز الحد الأقصى المسموح به (${MAX_FILE_SIZE_MB} ميغابايت).\nيرجى تقليل حجم الصورة للحفاظ على أداء وسرعة المنصة.`)
+      e.target.value = ''
+      return
+    }
 
     try {
       setUploading(true)
@@ -77,7 +96,7 @@ export default function ImageUpload({
               <span className="text-xs font-bold text-center px-2">{uploading ? 'جاري الرفع...' : 'رفع صورة (Cloudinary) ☁️'}</span>
               <input 
                 type="file" 
-                accept="image/*" 
+                accept="image/png, image/jpeg, image/webp, image/gif, image/svg+xml" 
                 onChange={handleFileUpload} 
                 className="hidden" 
               />
