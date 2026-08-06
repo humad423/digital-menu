@@ -289,8 +289,20 @@ export default function PlatformClient({
     }
   }, [requestLocation])
 
+  const [isScrolled, setIsScrolled] = useState(false)
+
   useEffect(() => {
     trackEvent({ event_type: 'page_view' })
+
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setIsScrolled(true)
+      } else {
+        setIsScrolled(false)
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
 
@@ -383,54 +395,74 @@ export default function PlatformClient({
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md text-white shadow-xl border-b border-slate-800/80 transform-gpu will-change-transform">
         <div className="max-w-md sm:max-w-lg mx-auto px-4 py-3.5 space-y-3">
 
-          {/* Row 1: Logo + Location + User Auth */}
-          <div className="flex items-center justify-between gap-3">
+          {/* Row 1: Logo + Location + Search Trigger + User Auth */}
+          <div className="flex items-center justify-between gap-2">
             <BrandLogo size="sm" variant="light" showSubtitle={false} />
 
-            {/* Location Pill */}
-            <button
-              onClick={requestLocation}
-              disabled={locationStatus === 'locating'}
-              className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[170px] disabled:opacity-75"
-            >
-              {locationStatus === 'locating' ? (
-                <Loader2 size={13} className="text-orange-400 shrink-0 animate-spin" />
-              ) : (
-                <MapPin size={13} className="text-orange-400 shrink-0" />
+            <div className="flex items-center gap-2">
+              {/* Search Toggle Icon when collapsed */}
+              {isScrolled && !searchQuery && (
+                <button
+                  onClick={() => {
+                    setIsScrolled(false)
+                    setTimeout(() => searchRef.current?.focus(), 150)
+                  }}
+                  className="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700 transition cursor-pointer animate-fade-in"
+                  title="فتح البحث"
+                >
+                  <Search size={15} />
+                </button>
               )}
-              <span className="truncate text-slate-200">
-                {locationStatus === 'locating'
-                  ? 'جاري التحديد...'
-                  : userArea
-                  ? userArea
-                  : 'موقعي الحالي'}
-              </span>
 
-            </button>
+              {/* Location Pill */}
+              <button
+                onClick={requestLocation}
+                disabled={locationStatus === 'locating'}
+                className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-2.5 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[145px] disabled:opacity-75"
+              >
+                {locationStatus === 'locating' ? (
+                  <Loader2 size={13} className="text-orange-400 shrink-0 animate-spin" />
+                ) : (
+                  <MapPin size={13} className="text-orange-400 shrink-0" />
+                )}
+                <span className="truncate text-slate-200">
+                  {locationStatus === 'locating'
+                    ? 'جاري التحديد...'
+                    : userArea
+                    ? userArea
+                    : 'موقعي الحالي'}
+                </span>
+              </button>
 
-
-            <UserAuthButton variant="light" />
+              <UserAuthButton variant="light" />
+            </div>
           </div>
 
-          {/* Row 2: Search Bar */}
-          <div className="relative">
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="ابحث عن مطعم أو سوبرماركت أو محل..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-800/90 border border-slate-700/80 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-white placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition"
-            />
-            <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition"
-              >
-                <X size={15} />
-              </button>
-            )}
+          {/* Row 2: Search Bar (Collapses smoothly on scroll) */}
+          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            isScrolled && !searchQuery
+              ? 'max-h-0 opacity-0 -my-1 pointer-events-none'
+              : 'max-h-16 opacity-100'
+          }`}>
+            <div className="relative">
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="ابحث عن مطعم أو سوبرماركت أو محل..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-800/90 border border-slate-700/80 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-white placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition"
+              />
+              <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Row 3: Business Type Selector Tabs */}
