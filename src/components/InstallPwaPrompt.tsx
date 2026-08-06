@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { Download, X, Share, Sparkles, Loader2 } from 'lucide-react'
-
 import { trackEvent } from '@/utils/analytics'
 
 export default function InstallPwaPrompt() {
@@ -41,14 +40,7 @@ export default function InstallPwaPrompt() {
       }).catch(() => {})
     }
 
-    // 4. Check if early captured beforeinstallprompt exists
-    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
-      const earlyEvt = (window as any).deferredPwaPrompt
-      setDeferredPrompt(earlyEvt)
-      deferredRef.current = earlyEvt
-    }
-
-    // 5. Detect iOS Safari vs Android
+    // 4. Detect iOS Safari vs Android
     const ua = window.navigator.userAgent
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
@@ -59,10 +51,21 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // ALWAYS show prompt banner after 1.2s on Homepage for mobile visitors
-    const timer = setTimeout(() => {
+    // 5. Check if early captured beforeinstallprompt exists
+    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
+      const earlyEvt = (window as any).deferredPwaPrompt
+      setDeferredPrompt(earlyEvt)
+      deferredRef.current = earlyEvt
       setShowPrompt(true)
-    }, 1200)
+    }
+
+    if (isIosDevice) {
+      // On iOS Safari, show prompt banner after 2 seconds
+      const timer = setTimeout(() => {
+        setShowPrompt(true)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
 
     // 6. Listen for beforeinstallprompt on Android/Chrome
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -82,28 +85,28 @@ export default function InstallPwaPrompt() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
 
+    // Fallback timer: if beforeinstallprompt is ready after 2.5s
+    const fallbackTimer = setTimeout(() => {
+      const prompt = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null)
+      if (prompt) {
+        setDeferredPrompt(prompt)
+        deferredRef.current = prompt
+        setShowPrompt(true)
+      }
+    }, 2500)
+
     return () => {
-      clearTimeout(timer)
+      clearTimeout(fallbackTimer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
   }, [pathname])
 
   const handleInstallClick = async () => {
-    setInstalling(true)
-
-    let promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPrompt || deferredRef.current
-
-    if (!promptObj) {
-      // Retry up to 2 seconds for beforeinstallprompt event if browser is initializing
-      for (let i = 0; i < 20; i++) {
-        await new Promise(r => setTimeout(r, 100))
-        promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredRef.current
-        if (promptObj) break
-      }
-    }
+    const promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPrompt || deferredRef.current
 
     if (promptObj) {
+      setInstalling(true)
       try {
         await promptObj.prompt()
         const { outcome } = await promptObj.userChoice
@@ -116,12 +119,7 @@ export default function InstallPwaPrompt() {
         console.log('PWA Prompt execution:', err)
       } finally {
         setInstalling(false)
-        setDeferredPrompt(null)
-        deferredRef.current = null
-        if (typeof window !== 'undefined') (window as any).deferredPwaPrompt = null
       }
-    } else {
-      setInstalling(false)
     }
   }
 
@@ -183,7 +181,7 @@ export default function InstallPwaPrompt() {
                 {installing ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    <span>جاري فتح نافذة التثبيت...</span>
+                    <span>جاري التثبيت...</span>
                   </>
                 ) : (
                   <>
