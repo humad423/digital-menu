@@ -120,7 +120,6 @@ export default function StoreSettingsModal({
       closing_time: closingTime,
       days_off: daysOff,
       is_on_holiday: isOnHoliday,
-      holiday_message: holidayMessage.trim() || null,
       delivery_radius_km: deliveryRadiusKm,
       delivery_tiers: deliveryTiers
     }
