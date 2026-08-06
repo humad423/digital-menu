@@ -57,9 +57,12 @@ export default async function RestaurantLayout({
   return (
     <div
       dir="rtl"
-      className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-28"
+      className="min-h-screen bg-slate-200 text-slate-800 font-sans pb-28"
       style={{ '--color-primary': primary } as React.CSSProperties}
     >
+      {/* Centered mobile-frame wrapper */}
+      <div className="max-w-md sm:max-w-lg mx-auto bg-slate-50 min-h-screen relative shadow-2xl">
+
       {/* Cover Header */}
       <div className="relative">
         <div className="h-44 sm:h-52 w-full bg-slate-900 relative overflow-hidden">
@@ -138,13 +141,13 @@ export default async function RestaurantLayout({
       </div>
 
       {/* Main Content Container */}
-      <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-4">
+      <main className="px-4 mt-4">
         <StoreHeaderBanner restaurant={restaurant} />
         {children}
       </main>
 
       {restaurant.has_delivery === false ? (
-        <div className="fixed bottom-4 left-4 right-4 z-40 max-w-md sm:max-w-lg mx-auto">
+        <div className="fixed bottom-4 left-0 right-0 z-40 px-4 max-w-md sm:max-w-lg mx-auto">
           <div className="bg-slate-900 text-white rounded-2xl p-3 px-4 shadow-xl border border-slate-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-base shrink-0">🏪</span>
@@ -158,6 +161,8 @@ export default async function RestaurantLayout({
       ) : (
         <CartButton restaurant={restaurant} />
       )}
+
+      </div>{/* end mobile-frame wrapper */}
     </div>
   )
 }
