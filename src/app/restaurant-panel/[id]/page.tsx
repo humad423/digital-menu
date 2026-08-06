@@ -27,7 +27,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   // ── Partner PWA App Install State ─────────────────────────────
-  const [canInstallPwa, setCanInstallPwa] = useState(false)
+  const [canInstallPwa, setCanInstallPwa] = useState(true)
   const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(null)
   const [showInstallModal, setShowInstallModal] = useState(false)
   const [isIosDevice, setIsIosDevice] = useState(false)
@@ -39,6 +39,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       document.referrer.includes('android-app://')
     )
 
+    // Hide install button ONLY inside installed app
     if (isStandalone) {
       setCanInstallPwa(false)
       return
@@ -48,15 +49,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     const isIos = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIosDevice(isIos)
 
-    if (isIos) {
-      setCanInstallPwa(true)
-      return
-    }
-
     // 1. Check if early captured beforeinstallprompt exists
     if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
       setDeferredPwaPrompt((window as any).deferredPwaPrompt)
-      setCanInstallPwa(true)
     }
 
     // 2. Listen for beforeinstallprompt
@@ -64,22 +59,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       e.preventDefault()
       ;(window as any).deferredPwaPrompt = e
       setDeferredPwaPrompt(e)
-      setCanInstallPwa(true)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
 
-    // 3. Fallback check timer
-    const fallbackTimer = setTimeout(() => {
-      const p = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null)
-      if (p) {
-        setDeferredPwaPrompt(p)
-        setCanInstallPwa(true)
-      }
-    }, 2000)
-
     return () => {
-      clearTimeout(fallbackTimer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
     }
   }, [])
