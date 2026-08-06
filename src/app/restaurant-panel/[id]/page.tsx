@@ -984,6 +984,13 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                           <label className="f-label">الوصف والتفاصيل (اختياري)</label>
                           <textarea rows={2} value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="المكونات والمواصفات..." className="f-input" />
                         </div>
+                        <div className="md:col-span-2">
+                          <label className="f-label mb-1.5 block">صورة المنتج (صورة حصراً - الحد الأقصى 5 ميغابايت)</label>
+                          <ImageUpload
+                            value={itemForm.image_url}
+                            onChange={url => setItemForm({ ...itemForm, image_url: url })}
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-1">

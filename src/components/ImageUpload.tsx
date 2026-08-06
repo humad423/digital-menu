@@ -26,9 +26,9 @@ export default function ImageUpload({
     const file = e.target.files?.[0]
     if (!file) return
 
-    // 1. Validate File Type
-    if (!file.type.startsWith('image/') && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      alert('عذراً، يرجى اختيار ملف صورة صالح (JPG, PNG, WEBP, GIF, SVG).')
+    // 1. Validate File Type (Strictly Images Only)
+    if (!file.type.startsWith('image/') || !ALLOWED_IMAGE_TYPES.some(t => file.type.includes(t.replace('image/', '')))) {
+      alert('عذراً، يرجى اختيار ملف صورة فقط (JPG, PNG, WEBP, GIF, SVG). يمنع رفع أية ملفات غير الصور.')
       e.target.value = ''
       return
     }
@@ -36,7 +36,7 @@ export default function ImageUpload({
     // 2. Validate File Size (Max 5 MB)
     if (file.size > MAX_FILE_SIZE_BYTES) {
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1)
-      alert(`حجم الصورة (${fileSizeMB} ميغابايت) يتجاوز الحد الأقصى المسموح به (${MAX_FILE_SIZE_MB} ميغابايت).\nيرجى تقليل حجم الصورة للحفاظ على أداء وسرعة المنصة.`)
+      alert(`حجم الصورة (${fileSizeMB} ميغابايت) يتجاوز الحد الأقصى المسموح به (5 ميغابايت).\nيرجى اختيار صورة بحجم أصغر من 5 ميغابايت للحفاظ على سرعة المنصة.`)
       e.target.value = ''
       return
     }
