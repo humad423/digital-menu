@@ -852,24 +852,15 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
                       <div>
                         <label className="f-label mb-1">
-                          {restaurant?.store_type === 'clothing'
-                            ? '📸 صور العرض المخصصة (يمكنك رفع عدة صور للعرض - صور حصراً حد أقصى 5MB للواحدة)'
-                            : '🖼️ صورة العرض المخصصة (اختياري)'}
+                          📸 صور العرض المخصصة (يمكنك رفع واحدة أو عدة صور للعرض - صور حصراً حد أقصى 5MB للواحدة)
                         </label>
                         <p className="text-[10px] text-slate-400 font-bold mb-2">
                           💡 في حال عدم رفع صورة مخصصة، سيقوم النظام تلقائياً بدمج وتنسيق صور المنتجات المختارة في العرض.
                         </p>
-                        {restaurant?.store_type === 'clothing' ? (
-                          <MultiImageUpload
-                            images={offerForm.images || (offerForm.image_url ? [offerForm.image_url] : [])}
-                            onChange={urls => setOfferForm({ ...offerForm, images: urls, image_url: urls[0] || '' })}
-                          />
-                        ) : (
-                          <ImageUpload
-                            value={offerForm.image_url}
-                            onChange={url => setOfferForm({ ...offerForm, image_url: url, images: url ? [url] : [] })}
-                          />
-                        )}
+                        <MultiImageUpload
+                          images={offerForm.images || (offerForm.image_url ? [offerForm.image_url] : [])}
+                          onChange={urls => setOfferForm({ ...offerForm, images: urls, image_url: urls[0] || '' })}
+                        />
                       </div>
 
                       <div className="flex items-center justify-between pt-2">
@@ -1013,27 +1004,18 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         </div>
                         <div className="md:col-span-2">
                           <label className="f-label mb-1.5 block">
-                            {restaurant?.store_type === 'clothing'
-                              ? '📸 صور الموديل (يمكنك رفع أكثر من صورة للموديل - صور حصراً حد أقصى 5MB للواحدة)'
-                              : '🖼️ صورة المنتج (صورة حصراً - الحد الأقصى 5 ميغابايت)'}
+                            📸 صور المنتج (يمكنك رفع واحدة أو عدة صور - صور حصراً حد أقصى 5MB للواحدة)
                           </label>
-                          {restaurant?.store_type === 'clothing' ? (
-                            <MultiImageUpload
-                              images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
-                              onChange={urls => {
-                                setItemForm({
-                                  ...itemForm,
-                                  images: urls,
-                                  image_url: urls[0] || ''
-                                })
-                              }}
-                            />
-                          ) : (
-                            <ImageUpload
-                              value={itemForm.image_url}
-                              onChange={url => setItemForm({ ...itemForm, image_url: url, images: url ? [url] : [] })}
-                            />
-                          )}
+                          <MultiImageUpload
+                            images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
+                            onChange={urls => {
+                              setItemForm({
+                                ...itemForm,
+                                images: urls,
+                                image_url: urls[0] || ''
+                              })
+                            }}
+                          />
                         </div>
                       </div>
 

@@ -57,6 +57,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     original_price: '',
     offer_price: '',
     image_url: '',
+    images: [] as string[],
     is_active: true
   })
   const [showAdminItem3Input, setShowAdminItem3Input] = useState(false)
@@ -318,6 +319,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (!offerForm.primary_item_id || !offerForm.title || !offerForm.offer_price) return alert('يرجى ملء كافة الحقول الأساسية للعرض')
     setSavingOffer(true)
 
+    const primaryImg = (offerForm.images && offerForm.images.length > 0) ? offerForm.images[0] : (offerForm.image_url || null)
     const payload = {
       restaurant_id: id,
       primary_item_id: offerForm.primary_item_id,
@@ -332,7 +334,8 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       description: offerForm.description || null,
       original_price: offerForm.original_price ? parseFloat(offerForm.original_price) : null,
       offer_price: parseFloat(offerForm.offer_price),
-      image_url: offerForm.image_url || null,
+      image_url: primaryImg,
+      images: offerForm.images || (primaryImg ? [primaryImg] : []),
       is_active: offerForm.is_active
     }
 
@@ -350,13 +353,23 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     setOfferForm({
       primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1',
       item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1',
-      title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true
+      title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true
     })
     fetchData()
   }
 
   const handleEditOffer = (offer: any) => {
     setEditOfferId(offer.id)
+    let parsedImages: string[] = []
+    if (Array.isArray(offer.images)) {
+      parsedImages = offer.images
+    } else if (typeof offer.images === 'string') {
+      try { parsedImages = JSON.parse(offer.images) } catch (e) {}
+    }
+    if (parsedImages.length === 0 && offer.image_url) {
+      parsedImages = [offer.image_url]
+    }
+
     setOfferForm({
       primary_item_id: offer.primary_item_id || '',
       min_quantity: (offer.min_quantity || 1).toString(),
@@ -371,6 +384,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       original_price: offer.original_price ? offer.original_price.toString() : '',
       offer_price: offer.offer_price ? offer.offer_price.toString() : '',
       image_url: offer.image_url || '',
+      images: parsedImages,
       is_active: offer.is_active ?? true
     })
     setShowOfferForm(true)
@@ -563,27 +577,18 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                        {restaurant?.store_type === 'clothing'
-                          ? '📸 صور الموديل (يمكنك رفع عدة صور - صور حصراً حد أقصى 5MB للواحدة)'
-                          : '🖼️ صورة المنتج'}
+                        📸 صور المنتج (يمكنك رفع واحدة أو عدة صور - صور حصراً حد أقصى 5MB للواحدة)
                       </label>
-                      {restaurant?.store_type === 'clothing' ? (
-                        <MultiImageUpload
-                          images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
-                          onChange={urls => {
-                            setItemForm({
-                              ...itemForm,
-                              images: urls,
-                              image_url: urls[0] || ''
-                            })
-                          }}
-                        />
-                      ) : (
-                        <ImageUpload
-                          value={itemForm.image_url}
-                          onChange={url => setItemForm({ ...itemForm, image_url: url, images: url ? [url] : [] })}
-                        />
-                      )}
+                      <MultiImageUpload
+                        images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
+                        onChange={urls => {
+                          setItemForm({
+                            ...itemForm,
+                            images: urls,
+                            image_url: urls[0] || ''
+                          })
+                        }}
+                      />
                     </div>
 
                     <div className="flex items-center pt-6">
@@ -662,7 +667,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                     <button
                       onClick={() => {
                         setEditOfferId(null)
-                        setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', is_active: true })
+                        setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true })
                         setShowOfferForm(true)
                       }}
                       className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black flex items-center gap-1.5 transition shadow-sm"
@@ -865,11 +870,16 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-300 mb-1">صورة العرض المخصصة (اختياري)</label>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                        📸 صور العرض المخصصة (يمكنك رفع واحدة أو عدة صور للعرض - صور حصراً حد أقصى 5MB للواحدة)
+                      </label>
                       <p className="text-[10px] text-slate-400 font-bold mb-1.5">
                         💡 عند ترك هذا الخيار فارغاً، سيقوم النظام تلقائياً بدمج وتنسيق صور المنتجات المختارة في العرض.
                       </p>
-                      <ImageUpload value={offerForm.image_url} onChange={url => setOfferForm({ ...offerForm, image_url: url })} />
+                      <MultiImageUpload
+                        images={offerForm.images || (offerForm.image_url ? [offerForm.image_url] : [])}
+                        onChange={urls => setOfferForm({ ...offerForm, images: urls, image_url: urls[0] || '' })}
+                      />
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
