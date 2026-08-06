@@ -6,7 +6,7 @@ import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -29,6 +29,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   // ── Partner PWA App Install State ─────────────────────────────
   const [canInstallPwa, setCanInstallPwa] = useState(false)
   const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(null)
+  const [showIosInstallModal, setShowIosInstallModal] = useState(false)
+  const [isIosDevice, setIsIosDevice] = useState(false)
 
   useEffect(() => {
     const isStandalone = typeof window !== 'undefined' && (
@@ -39,9 +41,19 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
     if (isStandalone) return
 
+    const ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
+    const isIos = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
+    setIsIosDevice(isIos)
+
     if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
-      setDeferredPwaPrompt((window as any).deferredPwaPrompt)
+      const p = (window as any).deferredPwaPrompt
+      setDeferredPwaPrompt(p)
       setCanInstallPwa(true)
+    }
+
+    if (isIos) {
+      setCanInstallPwa(true)
+      return
     }
 
     const handleBeforeInstall = (e: Event) => {
@@ -53,16 +65,35 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
 
-    const isMobile = typeof window !== 'undefined' && /mobile|iphone|ipad|ipod|android/i.test(navigator.userAgent)
-    if (isMobile && !isStandalone) {
-      setCanInstallPwa(true)
-    }
+    const timer = setTimeout(() => {
+      const p = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null)
+      if (p) {
+        setDeferredPwaPrompt(p)
+        setCanInstallPwa(true)
+      }
+    }, 1500)
 
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+    }
   }, [])
 
   const handleInstallPartnerPwa = async () => {
-    const promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
+    if (isIosDevice) {
+      setShowIosInstallModal(true)
+      return
+    }
+
+    let promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
+    if (!promptObj) {
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 100))
+        promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
+        if (promptObj) break
+      }
+    }
+
     if (promptObj) {
       try {
         await promptObj.prompt()
@@ -73,8 +104,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       } catch (e) {
         console.log('PWA install error:', e)
       }
-    } else {
-      alert('لتثبيت لوحة تحكم المطعم كتطبيق على هاتفك:\n\n1. اضغط على زر القائمة في المتصفح (أو المشاركة 📤 في آيفون).\n2. اختر "إضافة إلى الشاشة الرئيسية ➕" (Add to Home Screen).')
     }
   }
 
@@ -1183,6 +1212,37 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         onClose={() => setShowSettingsModal(false)}
         onSaveSuccess={fetchData}
       />
+
+      {/* iOS Install Guide Modal */}
+      {showIosInstallModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 dir-rtl animate-fade-in">
+          <div className="bg-slate-900 text-white rounded-3xl p-5 border border-slate-700 shadow-2xl max-w-sm w-full space-y-4 relative">
+            <button
+              onClick={() => setShowIosInstallModal(false)}
+              className="absolute top-3 left-3 p-1 text-slate-400 hover:text-white rounded-full bg-slate-800 cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-xl font-black shadow-md">
+              📲
+            </div>
+            <h3 className="font-black text-base text-white">تثبيت لوحة التحكم على آيفون</h3>
+            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+              لتثبيت لوحة تحكم المطعم كتطبيق على شاشة هاتفك الرئيسية:
+            </p>
+            <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
+              <p>1. اضغط على زر المشاركة <Share size={13} className="inline text-orange-400 mx-1" /> بالأسفل.</p>
+              <p>2. اختر <span className="text-white underline font-black">"إضافة إلى الشاشة الرئيسية ➕"</span>.</p>
+            </div>
+            <button
+              onClick={() => setShowIosInstallModal(false)}
+              className="w-full py-2.5 bg-orange-500 text-white font-black text-xs rounded-xl cursor-pointer"
+            >
+              حسناً، فهمت
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
