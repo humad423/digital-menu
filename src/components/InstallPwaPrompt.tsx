@@ -32,14 +32,20 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // 3. Register Service Worker immediately
+    // 3. Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then((reg) => {
         reg.update()
       }).catch(() => {})
     }
 
-    // 4. Detect iOS Safari vs Android
+    // 4. Check if early captured beforeinstallprompt exists
+    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
+      setDeferredPrompt((window as any).deferredPwaPrompt)
+      deferredRef.current = (window as any).deferredPwaPrompt
+    }
+
+    // 5. Detect iOS Safari
     const ua = window.navigator.userAgent
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
@@ -50,14 +56,15 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // Show prompt banner after 1.5 seconds on Homepage
+    // Show prompt banner after 1 second on Homepage
     const timer = setTimeout(() => {
       setShowPrompt(true)
-    }, 1500)
+    }, 1000)
 
-    // 5. Global capture of Android/Chrome beforeinstallprompt event
+    // 6. Listen for late beforeinstallprompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
+      ;(window as any).deferredPwaPrompt = e
       deferredRef.current = e
       setDeferredPrompt(e)
       setShowPrompt(true)
@@ -81,14 +88,13 @@ export default function InstallPwaPrompt() {
   const handleInstallClick = async () => {
     setInstalling(true)
 
-    // Check if deferredPrompt is ready or wait up to 2.5 seconds for Chrome to pass it
-    let promptObj = deferredPrompt || deferredRef.current
+    let promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPrompt || deferredRef.current
 
     if (!promptObj) {
-      // Wait up to 2.5s for Chrome beforeinstallprompt event to arrive
-      for (let i = 0; i < 25; i++) {
+      // Wait up to 2 seconds for beforeinstallprompt
+      for (let i = 0; i < 20; i++) {
         await new Promise(r => setTimeout(r, 100))
-        promptObj = deferredRef.current
+        promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredRef.current
         if (promptObj) break
       }
     }
@@ -107,11 +113,10 @@ export default function InstallPwaPrompt() {
         setInstalling(false)
         setDeferredPrompt(null)
         deferredRef.current = null
+        if (typeof window !== 'undefined') (window as any).deferredPwaPrompt = null
       }
     } else {
       setInstalling(false)
-      // Fallback only if browser strictly blocks automated prompt
-      alert('لتثبيت التطبيق على هاتفك بنقرة واحدة:\n\nاضغط على خيارات المتصفح (⋮) أعلى شاشة كروم ثم اختر "التثبيت في الشاشة الرئيسية 📲"')
     }
   }
 
@@ -173,7 +178,7 @@ export default function InstallPwaPrompt() {
                 {installing ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    <span>جاري التجهيز للتثبيت المباشر...</span>
+                    <span>جاري فتح نافذة التثبيت...</span>
                   </>
                 ) : (
                   <>
