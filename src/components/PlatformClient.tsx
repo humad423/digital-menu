@@ -359,7 +359,7 @@ export default function PlatformClient({
 
       {/* ── TOP HEADER ── */}
       <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-lg border-b border-slate-800">
-        <div className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 py-3.5 space-y-3">
+        <div className="max-w-md sm:max-w-lg mx-auto px-4 py-3.5 space-y-3">
 
           {/* Row 1: Logo + Location + User Auth */}
           <div className="flex items-center justify-between gap-3">
@@ -445,7 +445,7 @@ export default function PlatformClient({
       </header>
 
       {/* ── MAIN CONTAINER ── */}
-      <main className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 mt-5 space-y-6">
+      <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-5 space-y-6">
 
         {/* Location Notice Banner */}
         {locationStatus === 'default' && (
@@ -722,7 +722,7 @@ export default function PlatformClient({
               <p className="text-xs text-slate-400 font-bold">حاول تغيير كلمة البحث أو التصنيف</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               {filteredRestaurants.map(restaurant => {
                 const deliveryInfo = restaurant.distance !== null
                   ? getDeliveryFeeForDistance(restaurant.distance, restaurant.delivery_tiers)

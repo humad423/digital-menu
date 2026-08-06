@@ -99,7 +99,7 @@ export default async function RestaurantLayout({
         </div>
 
         {/* Info Box */}
-        <div className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 -mt-4 relative z-20">
+        <div className="max-w-md sm:max-w-lg mx-auto px-4 -mt-4 relative z-20">
           <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3">
             {/* Logo */}
             <div className="w-14 h-14 rounded-2xl bg-white p-1 border-2 border-slate-100 shadow-xs shrink-0 overflow-hidden">
@@ -137,7 +137,7 @@ export default async function RestaurantLayout({
       </div>
 
       {/* Main Content Container */}
-      <main className="max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto px-4 mt-4">
+      <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-4">
         {children}
       </main>
 
