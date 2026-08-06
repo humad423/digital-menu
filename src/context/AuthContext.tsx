@@ -82,7 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const newProfile: UserProfile = {
           id: firebaseUser.uid,
           phone: phone,
-          full_name: firebaseUser.displayName || 'زبون جديد',
+          full_name: firebaseUser.displayName || '(بدون اسم)',
           role: 'customer',
           restaurant_id: null
         }
@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setProfile({
         id: firebaseUser.uid,
         phone: firebaseUser.phoneNumber || '',
-        full_name: 'زبون جديد',
+        full_name: '(بدون اسم)',
         role: 'customer',
         restaurant_id: null
       })

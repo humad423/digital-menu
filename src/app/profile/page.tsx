@@ -98,7 +98,7 @@ export default function ProfilePage() {
               {profile?.full_name ? profile.full_name.charAt(0) : '👤'}
             </div>
             <div>
-              <h2 className="text-lg font-black text-gray-900">{profile?.full_name || 'مستخدم جديد'}</h2>
+              <h2 className="text-lg font-black text-gray-900">{profile?.full_name && profile.full_name !== 'زبون جديد' ? profile.full_name : '(بدون اسم)'}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs font-bold text-gray-500 dir-ltr">{profile?.phone}</span>
                 <span className="text-[10px] font-black bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200">
