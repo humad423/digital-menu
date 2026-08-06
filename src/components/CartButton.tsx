@@ -2,13 +2,21 @@
 
 import { useState } from 'react'
 import { useCartStore } from '@/store/cartStore'
-import { ShoppingBag, X, Plus, Minus, Trash2, MessageCircle, MapPin } from 'lucide-react'
+import { ShoppingBag, X, Plus, Minus, Trash2, MessageCircle, MapPin, AlertTriangle } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import { supabase } from '@/lib/supabase'
 import { calculateDistance } from '@/utils/distance'
 import { useAuth } from '@/context/AuthContext'
+import { getStoreStatus } from '@/utils/storeStatus'
 
-type Restaurant = Pick<Database['public']['Tables']['restaurants']['Row'], 'id' | 'name' | 'whatsapp_number' | 'latitude' | 'longitude' | 'delivery_radius_km'>
+type Restaurant = Pick<Database['public']['Tables']['restaurants']['Row'], 'id' | 'name' | 'whatsapp_number' | 'latitude' | 'longitude' | 'delivery_radius_km'> & {
+  is_active?: boolean
+  is_holiday?: boolean
+  holiday_message?: string
+  opening_time?: string
+  closing_time?: string
+  off_days?: string[]
+}
 
 export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
   const { isLoggedIn, openAuthModal } = useAuth()
@@ -18,6 +26,8 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
   const [checkoutError, setError]       = useState('')
   const cartStore = useCartStore()
 
+  const status = getStoreStatus(restaurant)
+
   const items      = cartStore.restaurantId === restaurant.id ? cartStore.items : []
   const totalItems = items.reduce((a, i) => a + i.quantity, 0)
   const totalPrice = items.reduce((a, i) => a + i.price * i.quantity, 0)
@@ -25,40 +35,51 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
   if (!items.length) return null
 
   const handleCheckout = async () => {
-    setError(''); setChecking(true)
+    setError('')
+    setChecking(true)
+
+    // Check store working status first
+    if (!status.isOpen) {
+      setError(`المطعم مغلق حالياً (${status.statusText}). لا يمكن استقبال الطلبات الآن.`)
+      setChecking(false)
+      return
+    }
 
     let locationUrl: string | null = null
 
     if (shareLocation) {
-      if (!navigator.geolocation) {
-        setError('المتصفح لا يدعم تحديد الموقع.')
-        setChecking(false)
-        return
-      }
+      let savedLat: number | null = null
+      let savedLng: number | null = null
 
       try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          })
-        })
-
-        const { latitude: lat, longitude: lng } = pos.coords
-        if (restaurant.latitude && restaurant.longitude && restaurant.delivery_radius_km) {
-          const dist = calculateDistance(lat, lng, restaurant.latitude, restaurant.longitude)
-          if (dist > restaurant.delivery_radius_km) {
-            setError('موقعك خارج نطاق التوصيل لهذا المطعم.')
-            setChecking(false)
-            return
+        const storedLocStr = localStorage.getItem('user_location')
+        if (storedLocStr) {
+          const parsed = JSON.parse(storedLocStr)
+          if (parsed.lat && parsed.lng) {
+            savedLat = Number(parsed.lat)
+            savedLng = Number(parsed.lng)
           }
         }
-        locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
-      } catch (err) {
-        setError('يرجى السماح بالوصول إلى موقعك أو قم بوقف خيار مشاركة الموقع.')
-        setChecking(false)
-        return
+      } catch (e) {}
+
+      if (savedLat && savedLng) {
+        locationUrl = `https://www.google.com/maps?q=${savedLat},${savedLng}`
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: false,
+              timeout: 6000,
+              maximumAge: 300000
+            })
+          })
+          const { latitude: lat, longitude: lng } = pos.coords
+          locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
+        } catch (err) {
+          setError('تعذر تحديد موقعك الحالي تلقائياً. يمكنك إلغاء خيار (إرفاق موقعي) وإرسال الطلب مباشرة.')
+          setChecking(false)
+          return
+        }
       }
     }
 
@@ -186,19 +207,31 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
 
             {/* Footer */}
             <div className="p-5 border-t border-slate-100 bg-white space-y-3">
-              {/* Optional Location Toggle */}
-              <label className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-2xl cursor-pointer select-none transition hover:bg-slate-100/80">
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} className={shareLocation ? 'text-orange-500' : 'text-slate-400'} />
-                  <span className="text-xs font-bold text-slate-700">إرفاق موقعي مع رسالة الطلب</span>
+              {/* Working Status Warning if Closed */}
+              {!status.isOpen && (
+                <div className="p-3 bg-rose-50 border border-rose-200/80 rounded-2xl flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                  <p className="text-xs font-black text-rose-700">
+                    المطعم مغلق حالياً ({status.statusText}). لا يمكن إرسال الطلبات في هذا الوقت.
+                  </p>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={shareLocation}
-                  onChange={e => setShareLoc(e.target.checked)}
-                  className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
-                />
-              </label>
+              )}
+
+              {/* Optional Location Toggle */}
+              {status.isOpen && (
+                <label className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-2xl cursor-pointer select-none transition hover:bg-slate-100/80">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={16} className={shareLocation ? 'text-orange-500' : 'text-slate-400'} />
+                    <span className="text-xs font-bold text-slate-700">إرفاق موقعي مع رسالة الطلب</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={shareLocation}
+                    onChange={e => setShareLoc(e.target.checked)}
+                    className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+                  />
+                </label>
+              )}
 
               {checkoutError && (
                 <div className="p-3 bg-red-50 border border-red-200/80 rounded-2xl flex items-start gap-2">
@@ -219,11 +252,11 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
                   if (!isLoggedIn) openAuthModal(() => handleCheckout())
                   else handleCheckout()
                 }}
-                disabled={isCheckingOut}
-                className="w-full text-white font-black text-sm py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-98 transition disabled:opacity-70"
+                disabled={isCheckingOut || !status.isOpen}
+                className="w-full text-white font-black text-sm py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-98 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
-                  boxShadow: '0 6px 20px rgba(37,211,102,0.35)'
+                  background: !status.isOpen ? '#94A3B8' : 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                  boxShadow: !status.isOpen ? 'none' : '0 6px 20px rgba(37,211,102,0.35)'
                 }}
               >
                 {isCheckingOut ? (
@@ -231,6 +264,8 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>جاري إعداد الطلب...</span>
                   </>
+                ) : !status.isOpen ? (
+                  <span>المطعم مغلق حالياً ⛔</span>
                 ) : (
                   <>
                     <MessageCircle size={18} />

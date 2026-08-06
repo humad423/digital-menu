@@ -286,13 +286,21 @@ export default function PlatformClient({
       : null
   }))
 
-  const allowedIds = new Set(withDist.map(r => r.id))
-
   const filteredRestaurants = withDist.filter(r => {
     const storeTypeMatches = activeStoreType === 'all' ? true : (r.store_type || 'restaurant') === activeStoreType
     const catMatches       = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
     const searchMatches    = r.name.toLowerCase().includes(searchQuery.toLowerCase())
-    return storeTypeMatches && catMatches && searchMatches
+
+    // Exclude stores outside delivery radius
+    let withinRadius = true
+    if (r.has_delivery !== false && r.distance !== null) {
+      const deliveryInfo = getDeliveryFeeForDistance(r.distance, r.delivery_tiers)
+      if (deliveryInfo && deliveryInfo.available === false) {
+        withinRadius = false
+      }
+    }
+
+    return storeTypeMatches && catMatches && searchMatches && withinRadius
   }).sort((a, b) => {
     if (sortBy === 'rating') {
       const rateA = parseFloat(a.avg_rating) || 0
@@ -312,6 +320,8 @@ export default function PlatformClient({
     return 0
   })
 
+  // Only allow offers for stores that are within the active delivery radius
+  const allowedIds = new Set(filteredRestaurants.map(r => r.id))
   const filteredOffers = (offers || []).filter(o => allowedIds.has(o.restaurants?.id || o.restaurant_id))
 
   const rankedOffers = [...filteredOffers].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))

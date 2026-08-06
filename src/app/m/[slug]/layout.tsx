@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import CartButton from '@/components/CartButton'
 import UserAuthButton from '@/components/UserAuthButton'
 import RestaurantRating from '@/components/RestaurantRating'
+import StoreHeaderBanner from '@/components/StoreHeaderBanner'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, MapPin } from 'lucide-react'
@@ -27,7 +28,7 @@ export default async function RestaurantLayout({
   const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, has_delivery')
+    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_active, is_holiday, holiday_message, opening_time, closing_time, off_days')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -57,19 +58,19 @@ export default async function RestaurantLayout({
     <div
       dir="rtl"
       className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-28"
-      style={{
-        '--color-primary': primary,
-      } as React.CSSProperties}
+      style={{ '--color-primary': primary } as React.CSSProperties}
     >
-      {/* ── HERO COVER ── */}
+      {/* Cover Header */}
       <div className="relative">
-        <div className="h-48 sm:h-56 w-full bg-slate-200 relative overflow-hidden">
+        <div className="h-44 sm:h-52 w-full bg-slate-900 relative overflow-hidden">
           {restaurant.cover_url ? (
-            <img src={restaurant.cover_url} alt="" className="w-full h-full object-cover" />
+            <img src={restaurant.cover_url} alt="" className="w-full h-full object-cover opacity-90" />
           ) : (
             <div
-              className="w-full h-full"
-              style={{ background: `linear-gradient(135deg, ${primary}ee, ${primary}66)` }}
+              className="w-full h-full opacity-90"
+              style={{
+                background: `linear-gradient(135deg, ${primary}ee, ${primary}66)`
+              }}
             />
           )}
 
@@ -138,29 +139,20 @@ export default async function RestaurantLayout({
 
       {/* Main Content Container */}
       <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-4">
+        <StoreHeaderBanner restaurant={restaurant} />
         {children}
       </main>
 
       {restaurant.has_delivery === false ? (
-        <div className="fixed bottom-4 left-4 right-4 z-40 max-w-xl md:max-w-4xl lg:max-w-6xl mx-auto">
+        <div className="fixed bottom-4 left-4 right-4 z-40 max-w-md sm:max-w-lg mx-auto">
           <div className="bg-slate-900 text-white rounded-2xl p-3 px-4 shadow-xl border border-slate-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-base shrink-0">🏪</span>
               <div className="min-w-0">
                 <p className="font-black text-xs text-white truncate">استلام من الفرع / تصفح فقط</p>
-                <p className="text-[10px] text-slate-400 font-bold truncate">هذا المحل لا يقدّم خدمة التوصيل للمنازل</p>
+                <p className="text-[10px] text-slate-400 font-medium truncate">هذا المتجر لا يوفر خدمة التوصيل المباشر</p>
               </div>
             </div>
-            {restaurant.whatsapp_number && (
-              <a
-                href={`https://wa.me/${restaurant.whatsapp_number.replace(/[^0-9]/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition shadow-sm shrink-0"
-              >
-                💬 تواصل واتساب
-              </a>
-            )}
           </div>
         </div>
       ) : (

@@ -7,6 +7,7 @@ import { ArrowRight, Search, Tag, X, Store } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import BrandLogo from '@/components/BrandLogo'
 import UserAuthButton from '@/components/UserAuthButton'
+import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 
 export default function AllOffersPage() {
   const [offers, setOffers] = useState<any[]>([])
@@ -21,7 +22,7 @@ export default function AllOffersPage() {
       setLoading(true)
       const { data } = await supabase
         .from('offers')
-        .select('*, restaurants(id, name, slug, store_type), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
+        .select('*, restaurants(id, name, slug, store_type, latitude, longitude, delivery_tiers, has_delivery), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false })
@@ -31,6 +32,19 @@ export default function AllOffersPage() {
     }
     fetchOffers()
   }, [])
+
+  let userLoc: { lat: number, lng: number } | null = null
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('user_location')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed.lat && parsed.lng) {
+          userLoc = { lat: Number(parsed.lat), lng: Number(parsed.lng) }
+        }
+      }
+    } catch(e) {}
+  }
 
   const filteredOffers = offers.filter(offer => {
     const store = offer.restaurants
@@ -47,6 +61,15 @@ export default function AllOffersPage() {
       const titleMatch = offer.title?.toLowerCase().includes(q)
       const storeMatch = store.name?.toLowerCase().includes(q)
       if (!titleMatch && !storeMatch) return false
+    }
+
+    // Exclude if store is outside delivery radius for user
+    if (userLoc && store.has_delivery !== false && store.latitude && store.longitude) {
+      const dist = calculateDistance(userLoc.lat, userLoc.lng, store.latitude, store.longitude)
+      const deliveryInfo = getDeliveryFeeForDistance(dist, store.delivery_tiers)
+      if (deliveryInfo && deliveryInfo.available === false) {
+        return false
+      }
     }
 
     return true
@@ -97,27 +120,28 @@ export default function AllOffersPage() {
             )}
           </div>
 
-          {/* Store Type Filter Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-0.5 pb-1">
+          {/* Business Type Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-0.5 pb-1 -mx-1 px-1">
             {[
-              { key: 'all', label: 'كافة العروض 🛍️' },
-              { key: 'restaurant', label: 'عروض المطاعم 🍔' },
-              { key: 'supermarket', label: 'عروض السوبر ماركت 🛒' },
-              { key: 'clothing', label: 'عروض الأزياء 👗' },
-              { key: 'other', label: 'عروض المتاجر الأخرى 🎁' },
+              { key: 'all', label: 'الكل', icon: '🛍️' },
+              { key: 'restaurant', label: 'مطاعم', icon: '🍔' },
+              { key: 'supermarket', label: 'سوبر ماركت', icon: '🛒' },
+              { key: 'clothing', label: 'ألبسة وموضة', icon: '👗' },
+              { key: 'other', label: 'متاجر أخرى', icon: '🎁' },
             ].map(tab => {
               const isActive = selectedType === tab.key
               return (
                 <button
                   key={tab.key}
                   onClick={() => setSelectedType(tab.key)}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 ${
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 ${
                     isActive
                       ? 'bg-orange-500 text-white shadow-xs'
                       : 'bg-slate-800/90 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/60'
                   }`}
                 >
-                  {tab.label}
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
                 </button>
               )
             })}
@@ -147,15 +171,15 @@ export default function AllOffersPage() {
                 <Link
                   key={offer.id}
                   href={`/m/${res.slug}`}
-                  className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md transition-all active:scale-98 overflow-hidden flex flex-col group relative"
+                  className="group bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden block relative flex flex-col justify-between"
                 >
-                  {/* Badge */}
-                  <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs">
-                    {offer.min_quantity > 1 ? `🔥 ${offer.min_quantity}X` : offer.bonus_item ? '🎁 هدية' : '🏷️ عرض مميز'}
+                  {/* Offer Badge */}
+                  <div className="absolute top-3 right-3 z-10 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xs">
+                    {offer.min_quantity > 1 ? `🔥 ${offer.min_quantity}X` : offer.bonus_item ? '🎁 هدية' : '🏷️ خصم مميز'}
                   </div>
 
                   {/* Image */}
-                  <div className="h-36 w-full bg-slate-100 relative">
+                  <div className="h-40 w-full bg-slate-100 relative overflow-hidden">
                     <SmartOfferImage
                       primaryImage={offer.primary_item?.image_url}
                       bonusImage={offer.bonus_item?.image_url}
@@ -164,31 +188,36 @@ export default function AllOffersPage() {
                       customImage={offer.image_url}
                       minQuantity={offer.min_quantity}
                       bonusQuantity={offer.bonus_quantity}
-                      className="w-full h-full"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
 
                   {/* Body */}
-                  <div className="p-3.5 flex-1 flex flex-col justify-between">
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                     <div>
-                      <p className="text-[11px] font-bold text-slate-400 truncate mb-1 flex items-center gap-1">
-                        <Store size={12} className="text-orange-500" />
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold mb-1">
+                        <Store size={13} className="text-orange-500" />
                         <span>{res.name}</span>
-                      </p>
-                      <h3 className="font-black text-xs text-slate-900 group-hover:text-orange-600 transition mb-3 line-clamp-2">
+                      </div>
+                      <h3 className="font-black text-sm text-slate-900 group-hover:text-orange-600 transition-colors line-clamp-2">
                         {offer.title}
                       </h3>
+                      {offer.description && (
+                        <p className="text-xs text-slate-500 font-medium line-clamp-2 mt-1">
+                          {offer.description}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="flex items-baseline justify-between pt-2.5 border-t border-slate-100 mt-auto">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-sm font-black text-orange-600">{offer.offer_price} ₺</span>
+                    <div className="flex items-baseline justify-between pt-3 border-t border-slate-100">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-base font-black text-orange-600">{offer.offer_price} ₺</span>
                         {offer.original_price && (
-                          <span className="text-[11px] font-bold text-slate-400 line-through">{offer.original_price} ₺</span>
+                          <span className="text-xs font-bold text-slate-400 line-through">{offer.original_price} ₺</span>
                         )}
                       </div>
-                      <span className="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200/60">
-                        اطلب من المتجر ⟵
+                      <span className="text-xs font-black text-orange-600 group-hover:translate-x-1 transition-transform">
+                        تصفح العرض ⟵
                       </span>
                     </div>
                   </div>
