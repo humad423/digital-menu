@@ -17,15 +17,27 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
   return R * c
 }
 
-export function getDeliveryFeeForDistance(distanceKm: number, tiers?: DeliveryTier[]): {
+export function getDeliveryFeeForDistance(
+  distanceKm: number,
+  tiers?: DeliveryTier[],
+  deliveryRadiusKm?: number
+): {
   available: boolean
   fee: number
   tierName?: string
   reason?: string
 } {
   if (!tiers || !Array.isArray(tiers) || tiers.length === 0) {
-    // Default flat fallback if no tiers configured yet
-    return { available: true, fee: 20, tierName: 'توصيل عام' }
+    // No tiers configured: fallback to delivery_radius_km if provided
+    if (deliveryRadiusKm && deliveryRadiusKm > 0) {
+      if (distanceKm <= deliveryRadiusKm) {
+        return { available: true, fee: 20, tierName: 'توصيل عام' }
+      } else {
+        return { available: false, fee: 0, reason: 'خارج نطاق التوصيل' }
+      }
+    }
+    // No tiers, no radius → show to all (store hasn't configured delivery zones yet)
+    return { available: true, fee: 0, tierName: 'توصيل' }
   }
 
   // Find matching distance tier
@@ -44,4 +56,29 @@ export function getDeliveryFeeForDistance(distanceKm: number, tiers?: DeliveryTi
     fee: matchedTier.fee,
     tierName: `${matchedTier.min_km} - ${matchedTier.max_km} كم`
   }
+}
+
+/**
+ * Checks if a restaurant is within delivery range of the given user coordinates.
+ * Returns true if the restaurant should be shown on the homepage.
+ */
+export function isStoreWithinRange(
+  userLat: number,
+  userLng: number,
+  restaurant: any
+): boolean {
+  // If no lat/lng set on restaurant → always show (not configured yet)
+  if (!restaurant.latitude || !restaurant.longitude) return true
+
+  const dist = calculateDistance(userLat, userLng, restaurant.latitude, restaurant.longitude)
+
+  // Pick-up only stores: use delivery_radius_km to decide visibility on map/list
+  if (restaurant.has_delivery === false) {
+    const radius = restaurant.delivery_radius_km || 50
+    return dist <= radius
+  }
+
+  // Delivery stores with tiers
+  const result = getDeliveryFeeForDistance(dist, restaurant.delivery_tiers, restaurant.delivery_radius_km)
+  return result.available
 }

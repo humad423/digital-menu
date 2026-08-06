@@ -8,7 +8,7 @@ import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import UserAuthButton from '@/components/UserAuthButton'
 import BrandLogo from '@/components/BrandLogo'
-import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
+import { calculateDistance, getDeliveryFeeForDistance, isStoreWithinRange } from '@/utils/distance'
 import { getStoreStatus } from '@/utils/storeStatus'
 
 // ═══════════════════════════════════════════════════════════
@@ -291,14 +291,8 @@ export default function PlatformClient({
     const catMatches       = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
     const searchMatches    = r.name.toLowerCase().includes(searchQuery.toLowerCase())
 
-    // Exclude stores outside delivery radius
-    let withinRadius = true
-    if (r.has_delivery !== false && r.distance !== null) {
-      const deliveryInfo = getDeliveryFeeForDistance(r.distance, r.delivery_tiers)
-      if (deliveryInfo && deliveryInfo.available === false) {
-        withinRadius = false
-      }
-    }
+    // Exclude stores outside delivery/pickup radius using the robust helper
+    const withinRadius = isStoreWithinRange(userLoc.lat, userLoc.lng, r)
 
     return storeTypeMatches && catMatches && searchMatches && withinRadius
   }).sort((a, b) => {
@@ -307,8 +301,8 @@ export default function PlatformClient({
       const rateB = parseFloat(b.avg_rating) || 0
       if (rateB !== rateA) return rateB - rateA
     } else if (sortBy === 'delivery_fee') {
-      const feeA = a.distance !== null ? (getDeliveryFeeForDistance(a.distance, a.delivery_tiers)?.fee ?? 999) : 999
-      const feeB = b.distance !== null ? (getDeliveryFeeForDistance(b.distance, b.delivery_tiers)?.fee ?? 999) : 999
+      const feeA = a.distance !== null ? (getDeliveryFeeForDistance(a.distance, a.delivery_tiers, a.delivery_radius_km)?.fee ?? 999) : 999
+      const feeB = b.distance !== null ? (getDeliveryFeeForDistance(b.distance, b.delivery_tiers, b.delivery_radius_km)?.fee ?? 999) : 999
       if (feeA !== feeB) return feeA - feeB
     } else if (sortBy === 'newest') {
       const dateA = new Date(a.created_at || 0).getTime()

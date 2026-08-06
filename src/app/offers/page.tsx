@@ -7,7 +7,7 @@ import { ArrowRight, Search, Tag, X, Store } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import BrandLogo from '@/components/BrandLogo'
 import UserAuthButton from '@/components/UserAuthButton'
-import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
+import { isStoreWithinRange } from '@/utils/distance'
 
 export default function AllOffersPage() {
   const [offers, setOffers] = useState<any[]>([])
@@ -22,7 +22,7 @@ export default function AllOffersPage() {
       setLoading(true)
       const { data } = await supabase
         .from('offers')
-        .select('*, restaurants(id, name, slug, store_type, latitude, longitude, delivery_tiers, has_delivery), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
+        .select('*, restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false })
@@ -36,7 +36,8 @@ export default function AllOffersPage() {
   let userLoc: { lat: number, lng: number } | null = null
   if (typeof window !== 'undefined') {
     try {
-      const stored = localStorage.getItem('user_location')
+      // Read from the same key PlatformClient writes to
+      const stored = localStorage.getItem('alfsouq_user_loc')
       if (stored) {
         const parsed = JSON.parse(stored)
         if (parsed.lat && parsed.lng) {
@@ -63,13 +64,10 @@ export default function AllOffersPage() {
       if (!titleMatch && !storeMatch) return false
     }
 
-    // Exclude if store is outside delivery radius for user
-    if (userLoc && store.has_delivery !== false && store.latitude && store.longitude) {
-      const dist = calculateDistance(userLoc.lat, userLoc.lng, store.latitude, store.longitude)
-      const deliveryInfo = getDeliveryFeeForDistance(dist, store.delivery_tiers)
-      if (deliveryInfo && deliveryInfo.available === false) {
-        return false
-      }
+    // Exclude if store is outside delivery radius
+    if (userLoc) {
+      const withinRange = isStoreWithinRange(userLoc.lat, userLoc.lng, store)
+      if (!withinRange) return false
     }
 
     return true
