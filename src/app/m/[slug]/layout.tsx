@@ -95,8 +95,8 @@ export default async function RestaurantLayout({
           </div>
 
           {/* Restaurant Title Overlay */}
-          <div className="absolute bottom-3 right-4 left-20 z-10">
-            <h1 className="text-xl sm:text-2xl font-black text-white drop-shadow-md leading-tight">
+          <div className="absolute bottom-0 inset-x-0 z-10 px-4 pb-4 pt-8 bg-gradient-to-t from-slate-950/90 to-transparent">
+            <h1 className="text-xl font-black text-white drop-shadow-md leading-tight truncate">
               {restaurant.name}
             </h1>
           </div>
