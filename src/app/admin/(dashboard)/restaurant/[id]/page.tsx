@@ -4,47 +4,45 @@ import { useState, useEffect, use } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
-import StoreSettingsModal from '@/components/StoreSettingsModal'
 import { useAuth } from '@/context/AuthContext'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle, Settings } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { getMainDomainMenuUrl } from '@/utils/url'
 
 
 export default function AdminRestaurantPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const { logout, profile } = useAuth()
-  const resolvedParams = params && typeof (params as any).then === 'function' 
-    ? use(params as Promise<{ id: string }>) 
+  const resolvedParams = params && typeof (params as any).then === 'function'
+    ? use(params as Promise<{ id: string }>)
     : (params as unknown as { id: string })
   const id = resolvedParams?.id
 
-  const [restaurant, setRestaurant]   = useState<any>(null)
-  const [categories, setCategories]   = useState<any[]>([])
-  const [menuItems, setMenuItems]     = useState<any[]>([])
-  const [loading, setLoading]         = useState(true)
-  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [restaurant, setRestaurant] = useState<any>(null)
+  const [categories, setCategories] = useState<any[]>([])
+  const [menuItems, setMenuItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   // ── Sub-category State ─────────────────────────────────────────
-  const [newCatName, setNewCatName]   = useState('')
-  const [editCatId, setEditCatId]     = useState<string | null>(null)
+  const [newCatName, setNewCatName] = useState('')
+  const [editCatId, setEditCatId] = useState<string | null>(null)
   const [editCatName, setEditCatName] = useState('')
   const [editCatSort, setEditCatSort] = useState(0)
 
   // ── Item State ─────────────────────────────────────────────────
   const [showItemForm, setShowItemForm] = useState(false)
-  const [editItemId, setEditItemId]     = useState<string | null>(null)
-  const [itemForm, setItemForm]         = useState({
+  const [editItemId, setEditItemId] = useState<string | null>(null)
+  const [itemForm, setItemForm] = useState({
     category_id: '', name: '', description: '', price: '', image_url: '', is_available: true,
     is_offer: false, original_price: '', offer_title: ''
   })
   const [savingItem, setSavingItem] = useState(false)
 
   // ── Offers State ────────────────────────────────────────────────
-  const [offers, setOffers]           = useState<any[]>([])
+  const [offers, setOffers] = useState<any[]>([])
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editOfferId, setEditOfferId] = useState<string | null>(null)
-  const [offerForm, setOfferForm]     = useState({
+  const [offerForm, setOfferForm] = useState({
     primary_item_id: '',
     min_quantity: '1',
     bonus_item_id: '',
@@ -68,8 +66,8 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
 
   // ── Delivery Tiers State ─────────────────────────────────────────
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>([])
-  const [newTier, setNewTier]             = useState({ min_km: '', max_km: '', fee: '', is_active: true })
-  const [savingTiers, setSavingTiers]     = useState(false)
+  const [newTier, setNewTier] = useState({ min_km: '', max_km: '', fee: '', is_active: true })
+  const [savingTiers, setSavingTiers] = useState(false)
 
   const fetchData = async () => {
     if (!id) return
@@ -318,9 +316,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       const { error } = await supabase.from('offers').update(payload).eq('id', editOfferId)
       if (error) alert('خطأ في حفظ العرض: ' + error.message)
     } else {
-      const { data: maxOffer } = await supabase.from('offers').select('sort_order').order('sort_order', { ascending: false }).limit(1)
-      const nextRank = (maxOffer && maxOffer[0]?.sort_order && maxOffer[0].sort_order > 0) ? (maxOffer[0].sort_order + 1) : 1
-      const { error } = await supabase.from('offers').insert([{ ...payload, sort_order: nextRank }])
+      const { error } = await supabase.from('offers').insert([payload])
       if (error) alert('خطأ في إنشاء العرض: ' + error.message)
     }
 
@@ -439,17 +435,8 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
             </div>
           </div>
 
-          {/* Left: Preview + Settings + Logout */}
+          {/* Left: Preview + Logout */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30 text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-sm"
-              title="إعدادات المتجر وساعات الدوام"
-            >
-              <Settings size={14} />
-              <span>الإعدادات ⚙️</span>
-            </button>
-
             <a
               href={getMainDomainMenuUrl(restaurant.slug)}
               target="_blank"
@@ -989,9 +976,8 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                         {itemsInCat.map(item => (
                           <div
                             key={item.id}
-                            className={`bg-slate-900 border rounded-2xl p-3 flex items-center justify-between gap-3 transition ${
-                              item.is_available ? 'border-slate-700/80' : 'border-red-900/40 opacity-60'
-                            }`}
+                            className={`bg-slate-900 border rounded-2xl p-3 flex items-center justify-between gap-3 transition ${item.is_available ? 'border-slate-700/80' : 'border-red-900/40 opacity-60'
+                              }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="w-12 h-12 rounded-xl bg-slate-800 overflow-hidden shrink-0 relative border border-slate-700">
@@ -1012,11 +998,10 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                               {/* Availability Switch */}
                               <button
                                 onClick={() => toggleItemAvailability(item)}
-                                className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${
-                                  item.is_available
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                }`}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${item.is_available
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                  }`}
                                 title="تغيير التوفر"
                               >
                                 {item.is_available ? 'متوفر' : 'غير متوفر'}
@@ -1217,9 +1202,8 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                       <span className="font-black text-xs text-emerald-400">{tier.fee} TL</span>
                       <button
                         onClick={() => toggleTierActive(idx)}
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                          tier.is_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                        }`}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${tier.is_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                          }`}
                       >
                         {tier.is_active ? 'نشط' : 'معطل'}
                       </button>
@@ -1237,12 +1221,6 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
         </div>
       </main>
 
-      <StoreSettingsModal
-        restaurant={restaurant}
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        onSaveSuccess={fetchData}
-      />
     </div>
   )
 }
