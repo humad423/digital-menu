@@ -451,23 +451,30 @@ export default function PlatformClient({
       {/* ── MAIN CONTAINER ── */}
       <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-5 space-y-6">
 
-        {/* Location Notice Banner */}
+        {/* Location Notice Banner - shown as long as location is approximate (not granted) */}
         {locationStatus === 'default' && (
-          <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-xs">
-            <div className="flex items-center gap-2 min-w-0">
-              <MapPin size={16} className="text-amber-600 shrink-0" />
-              <p className="text-xs font-bold text-amber-900 truncate">
-                تصفح بموقع منطقة شايروفا / كيبزة الافتراضي
-              </p>
+          <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-3.5 flex items-start gap-3 shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 text-base mt-0.5">
+              📍
             </div>
-            <button
-              onClick={requestLocation}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-3 py-1.5 rounded-xl shrink-0 transition shadow-sm"
-            >
-              تحديد موقعي 📍
-            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black text-blue-900 mb-0.5">
+                أنت تتصفح بموقعك التقريبي
+              </p>
+              <p className="text-[11px] font-medium text-blue-700 leading-relaxed">
+                لإظهار المتاجر الأقرب إليك بدقة، يرجى السماح بالوصول إلى موقعك الحقيقي
+              </p>
+              <button
+                onClick={requestLocation}
+                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-4 py-1.5 rounded-xl transition shadow-sm active:scale-95 flex items-center gap-1.5"
+              >
+                <MapPin size={12} />
+                السماح بالموقع الحقيقي
+              </button>
+            </div>
           </div>
         )}
+
 
         {/* ── ADS SLIDER ── */}
         {filteredAds && filteredAds.length > 0 && !searchQuery && (
