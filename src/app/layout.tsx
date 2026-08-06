@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import PhoneAuthModal from "@/components/PhoneAuthModal";
 import TopProgressBar from "@/components/TopProgressBar";
+import InstallPwaPrompt from "@/components/InstallPwaPrompt";
 import { Suspense } from "react";
 
 const geistSans = Geist({
@@ -19,6 +20,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ألف سوق | Alfsouq - المنصة التجارية الشاملة للمتاجر والعروض",
   description: "ألف سوق (alfsouq.com) - المنصة التجارية الشاملة لتصفح أحدث المتاجر والمطاعم والمنتجات والعروض التنافسية وتسهيل الطلب المباشر.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ألف سوق",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#F97316",
 };
 
 export default function RootLayout({
@@ -39,6 +50,7 @@ export default function RootLayout({
           </Suspense>
           {children}
           <PhoneAuthModal />
+          <InstallPwaPrompt />
         </AuthProvider>
       </body>
     </html>
