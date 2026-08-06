@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { Download, X, Share, Sparkles } from 'lucide-react'
+import { Download, X, Share, Sparkles, MoreVertical } from 'lucide-react'
 
 export default function InstallPwaPrompt() {
   const pathname = usePathname()
@@ -10,7 +10,7 @@ export default function InstallPwaPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
   const [isIos, setIsIos] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
-  const [installing, setInstalling] = useState(false)
+  const [showAndroidManual, setShowAndroidManual] = useState(false)
 
   useEffect(() => {
     // 1. Strictly ONLY show on Homepage (/)
@@ -19,12 +19,14 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // 2. Check if already installed in standalone mode or stored flag
-    const isInstalledFlag = typeof window !== 'undefined' ? localStorage.getItem('alfsouq_pwa_installed') === 'true' : false
+    // 2. Check if already installed in standalone mode
     const isStandaloneApp = typeof window !== 'undefined' && (
-      window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://')
     )
-    if (isStandaloneApp || isInstalledFlag) {
+
+    if (isStandaloneApp) {
       setIsStandalone(true)
       return
     }
@@ -34,75 +36,67 @@ export default function InstallPwaPrompt() {
       navigator.serviceWorker.register('/sw.js').catch(() => {})
     }
 
-    // 4. Detect iOS Safari vs Android
+    // 4. Detect iOS Safari
     const ua = window.navigator.userAgent
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
 
-    // Check if dismissed recently
-    const dismissed = localStorage.getItem('alfsouq_pwa_dismissed')
-    if (dismissed && Date.now() - Number(dismissed) < 86400000 * 2) {
-      return // Don't show for 2 days if closed
+    // Check if dismissed in this session
+    const sessionDismissed = typeof window !== 'undefined' ? sessionStorage.getItem('alfsouq_pwa_dismissed') : null
+    if (sessionDismissed) {
+      return
     }
 
-    let timer: NodeJS.Timeout | null = null
-    if (isIosDevice) {
-      // On iOS Safari, show prompt with iOS instructions after 2.5 seconds
-      timer = setTimeout(() => {
-        setShowPrompt(true)
-      }, 2500)
-    }
+    // Always show prompt banner after 1.2s on Homepage for non-standalone users
+    const timer = setTimeout(() => {
+      setShowPrompt(true)
+    }, 1200)
 
-    // 5. On Android/Chrome: ONLY show prompt when Chrome is 100% ready with beforeinstallprompt
+    // 5. Capture Android/Chrome beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      setShowPrompt(true)
     }
 
     const handleAppInstalled = () => {
       setShowPrompt(false)
       setIsStandalone(true)
-      localStorage.setItem('alfsouq_pwa_installed', 'true')
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
 
     return () => {
-      if (timer) clearTimeout(timer)
+      clearTimeout(timer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
   }, [pathname])
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return
-
-    setInstalling(true)
-    try {
-      // Trigger Chrome's Native 1-Click Installation Sheet directly
-      await deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
-      if (outcome === 'accepted') {
-        setShowPrompt(false)
-        setIsStandalone(true)
-        localStorage.setItem('alfsouq_pwa_installed', 'true')
+    if (deferredPrompt) {
+      try {
+        await deferredPrompt.prompt()
+        const { outcome } = await deferredPrompt.userChoice
+        if (outcome === 'accepted') {
+          setShowPrompt(false)
+          setIsStandalone(true)
+        }
+        setDeferredPrompt(null)
+      } catch (err) {
+        setShowAndroidManual(true)
       }
-    } catch (err) {
-      console.log('Install prompt error:', err)
-    } finally {
-      setInstalling(false)
-      setDeferredPrompt(null)
+    } else {
+      setShowAndroidManual(true)
     }
   }
 
   const handleDismiss = () => {
     setShowPrompt(false)
-    localStorage.setItem('alfsouq_pwa_dismissed', Date.now().toString())
+    sessionStorage.setItem('alfsouq_pwa_dismissed', 'true')
   }
 
-  // Hide completely if NOT on Homepage (/) OR already installed
+  // Hide completely if NOT on Homepage (/) OR running in native standalone app
   if (pathname !== '/' || isStandalone || !showPrompt) return null
 
   return (
@@ -115,6 +109,7 @@ export default function InstallPwaPrompt() {
         <button
           onClick={handleDismiss}
           className="absolute top-3 left-3 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800/60 hover:bg-slate-800 transition"
+          title="إغلاق"
         >
           <X size={16} />
         </button>
@@ -144,15 +139,24 @@ export default function InstallPwaPrompt() {
                   اضغط على زر المشاركة <Share size={12} className="inline mx-0.5 text-orange-400" /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">"إضافة إلى الشاشة الرئيسية ➕"</span>.
                 </p>
               </div>
+            ) : showAndroidManual ? (
+              <div className="mt-3 bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700 text-[11px] font-bold text-slate-200 space-y-1">
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <MoreVertical size={13} />
+                  <span>للتثبيت من متصفحك:</span>
+                </div>
+                <p className="text-slate-300">
+                  اضغط زر خيارات المتصفح <MoreVertical size={12} className="inline text-orange-400" /> أعلى الشاشة ثم اختر <span className="text-white underline font-extrabold">"التثبيت في الشاشة الرئيسية 📲"</span>.
+                </p>
+              </div>
             ) : (
               /* Android Direct 1-Click Install Button */
               <button
                 onClick={handleInstallClick}
-                disabled={installing}
-                className="mt-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                className="mt-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
               >
                 <Download size={15} />
-                <span>{installing ? 'جاري التثبيت...' : 'تثبيت التطبيق بنقرة واحدة 📲'}</span>
+                <span>ثبّت التطبيق الآن 📲</span>
               </button>
             )}
           </div>
