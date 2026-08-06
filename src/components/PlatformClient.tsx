@@ -393,11 +393,13 @@ export default function PlatformClient({
 
       {/* ── TOP HEADER (Sticky & GPU Accelerated) ── */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md text-white shadow-xl border-b border-slate-800/80 transform-gpu will-change-transform">
-        <div className="max-w-md sm:max-w-lg mx-auto px-4 py-3.5 space-y-3">
+        <div className={`max-w-md sm:max-w-lg mx-auto px-4 transition-all duration-300 ${
+          isScrolled ? 'py-2 space-y-1.5' : 'py-3.5 space-y-3'
+        }`}>
 
           {/* Row 1: Logo + Location + Search Trigger + User Auth */}
           <div className="flex items-center justify-between gap-2">
-            <BrandLogo size="sm" variant="light" showSubtitle={false} />
+            <BrandLogo size={isScrolled ? "sm" : "sm"} variant="light" showSubtitle={false} />
 
             <div className="flex items-center gap-2">
               {/* Search Toggle Icon when collapsed */}
@@ -465,8 +467,10 @@ export default function PlatformClient({
             </div>
           </div>
 
-          {/* Row 3: Business Type Selector Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-0.5 pb-1 -mx-1 px-1">
+          {/* Row 3: Business Type Selector Tabs (Shrinks on scroll) */}
+          <div className={`flex items-center overflow-x-auto hide-scrollbar pt-0.5 pb-0.5 -mx-1 px-1 transition-all duration-300 ${
+            isScrolled ? 'gap-1' : 'gap-1.5'
+          }`}>
             {[
               { key: 'all', label: 'الكل', icon: '🛍️' },
               { key: 'restaurant', label: 'مطاعم', icon: '🍔' },
@@ -482,13 +486,17 @@ export default function PlatformClient({
                     setActiveStoreType(tab.key)
                     setActiveCat(null)
                   }}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 ${
+                  className={`shrink-0 flex items-center transition-all duration-300 active:scale-95 ${
+                    isScrolled
+                      ? 'gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold'
+                      : 'gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black'
+                  } ${
                     isActive
                       ? 'bg-orange-500 text-white shadow-xs'
                       : 'bg-slate-800/90 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/60'
                   }`}
                 >
-                  <span>{tab.icon}</span>
+                  <span className={isScrolled ? 'text-[11px]' : 'text-xs'}>{tab.icon}</span>
                   <span>{tab.label}</span>
                 </button>
               )
