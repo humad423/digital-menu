@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { Download, X, Share, Sparkles, Loader2 } from 'lucide-react'
+import { Download, X, Share, Sparkles, MoreVertical } from 'lucide-react'
 
 export default function InstallPwaPrompt() {
   const pathname = usePathname()
@@ -12,6 +12,7 @@ export default function InstallPwaPrompt() {
   const [isIos, setIsIos] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [installing, setInstalling] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
 
   useEffect(() => {
     // 1. Strictly ONLY show on Homepage (/)
@@ -45,7 +46,7 @@ export default function InstallPwaPrompt() {
       deferredRef.current = (window as any).deferredPwaPrompt
     }
 
-    // 5. Detect iOS Safari
+    // 5. Detect iOS Safari vs Android
     const ua = window.navigator.userAgent
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
@@ -61,7 +62,7 @@ export default function InstallPwaPrompt() {
       setShowPrompt(true)
     }, 1000)
 
-    // 6. Listen for late beforeinstallprompt
+    // 6. Listen for beforeinstallprompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       ;(window as any).deferredPwaPrompt = e
@@ -86,20 +87,10 @@ export default function InstallPwaPrompt() {
   }, [pathname])
 
   const handleInstallClick = async () => {
-    setInstalling(true)
-
     let promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPrompt || deferredRef.current
 
-    if (!promptObj) {
-      // Wait up to 2 seconds for beforeinstallprompt
-      for (let i = 0; i < 20; i++) {
-        await new Promise(r => setTimeout(r, 100))
-        promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredRef.current
-        if (promptObj) break
-      }
-    }
-
     if (promptObj) {
+      setInstalling(true)
       try {
         await promptObj.prompt()
         const { outcome } = await promptObj.userChoice
@@ -108,7 +99,7 @@ export default function InstallPwaPrompt() {
           setIsStandalone(true)
         }
       } catch (err) {
-        console.log('Install prompt error:', err)
+        setShowGuide(true)
       } finally {
         setInstalling(false)
         setDeferredPrompt(null)
@@ -116,7 +107,8 @@ export default function InstallPwaPrompt() {
         if (typeof window !== 'undefined') (window as any).deferredPwaPrompt = null
       }
     } else {
-      setInstalling(false)
+      // Toggle clear in-card guide smoothly without any browser alert popups
+      setShowGuide(true)
     }
   }
 
@@ -168,6 +160,16 @@ export default function InstallPwaPrompt() {
                   اضغط على زر المشاركة <Share size={12} className="inline mx-0.5 text-orange-400" /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">"إضافة إلى الشاشة الرئيسية ➕"</span>.
                 </p>
               </div>
+            ) : showGuide ? (
+              <div className="mt-3 bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700 text-[11px] font-bold text-slate-200 space-y-1.5 animate-fade-in">
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <MoreVertical size={13} />
+                  <span>طريقة التثبيت المباشر:</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                  اضغط زر القائمة <MoreVertical size={12} className="inline text-orange-400" /> بمتصفحك ثم اختر <span className="text-white underline font-extrabold">"التثبيت في الشاشة الرئيسية 📲"</span> أو <span className="text-white underline font-extrabold">"الإضافة إلى الشاشة الرئيسية"</span>.
+                </p>
+              </div>
             ) : (
               /* Android Direct 1-Click Install Button */
               <button
@@ -175,17 +177,8 @@ export default function InstallPwaPrompt() {
                 disabled={installing}
                 className="mt-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer disabled:opacity-75"
               >
-                {installing ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" />
-                    <span>جاري فتح نافذة التثبيت...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download size={15} />
-                    <span>تثبيت التطبيق بنقرة واحدة 📲</span>
-                  </>
-                )}
+                <Download size={15} />
+                <span>ثبّت التطبيق الآن 📲</span>
               </button>
             )}
           </div>
