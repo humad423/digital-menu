@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
-import { Settings, X, Clock, Calendar, Phone, Image, Store, Save, AlertCircle } from 'lucide-react'
+import { Settings, X, Clock, Calendar, Phone, Image, Store, Save, AlertCircle, Bike, Plus, Trash2, CheckCircle2 } from 'lucide-react'
 import { DAYS_OF_WEEK } from '@/utils/storeStatus'
 
 interface StoreSettingsModalProps {
@@ -32,6 +32,13 @@ export default function StoreSettingsModal({
     Array.isArray(restaurant.days_off) ? restaurant.days_off : []
   )
   const [isOnHoliday, setIsOnHoliday] = useState<boolean>(!!restaurant.is_on_holiday)
+  const [holidayMessage, setHolidayMessage] = useState(restaurant.holiday_message || '')
+  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(Number(restaurant.delivery_radius_km) || 15)
+  const [deliveryTiers, setDeliveryTiers] = useState<any[]>(
+    Array.isArray(restaurant.delivery_tiers) ? restaurant.delivery_tiers : []
+  )
+  const [newTier, setNewTier] = useState({ min_km: '', max_km: '', fee: '', is_active: true })
+
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -41,6 +48,38 @@ export default function StoreSettingsModal({
     } else {
       setDaysOff([...daysOff, dayName])
     }
+  }
+
+  const handleAddTier = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTier.min_km || !newTier.max_km || !newTier.fee) {
+      setErrorMsg('يرجى ملء كافة حقول الشريحة (من كم - إلى كم - الأجرة)')
+      return
+    }
+    const updated = [
+      ...deliveryTiers,
+      {
+        min_km: parseFloat(newTier.min_km),
+        max_km: parseFloat(newTier.max_km),
+        fee: parseFloat(newTier.fee),
+        is_active: newTier.is_active
+      }
+    ].sort((a, b) => a.min_km - b.min_km)
+
+    setDeliveryTiers(updated)
+    setNewTier({ min_km: '', max_km: '', fee: '', is_active: true })
+    setErrorMsg('')
+  }
+
+  const toggleTierActive = (index: number) => {
+    const updated = [...deliveryTiers]
+    updated[index].is_active = !updated[index].is_active
+    setDeliveryTiers(updated)
+  }
+
+  const deleteTier = (index: number) => {
+    const updated = deliveryTiers.filter((_, i) => i !== index)
+    setDeliveryTiers(updated)
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -58,82 +97,105 @@ export default function StoreSettingsModal({
       whatsapp_number: whatsappNumber.trim() || phone.trim() || null,
       logo_url: logoUrl || null,
       cover_url: coverUrl || null,
-      opening_time: openingTime || '09:00',
-      closing_time: closingTime || '23:00',
+      opening_time: openingTime,
+      closing_time: closingTime,
       days_off: daysOff,
-      is_on_holiday: isOnHoliday
+      is_on_holiday: isOnHoliday,
+      holiday_message: holidayMessage.trim() || null,
+      delivery_radius_km: deliveryRadiusKm,
+      delivery_tiers: deliveryTiers
     }
 
-    const { error } = await supabase
-      .from('restaurants')
-      .update(payload)
-      .eq('id', restaurant.id)
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update(payload)
+        .eq('id', restaurant.id)
 
-    setSaving(false)
-
-    if (error) {
-      setErrorMsg('خطأ في حفظ الإعدادات: ' + error.message)
-    } else {
-      onSaveSuccess()
-      onClose()
+      if (error) {
+        setErrorMsg('حدث خطأ أثناء حفظ الإعدادات: ' + error.message)
+      } else {
+        onSaveSuccess()
+        onClose()
+      }
+    } catch (err: any) {
+      setErrorMsg('حدث خطأ غير متوقع: ' + err?.message)
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in" dir="rtl">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-slide-up">
+    <div
+      dir="rtl"
+      className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      onClick={e => { if (e.target === e.currentTarget && !saving) onClose() }}
+    >
+      <div className="bg-white w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl border border-slate-200 my-8 animate-in fade-in zoom-in duration-200">
         {/* Header */}
-        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
               ⚙️
             </div>
             <div>
-              <h3 className="font-black text-sm text-white">إعدادات المتجر وساعات الدوام</h3>
-              <p className="text-[11px] text-slate-400 font-medium">{restaurant.name}</p>
+              <h3 className="font-black text-sm text-white">إعدادات المتجر ونطاقات التوصيل</h3>
+              <p className="text-[11px] text-slate-400 font-medium">الاسم، الهاتف، ساعات الدوام، العطلات، وشرايح التوصيل</p>
             </div>
           </div>
+
           <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition"
+            onClick={() => !saving && onClose()}
+            disabled={saving}
+            className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Body Form */}
-        <form onSubmit={handleSave} className="p-5 space-y-4 overflow-y-auto flex-1 hide-scrollbar">
+        {/* Form Body */}
+        <form onSubmit={handleSave} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs font-bold flex items-center gap-2">
-              <AlertCircle size={15} />
+            <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2 text-xs font-black text-red-700">
+              <AlertCircle size={16} className="shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* 🌴 Temporary Holiday Toggle */}
-          <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="font-black text-xs text-amber-900 flex items-center gap-1.5 cursor-pointer">
-                <span>🌴</span> إغلاق مؤقت / في عطلة
-              </label>
-              <p className="text-[10px] text-amber-700 font-medium">
-                تفعيل هذا الخيار سيظهر المتجر بحالة "في عطلة 🌴" للزبائن على المنصة فوراً.
-              </p>
+          {/* Holiday Emergency Toggle */}
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌴</span>
+                <div>
+                  <h4 className="font-black text-xs text-amber-900">وضع العطلة المؤقتة (إغلاق طارئ)</h4>
+                  <p className="text-[10px] text-amber-700 font-medium">عند التفعيل سيظهر للمستخدمين أن المحل في عطلة ويمنع إرسال الطلبات</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isOnHoliday}
+                onChange={e => setIsOnHoliday(e.target.checked)}
+                className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
+              />
             </div>
-            <input
-              type="checkbox"
-              checked={isOnHoliday}
-              onChange={e => setIsOnHoliday(e.target.checked)}
-              className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
-            />
+            {isOnHoliday && (
+              <input
+                type="text"
+                placeholder="رسالة العطلة (مثال: مغلق بمناسبة العيد السعيد)..."
+                value={holidayMessage}
+                onChange={e => setHolidayMessage(e.target.value)}
+                className="f-input text-xs font-bold bg-white"
+              />
+            )}
           </div>
 
-          {/* Store Name & Phone */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Basic Info */}
+          <div className="space-y-3">
             <div>
-              <label className="f-label flex items-center gap-1">
+              <label className="f-label flex items-center gap-1 mb-1">
                 <Store size={13} className="text-orange-500" />
-                <span>اسم المتجر *</span>
+                <span>اسم المتجر / المطعم *</span>
               </label>
               <input
                 type="text"
@@ -143,19 +205,36 @@ export default function StoreSettingsModal({
                 className="f-input"
               />
             </div>
-            <div>
-              <label className="f-label flex items-center gap-1">
-                <Phone size={13} className="text-orange-500" />
-                <span>رقم التواصل / الواتساب</span>
-              </label>
-              <input
-                type="text"
-                placeholder="053XXXXXX"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                className="f-input"
-                dir="ltr"
-              />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="f-label flex items-center gap-1 mb-1">
+                  <Phone size={13} className="text-orange-500" />
+                  <span>رقم الهاتف للتواصل</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="053XXXXXX"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="f-input"
+                  dir="ltr"
+                />
+              </div>
+              <div>
+                <label className="f-label flex items-center gap-1 mb-1">
+                  <Phone size={13} className="text-orange-500" />
+                  <span>رقم الواتساب للطلبات</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="053XXXXXX"
+                  value={whatsappNumber}
+                  onChange={e => setWhatsappNumber(e.target.value)}
+                  className="f-input"
+                  dir="ltr"
+                />
+              </div>
             </div>
           </div>
 
@@ -213,6 +292,117 @@ export default function StoreSettingsModal({
                 )
               })}
             </div>
+          </div>
+
+          {/* Delivery Radius & Tiers Section */}
+          <div className="p-4 bg-orange-50/60 border border-orange-200/80 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-black text-xs text-slate-900 flex items-center gap-1.5">
+                <Bike size={16} className="text-orange-500" />
+                <span>إدارة شرائح التوصيل والتغطية 🛵</span>
+              </h4>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-slate-500">أقصى نطاق:</span>
+                <input
+                  type="number"
+                  value={deliveryRadiusKm}
+                  onChange={e => setDeliveryRadiusKm(Number(e.target.value))}
+                  className="w-16 p-1 text-center bg-white border border-slate-300 rounded-lg text-xs font-black text-orange-600 outline-none"
+                />
+                <span className="text-xs font-bold text-slate-600">كم</span>
+              </div>
+            </div>
+
+            {/* Add Tier Form */}
+            <div className="p-3 bg-white border border-orange-200 rounded-xl space-y-2">
+              <span className="text-[11px] font-black text-orange-700 block">إضافة شريحة جديدة:</span>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">من (كم)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={newTier.min_km}
+                    onChange={e => setNewTier({ ...newTier, min_km: e.target.value })}
+                    className="f-input text-center text-xs font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">إلى (كم)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="10"
+                    value={newTier.max_km}
+                    onChange={e => setNewTier({ ...newTier, max_km: e.target.value })}
+                    className="f-input text-center text-xs font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">الأجرة TL</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="25"
+                    value={newTier.fee}
+                    onChange={e => setNewTier({ ...newTier, fee: e.target.value })}
+                    className="f-input text-center text-xs font-bold text-emerald-600"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddTier}
+                className="w-full mt-2 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1 active:scale-98"
+              >
+                <Plus size={14} />
+                <span>إضافة شريحة</span>
+              </button>
+            </div>
+
+            {/* Current Tiers List */}
+            {deliveryTiers.length > 0 ? (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] font-black text-slate-700">الشرائح الحالية ({deliveryTiers.length}):</p>
+                {deliveryTiers.map((tier, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleTierActive(idx)}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                          tier.is_active !== false
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-slate-100 text-slate-400 border border-slate-300'
+                        }`}
+                      >
+                        {tier.is_active !== false ? 'مفعلة ✓' : 'معطلة ✕'}
+                      </button>
+                      <span className="text-xs font-black text-slate-800">
+                        من <b className="text-orange-600">{tier.min_km}</b> كم إلى <b className="text-orange-600">{tier.max_km}</b> كم
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        {tier.fee} ₺
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => deleteTier(idx)}
+                        className="text-slate-400 hover:text-red-500 transition p-1"
+                        title="حذف الشريحة"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-xs text-slate-400 font-bold py-2">لا توجد شرائح توصيل مضافة بعد</p>
+            )}
           </div>
 
           {/* Logo & Cover Images */}
