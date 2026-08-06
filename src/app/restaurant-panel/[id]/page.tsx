@@ -68,14 +68,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }, [])
 
   const handleInstallPartnerPwa = async () => {
-    if (isIosDevice) {
-      setShowInstallModal(true)
-      return
-    }
-
     let promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
-    if (!promptObj) {
-      for (let i = 0; i < 15; i++) {
+
+    if (!promptObj && !isIosDevice) {
+      for (let i = 0; i < 12; i++) {
         await new Promise(r => setTimeout(r, 100))
         promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
         if (promptObj) break

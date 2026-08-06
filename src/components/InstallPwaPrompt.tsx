@@ -15,13 +15,7 @@ export default function InstallPwaPrompt() {
   const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
-    // 1. Strictly ONLY show on Homepage (/)
-    if (pathname !== '/') {
-      setShowPrompt(false)
-      return
-    }
-
-    // 2. Check if already installed in standalone mode
+    // 1. Check if already installed in standalone mode
     const isStandaloneApp = typeof window !== 'undefined' && (
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true ||
@@ -33,47 +27,28 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // 3. Register Service Worker
+    // 2. Register Service Worker globally
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then((reg) => {
         reg.update()
       }).catch(() => {})
     }
 
-    // 4. Detect iOS Safari vs Android
+    // 3. Detect iOS Safari vs Android
     const ua = window.navigator.userAgent
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
 
-    // Check if dismissed in this session
-    const sessionDismissed = typeof window !== 'undefined' ? sessionStorage.getItem('alfsouq_pwa_dismissed') : null
-    if (sessionDismissed) {
-      return
-    }
-
-    // 5. Check if early captured beforeinstallprompt exists
-    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
-      const earlyEvt = (window as any).deferredPwaPrompt
-      setDeferredPrompt(earlyEvt)
-      deferredRef.current = earlyEvt
-      setShowPrompt(true)
-    }
-
-    if (isIosDevice) {
-      // On iOS Safari, show prompt banner after 2 seconds
-      const timer = setTimeout(() => {
-        setShowPrompt(true)
-      }, 2000)
-      return () => clearTimeout(timer)
-    }
-
-    // 6. Listen for beforeinstallprompt on Android/Chrome
+    // 4. Listen for beforeinstallprompt globally on ALL routes
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       ;(window as any).deferredPwaPrompt = e
       deferredRef.current = e
       setDeferredPrompt(e)
-      setShowPrompt(true)
+      if (pathname === '/') {
+        const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
+        if (!sessionDismissed) setShowPrompt(true)
+      }
     }
 
     const handleAppInstalled = () => {
@@ -85,18 +60,28 @@ export default function InstallPwaPrompt() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
 
-    // Fallback timer: if beforeinstallprompt is ready after 2.5s
-    const fallbackTimer = setTimeout(() => {
-      const prompt = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null)
-      if (prompt) {
-        setDeferredPrompt(prompt)
-        deferredRef.current = prompt
-        setShowPrompt(true)
+    // 5. Check if early captured beforeinstallprompt exists
+    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
+      const earlyEvt = (window as any).deferredPwaPrompt
+      setDeferredPrompt(earlyEvt)
+      deferredRef.current = earlyEvt
+      if (pathname === '/') {
+        const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
+        if (!sessionDismissed) setShowPrompt(true)
       }
-    }, 2500)
+    }
+
+    if (pathname === '/' && isIosDevice) {
+      const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
+      if (!sessionDismissed) {
+        const timer = setTimeout(() => {
+          setShowPrompt(true)
+        }, 2000)
+        return () => clearTimeout(timer)
+      }
+    }
 
     return () => {
-      clearTimeout(fallbackTimer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
@@ -128,7 +113,7 @@ export default function InstallPwaPrompt() {
     sessionStorage.setItem('alfsouq_pwa_dismissed', 'true')
   }
 
-  // Hide completely if NOT on Homepage (/) OR running in native standalone app
+  // Hide banner if NOT on Homepage (/) OR running in native standalone app
   if (pathname !== '/' || isStandalone || !showPrompt) return null
 
   return (
