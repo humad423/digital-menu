@@ -735,120 +735,123 @@ export default function PlatformClient({
                   <Link
                     key={restaurant.id}
                     href={`/m/${restaurant.slug}`}
-                    className="group bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-md transition-all active:scale-98 block relative"
+                    className="group bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col relative"
                   >
                     {/* Cover Header */}
-                    <div className="h-40 w-full bg-slate-100 relative overflow-hidden">
+                    <div className="h-44 sm:h-48 w-full bg-slate-900 relative overflow-hidden shrink-0">
                       {restaurant.cover_url ? (
                         <img
                           src={restaurant.cover_url}
-                          alt=""
+                          alt={restaurant.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div
-                          className="w-full h-full"
+                          className="w-full h-full opacity-90"
                           style={{
                             background: `linear-gradient(135deg, ${restaurant.primary_color || '#F97316'}ee, ${restaurant.primary_color || '#F97316'}66)`
                           }}
                         />
                       )}
 
-                      {/* Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                      {/* Overlay Gradient */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-black/30" />
 
-                      {/* Distance Badge */}
+                      {/* Top Right Badges */}
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5 flex-wrap max-w-[70%] z-10">
+                        {restaurant.store_type && restaurant.store_type !== 'restaurant' && (
+                          <span className="bg-orange-600 text-white backdrop-blur-md text-[10px] font-black px-2.5 py-1 rounded-xl shadow-xs">
+                            {restaurant.store_type === 'supermarket' ? '🛒 سوبر ماركت' : restaurant.store_type === 'clothing' ? '👗 ألبسة' : '🎁 متجر'}
+                          </span>
+                        )}
+                        {restaurantCats.slice(0, 1).map((c: any) => (
+                          <span key={c.id} className="bg-slate-900/80 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold px-2 py-1 rounded-xl">
+                            {c.icon} {c.name}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Top Left: Distance */}
                       {restaurant.distance !== null && (
-                        <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full border border-white/10 flex items-center gap-1">
+                        <div className="absolute top-3 left-3 bg-slate-900/85 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-xl border border-white/15 flex items-center gap-1 shadow-xs z-10">
                           <MapPin size={11} className="text-orange-400" />
                           <span>{restaurant.distance < 1 ? 'أقل من 1 كم' : `${restaurant.distance.toFixed(1)} كم`}</span>
                         </div>
                       )}
 
-                      {/* Category Tags & Store Type Badge */}
-                      <div className="absolute top-3 right-3 flex flex-wrap gap-1">
-                        {restaurant.store_type && restaurant.store_type !== 'restaurant' && (
-                          <div className="bg-orange-600 text-white backdrop-blur-md text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                            <span>
-                              {restaurant.store_type === 'supermarket'
-                                ? '🛒 سوبر ماركت'
-                                : restaurant.store_type === 'clothing'
-                                ? '👗 محلات ألبسة'
-                                : '🎁 متجر'}
-                            </span>
-                          </div>
-                        )}
-                        {restaurantCats.slice(0, 2).map((c: any) => (
-                          <div key={c.id} className="bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <span>{c.icon}</span><span>{c.name}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Restaurant Title Overlay */}
-                      <div className="absolute bottom-3 right-3 left-16">
-                        <h3 className="text-base font-black text-white drop-shadow-md leading-tight line-clamp-1">
-                          {restaurant.name}
-                        </h3>
-                      </div>
-
-                      {/* Floating Logo */}
-                      <div className="absolute bottom-3 left-3 w-12 h-12 rounded-2xl bg-white p-1 shadow-md border-2 border-white overflow-hidden">
-                        {restaurant.logo_url ? (
-                          <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-xl" />
-                        ) : (
-                          <div
-                            className="w-full h-full rounded-xl flex items-center justify-center text-xs font-black text-white"
-                            style={{ background: restaurant.primary_color || '#F97316' }}
-                          >
-                            {restaurant.name.charAt(0)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card Footer Details */}
-                    <div className="p-3.5 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Store Open / Closed / Holiday Status */}
+                      {/* Bottom Status Badge */}
+                      <div className="absolute bottom-3 right-3 z-10">
                         {(() => {
                           const status = getStoreStatus(restaurant)
                           return (
-                            <div className={`px-2.5 py-0.5 rounded-full border text-[11px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                            <span className={`px-2.5 py-1 rounded-xl text-[11px] font-black border backdrop-blur-md shadow-xs flex items-center gap-1.5 ${status.isOpen ? 'bg-emerald-950/85 text-emerald-300 border-emerald-500/40' : status.isHoliday ? 'bg-amber-950/85 text-amber-300 border-amber-500/40' : 'bg-rose-950/85 text-rose-300 border-rose-500/40'}`}>
+                              <span className={`w-2 h-2 rounded-full ${status.dotClass}`} />
                               <span>{status.statusText}</span>
-                            </div>
+                            </span>
                           )
                         })()}
+                      </div>
+                    </div>
 
-                        {/* Rating */}
-                        <div className="bg-amber-50 text-amber-800 border border-amber-200/80 px-2.5 py-0.5 rounded-full text-xs font-black flex items-center gap-1">
-                          <Star size={11} className="text-amber-500 fill-amber-500" />
-                          <span>{restaurant.avg_rating || 'جديد'}</span>
-                          {restaurant.ratings_count > 0 && (
-                            <span className="text-[10px] text-amber-700 font-bold">({restaurant.ratings_count})</span>
+                    {/* Dedicated Body Section */}
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3 bg-white">
+                      {/* Logo + Store Name + Rating */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-white p-0.5 shadow-md border border-slate-100 overflow-hidden shrink-0 -mt-7 z-20 relative">
+                          {restaurant.logo_url ? (
+                            <img src={restaurant.logo_url} alt={restaurant.name} className="w-full h-full object-cover rounded-xl" />
+                          ) : (
+                            <div
+                              className="w-full h-full rounded-xl flex items-center justify-center text-sm font-black text-white"
+                              style={{ background: restaurant.primary_color || '#F97316' }}
+                            >
+                              {restaurant.name.charAt(0)}
+                            </div>
                           )}
                         </div>
 
-                        {/* Delivery Fee / Pickup Status */}
-                        {restaurant.has_delivery === false ? (
-                          <div className="bg-slate-100 text-slate-700 border border-slate-200/90 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
-                            <span>🏪 استلام من الفرع</span>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-center justify-between gap-1">
+                            <h3 className="text-base font-black text-slate-900 group-hover:text-orange-600 transition-colors truncate">
+                              {restaurant.name}
+                            </h3>
+                            <div className="bg-amber-50 text-amber-900 border border-amber-200/80 px-2 py-0.5 rounded-lg text-xs font-black flex items-center gap-1 shrink-0">
+                              <Star size={11} className="text-amber-500 fill-amber-500" />
+                              <span>{restaurant.avg_rating || 'جديد'}</span>
+                            </div>
                           </div>
-                        ) : deliveryInfo?.available ? (
-                          <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-black flex items-center gap-1">
-                            <Bike size={12} className="text-emerald-600" />
-                            <span>توصيل {deliveryInfo.fee} ₺</span>
-                          </div>
-                        ) : (
-                          <div className="bg-red-50 text-red-700 border border-red-200/80 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                            🚫 خارج النطاق
-                          </div>
-                        )}
+                          {restaurantCats.length > 0 && (
+                            <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
+                              {restaurantCats.map((c: any) => c.name).join(' · ')}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Arrow */}
-                      <ChevronLeft size={16} className="text-slate-400 group-hover:text-slate-700 transition shrink-0" />
+                      {/* Footer Info: Delivery Fee & Action */}
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <div>
+                          {restaurant.has_delivery === false ? (
+                            <span className="font-bold text-slate-600 flex items-center gap-1">
+                              <span>🏪 استلام من الفرع</span>
+                            </span>
+                          ) : deliveryInfo?.available ? (
+                            <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                              <Bike size={13} className="text-emerald-600" />
+                              <span>توصيل {deliveryInfo.fee} ₺</span>
+                            </span>
+                          ) : (
+                            <span className="font-bold text-rose-600 bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-xl">
+                              🚫 خارج النطاق
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-orange-600 font-black flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                          <span>تصفح المنيو</span>
+                          <ChevronLeft size={14} />
+                        </div>
+                      </div>
                     </div>
                   </Link>
                 )
