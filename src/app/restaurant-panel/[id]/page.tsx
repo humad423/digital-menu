@@ -44,39 +44,54 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       return
     }
 
-    setCanInstallPwa(true)
-
     const ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
     const isIos = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIosDevice(isIos)
 
-    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
-      setDeferredPwaPrompt((window as any).deferredPwaPrompt)
+    if (isIos) {
+      setCanInstallPwa(true)
+      return
     }
 
+    // 1. Check if early captured beforeinstallprompt exists
+    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
+      setDeferredPwaPrompt((window as any).deferredPwaPrompt)
+      setCanInstallPwa(true)
+    }
+
+    // 2. Listen for beforeinstallprompt
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
       ;(window as any).deferredPwaPrompt = e
       setDeferredPwaPrompt(e)
+      setCanInstallPwa(true)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
 
+    // 3. Fallback check timer
+    const fallbackTimer = setTimeout(() => {
+      const p = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null)
+      if (p) {
+        setDeferredPwaPrompt(p)
+        setCanInstallPwa(true)
+      }
+    }, 2000)
+
     return () => {
+      clearTimeout(fallbackTimer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
     }
   }, [])
 
   const handleInstallPartnerPwa = async () => {
-    let promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
-
-    if (!promptObj && !isIosDevice) {
-      for (let i = 0; i < 12; i++) {
-        await new Promise(r => setTimeout(r, 100))
-        promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
-        if (promptObj) break
-      }
+    if (isIosDevice) {
+      setShowInstallModal(true)
+      return
     }
+
+    // Direct synchronous invocation inside user gesture
+    const promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
 
     if (promptObj) {
       try {
