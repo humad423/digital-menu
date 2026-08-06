@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { Download, X, Share, Sparkles, MoreVertical } from 'lucide-react'
+import { Download, X, Share, Sparkles, Loader2 } from 'lucide-react'
 
 export default function InstallPwaPrompt() {
   const pathname = usePathname()
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const deferredRef = useRef<any>(null)
   const [showPrompt, setShowPrompt] = useState(false)
   const [isIos, setIsIos] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
-  const [showAndroidManual, setShowAndroidManual] = useState(false)
+  const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
     // 1. Strictly ONLY show on Homepage (/)
@@ -31,12 +32,14 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // 3. Register Service Worker
+    // 3. Register Service Worker immediately
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        reg.update()
+      }).catch(() => {})
     }
 
-    // 4. Detect iOS Safari
+    // 4. Detect iOS Safari vs Android
     const ua = window.navigator.userAgent
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
@@ -47,15 +50,17 @@ export default function InstallPwaPrompt() {
       return
     }
 
-    // Always show prompt banner after 1.2s on Homepage for non-standalone users
+    // Show prompt banner after 1.5 seconds on Homepage
     const timer = setTimeout(() => {
       setShowPrompt(true)
-    }, 1200)
+    }, 1500)
 
-    // 5. Capture Android/Chrome beforeinstallprompt event
+    // 5. Global capture of Android/Chrome beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
+      deferredRef.current = e
       setDeferredPrompt(e)
+      setShowPrompt(true)
     }
 
     const handleAppInstalled = () => {
@@ -74,20 +79,39 @@ export default function InstallPwaPrompt() {
   }, [pathname])
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
+    setInstalling(true)
+
+    // Check if deferredPrompt is ready or wait up to 2.5 seconds for Chrome to pass it
+    let promptObj = deferredPrompt || deferredRef.current
+
+    if (!promptObj) {
+      // Wait up to 2.5s for Chrome beforeinstallprompt event to arrive
+      for (let i = 0; i < 25; i++) {
+        await new Promise(r => setTimeout(r, 100))
+        promptObj = deferredRef.current
+        if (promptObj) break
+      }
+    }
+
+    if (promptObj) {
       try {
-        await deferredPrompt.prompt()
-        const { outcome } = await deferredPrompt.userChoice
+        await promptObj.prompt()
+        const { outcome } = await promptObj.userChoice
         if (outcome === 'accepted') {
           setShowPrompt(false)
           setIsStandalone(true)
         }
-        setDeferredPrompt(null)
       } catch (err) {
-        setShowAndroidManual(true)
+        console.log('Install prompt error:', err)
+      } finally {
+        setInstalling(false)
+        setDeferredPrompt(null)
+        deferredRef.current = null
       }
     } else {
-      setShowAndroidManual(true)
+      setInstalling(false)
+      // Fallback only if browser strictly blocks automated prompt
+      alert('لتثبيت التطبيق على هاتفك بنقرة واحدة:\n\nاضغط على خيارات المتصفح (⋮) أعلى شاشة كروم ثم اختر "التثبيت في الشاشة الرئيسية 📲"')
     }
   }
 
@@ -108,7 +132,7 @@ export default function InstallPwaPrompt() {
 
         <button
           onClick={handleDismiss}
-          className="absolute top-3 left-3 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800/60 hover:bg-slate-800 transition"
+          className="absolute top-3 left-3 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800/60 hover:bg-slate-800 transition cursor-pointer"
           title="إغلاق"
         >
           <X size={16} />
@@ -139,24 +163,24 @@ export default function InstallPwaPrompt() {
                   اضغط على زر المشاركة <Share size={12} className="inline mx-0.5 text-orange-400" /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">"إضافة إلى الشاشة الرئيسية ➕"</span>.
                 </p>
               </div>
-            ) : showAndroidManual ? (
-              <div className="mt-3 bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700 text-[11px] font-bold text-slate-200 space-y-1">
-                <div className="flex items-center gap-1.5 text-amber-400">
-                  <MoreVertical size={13} />
-                  <span>للتثبيت من متصفحك:</span>
-                </div>
-                <p className="text-slate-300">
-                  اضغط زر خيارات المتصفح <MoreVertical size={12} className="inline text-orange-400" /> أعلى الشاشة ثم اختر <span className="text-white underline font-extrabold">"التثبيت في الشاشة الرئيسية 📲"</span>.
-                </p>
-              </div>
             ) : (
               /* Android Direct 1-Click Install Button */
               <button
                 onClick={handleInstallClick}
-                className="mt-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+                disabled={installing}
+                className="mt-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer disabled:opacity-75"
               >
-                <Download size={15} />
-                <span>ثبّت التطبيق الآن 📲</span>
+                {installing ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>جاري التجهيز للتثبيت المباشر...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download size={15} />
+                    <span>تثبيت التطبيق بنقرة واحدة 📲</span>
+                  </>
+                )}
               </button>
             )}
           </div>
