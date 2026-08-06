@@ -39,6 +39,23 @@
 ══════════════════════════════════════ */
 *,*::before,*::after { box-sizing: border-box; }
 
+html, body, button, a, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a, button {
+  -webkit-touch-callout: none;
+}
+
+.active-press {
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.12s ease;
+}
+.active-press:active {
+  transform: scale(0.97);
+  opacity: 0.92;
+}
+
 body {
   background: var(--content-bg);
   color: var(--text-primary);

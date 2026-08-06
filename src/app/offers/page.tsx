@@ -169,7 +169,8 @@ export default function AllOffersPage() {
                 <Link
                   key={offer.id}
                   href={`/m/${res.slug}`}
-                  className="group bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden block relative flex flex-col justify-between"
+                  prefetch={true}
+                  className="group bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] active:brightness-95 transition-all duration-150 overflow-hidden block relative flex flex-col justify-between cursor-pointer select-none"
                 >
                   {/* Offer Badge */}
                   <div className="absolute top-3 right-3 z-10 bg-gradient-to-r from-orange-600 to-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xs">

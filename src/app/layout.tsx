@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import PhoneAuthModal from "@/components/PhoneAuthModal";
+import TopProgressBar from "@/components/TopProgressBar";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +34,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
+          <Suspense fallback={null}>
+            <TopProgressBar />
+          </Suspense>
           {children}
           <PhoneAuthModal />
         </AuthProvider>
