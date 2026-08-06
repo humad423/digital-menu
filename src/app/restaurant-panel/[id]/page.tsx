@@ -39,42 +39,32 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       document.referrer.includes('android-app://')
     )
 
-    if (isStandalone) return
+    // Hide ONLY if running inside installed standalone app
+    if (isStandalone) {
+      setCanInstallPwa(false)
+      return
+    }
+
+    // Always show install button in browser
+    setCanInstallPwa(true)
 
     const ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
     const isIos = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIosDevice(isIos)
 
     if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
-      const p = (window as any).deferredPwaPrompt
-      setDeferredPwaPrompt(p)
-      setCanInstallPwa(true)
-    }
-
-    if (isIos) {
-      setCanInstallPwa(true)
-      return
+      setDeferredPwaPrompt((window as any).deferredPwaPrompt)
     }
 
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
       ;(window as any).deferredPwaPrompt = e
       setDeferredPwaPrompt(e)
-      setCanInstallPwa(true)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
 
-    const timer = setTimeout(() => {
-      const p = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null)
-      if (p) {
-        setDeferredPwaPrompt(p)
-        setCanInstallPwa(true)
-      }
-    }, 1500)
-
     return () => {
-      clearTimeout(timer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
     }
   }, [])
@@ -104,6 +94,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       } catch (e) {
         console.log('PWA install error:', e)
       }
+    } else {
+      // Chrome fallback instruction
+      setShowIosInstallModal(true)
     }
   }
 
