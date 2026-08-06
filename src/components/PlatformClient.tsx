@@ -796,8 +796,9 @@ export default function PlatformClient({
                           const status = getStoreStatus(restaurant)
                           return (
                             <span className={`px-2.5 py-1 rounded-xl text-[11px] font-black border backdrop-blur-md shadow-xs flex items-center gap-1.5 ${status.isOpen ? 'bg-emerald-950/85 text-emerald-300 border-emerald-500/40' : status.isHoliday ? 'bg-amber-950/85 text-amber-300 border-amber-500/40' : 'bg-rose-950/85 text-rose-300 border-rose-500/40'}`}>
-                              <span className={`w-2 h-2 rounded-full ${status.dotClass}`} />
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${status.dotClass}`} />
                               <span>{status.statusText}</span>
+                              {status.subText && <span className="opacity-75">({status.subText})</span>}
                             </span>
                           )
                         })()}
