@@ -394,12 +394,12 @@ export default function PlatformClient({
       {/* ── TOP HEADER (Sticky & GPU Accelerated) ── */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md text-white shadow-xl border-b border-slate-800/80 transform-gpu will-change-transform">
         <div className={`max-w-md sm:max-w-lg mx-auto px-4 transition-all duration-300 ${
-          isScrolled ? 'py-2 space-y-1.5' : 'py-3.5 space-y-3'
+          isScrolled ? 'py-2.5 space-y-2.5' : 'py-3.5 space-y-3'
         }`}>
 
           {/* Row 1: Logo + Location + Search Trigger + User Auth */}
           <div className="flex items-center justify-between gap-2">
-            <BrandLogo size={isScrolled ? "sm" : "sm"} variant="light" showSubtitle={false} />
+            <BrandLogo size="sm" variant="light" showSubtitle={false} />
 
             <div className="flex items-center gap-2">
               {/* Search Toggle Icon when collapsed */}
@@ -443,8 +443,8 @@ export default function PlatformClient({
           {/* Row 2: Search Bar (Collapses smoothly on scroll) */}
           <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
             isScrolled && !searchQuery
-              ? 'max-h-0 opacity-0 -my-1 pointer-events-none'
-              : 'max-h-16 opacity-100'
+              ? 'max-h-0 opacity-0 my-0 pointer-events-none'
+              : 'max-h-16 opacity-100 my-0'
           }`}>
             <div className="relative">
               <input
@@ -468,8 +468,8 @@ export default function PlatformClient({
           </div>
 
           {/* Row 3: Business Type Selector Tabs (Shrinks on scroll) */}
-          <div className={`flex items-center overflow-x-auto hide-scrollbar pt-0.5 pb-0.5 -mx-1 px-1 transition-all duration-300 ${
-            isScrolled ? 'gap-1' : 'gap-1.5'
+          <div className={`flex items-center overflow-x-auto hide-scrollbar pt-1 pb-1 -mx-1 px-1 transition-all duration-300 ${
+            isScrolled ? 'gap-1.5' : 'gap-1.5'
           }`}>
             {[
               { key: 'all', label: 'الكل', icon: '🛍️' },
