@@ -5,7 +5,7 @@ function Create-LuxuryPwaIcon {
         [string]$Path,
         [int]$Width,
         [int]$Height,
-        [string]$Letter
+        [char]$CharSymbol
     )
 
     $bitmap = New-Object System.Drawing.Bitmap($Width, $Height)
@@ -31,7 +31,7 @@ function Create-LuxuryPwaIcon {
     $rectPath.AddArc($padding, $padding + $boxH - $radius, $radius, $radius, 90, 90)
     $rectPath.CloseFigure()
 
-    # Fill Gradient Box (Orange gradient)
+    # Fill Gradient Box (Orange gradient from #F97316 to #EA580C)
     $c1 = [System.Drawing.ColorTranslator]::FromHtml("#F97316")
     $c2 = [System.Drawing.ColorTranslator]::FromHtml("#EA580C")
     $p1 = New-Object System.Drawing.PointF($padding, $padding)
@@ -40,17 +40,22 @@ function Create-LuxuryPwaIcon {
 
     $graphics.FillPath($gradBrush, $rectPath)
 
-    # Draw White Letter "أ" or "S"
+    # Draw White Arabic Letter "أ"
     [float]$fontSize = $boxW * 0.50
-    $font = New-Object System.Drawing.Font("Segoe UI", $fontSize, [System.Drawing.FontStyle]::Bold)
+    $font = New-Object System.Drawing.Font("Tajawal", $fontSize, [System.Drawing.FontStyle]::Bold)
+    if ($font.Name -ne "Tajawal") {
+        $font = New-Object System.Drawing.Font("Arial", $fontSize, [System.Drawing.FontStyle]::Bold)
+    }
     $whiteBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
     
     $sf = New-Object System.Drawing.StringFormat
     $sf.Alignment = [System.Drawing.StringAlignment]::Center
     $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
 
-    $boxRect = New-Object System.Drawing.RectangleF($padding, $padding, $boxW, $boxH)
-    $graphics.DrawString($Letter, $font, $whiteBrush, $boxRect, $sf)
+    [float]$offsetY = $padding - ($boxH * 0.05)
+    $boxRect = New-Object System.Drawing.RectangleF($padding, $offsetY, $boxW, $boxH)
+    $textStr = $CharSymbol.ToString()
+    $graphics.DrawString($textStr, $font, $whiteBrush, $boxRect, $sf)
 
     # Sparkle Dot (Top Left)
     [float]$dotSize = $boxW * 0.08
@@ -69,12 +74,16 @@ function Create-LuxuryPwaIcon {
     $graphics.Dispose()
     $bitmap.Dispose()
 
-    Write-Host "Successfully Created Luxury Icon: $Path ($Width x $Height)"
+    Write-Host "Successfully Created Arabic PWA Icon: $Path ($Width x $Height)"
 }
 
 $publicDir = Join-Path $PSScriptRoot "..\public"
 
-Create-LuxuryPwaIcon -Path (Join-Path $publicDir "icon-192.png") -Width 192 -Height 192 -Letter "A"
-Create-LuxuryPwaIcon -Path (Join-Path $publicDir "icon-512.png") -Width 512 -Height 512 -Letter "A"
-Create-LuxuryPwaIcon -Path (Join-Path $publicDir "apple-touch-icon.png") -Width 180 -Height 180 -Letter "A"
-Create-LuxuryPwaIcon -Path (Join-Path $publicDir "shortcut-192.png") -Width 192 -Height 192 -Letter "S"
+# [char]0x0623 = 'أ' (Arabic Alef with Hamza Above)
+$alefChar = [char]0x0623
+$ainChar  = [char]0x0639
+
+Create-LuxuryPwaIcon -Path (Join-Path $publicDir "icon-192.png") -Width 192 -Height 192 -CharSymbol $alefChar
+Create-LuxuryPwaIcon -Path (Join-Path $publicDir "icon-512.png") -Width 512 -Height 512 -CharSymbol $alefChar
+Create-LuxuryPwaIcon -Path (Join-Path $publicDir "apple-touch-icon.png") -Width 180 -Height 180 -CharSymbol $alefChar
+Create-LuxuryPwaIcon -Path (Join-Path $publicDir "shortcut-192.png") -Width 192 -Height 192 -CharSymbol $ainChar
