@@ -28,7 +28,7 @@ export default async function RestaurantLayout({
   const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_active, is_holiday, holiday_message, opening_time, closing_time, off_days')
+    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_active, is_on_holiday, holiday_message, opening_time, closing_time, days_off')
     .eq('slug', slug)
     .maybeSingle()
 
