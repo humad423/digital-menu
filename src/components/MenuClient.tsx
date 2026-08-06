@@ -123,7 +123,7 @@ export default function MenuClient({
     <div className="pb-24">
 
       {/* ── Search Bar ── */}
-      <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 border-b border-slate-200/80 shadow-2xs">
+      <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 border-b border-slate-200/80 shadow-2xs transform-gpu will-change-transform">
         <div className="relative">
           <input
             ref={searchRef}
@@ -153,7 +153,7 @@ export default function MenuClient({
 
       {/* ── Category Pill Tabs ── */}
       {!searchQuery && categories.length > 1 && (
-        <div className="sticky top-[54px] z-20 bg-slate-50/95 backdrop-blur-md py-2 border-b border-slate-200/60 flex gap-2 overflow-x-auto hide-scrollbar">
+        <div className="sticky top-[54px] z-20 bg-slate-50/95 backdrop-blur-md py-2 border-b border-slate-200/60 flex gap-2 overflow-x-auto hide-scrollbar transform-gpu will-change-transform">
           {displayCats.map(cat => {
             const isActive = activeCat === cat.id
             return (

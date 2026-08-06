@@ -361,8 +361,8 @@ export default function PlatformClient({
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-28">
 
-      {/* ── TOP HEADER ── */}
-      <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-lg border-b border-slate-800">
+      {/* ── TOP HEADER (Sticky & GPU Accelerated) ── */}
+      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md text-white shadow-xl border-b border-slate-800/80 transform-gpu will-change-transform">
         <div className="max-w-md sm:max-w-lg mx-auto px-4 py-3.5 space-y-3">
 
           {/* Row 1: Logo + Location + User Auth */}

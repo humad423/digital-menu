@@ -56,6 +56,11 @@ a, button {
   opacity: 0.92;
 }
 
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   background: var(--content-bg);
   color: var(--text-primary);
@@ -63,6 +68,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
+  overscroll-behavior-y: none;
 }
 
 /* ══════════════════════════════════════
