@@ -20,8 +20,10 @@ export default function InstallPwaPrompt() {
     }
 
     // 2. Check if already installed in standalone mode or stored flag
-    const isInstalledFlag = localStorage.getItem('alfsouq_pwa_installed') === 'true'
-    const isStandaloneApp = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    const isInstalledFlag = typeof window !== 'undefined' ? localStorage.getItem('alfsouq_pwa_installed') === 'true' : false
+    const isStandaloneApp = typeof window !== 'undefined' && (
+      window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    )
     if (isStandaloneApp || isInstalledFlag) {
       setIsStandalone(true)
       return
@@ -32,7 +34,7 @@ export default function InstallPwaPrompt() {
       navigator.serviceWorker.register('/sw.js').catch(() => {})
     }
 
-    // 4. Detect iOS Safari
+    // 4. Detect iOS Safari vs Android
     const ua = window.navigator.userAgent
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
@@ -43,12 +45,15 @@ export default function InstallPwaPrompt() {
       return // Don't show for 2 days if closed
     }
 
-    // Show prompt after 1 second on homepage
-    const timer = setTimeout(() => {
-      setShowPrompt(true)
-    }, 1000)
+    let timer: NodeJS.Timeout | null = null
+    if (isIosDevice) {
+      // On iOS Safari, show prompt with iOS instructions after 2.5 seconds
+      timer = setTimeout(() => {
+        setShowPrompt(true)
+      }, 2500)
+    }
 
-    // 5. Android/Chrome beforeinstallprompt and appinstalled events
+    // 5. On Android/Chrome: ONLY show prompt when Chrome is 100% ready with beforeinstallprompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
@@ -65,31 +70,30 @@ export default function InstallPwaPrompt() {
     window.addEventListener('appinstalled', handleAppInstalled)
 
     return () => {
-      clearTimeout(timer)
+      if (timer) clearTimeout(timer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
   }, [pathname])
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      setInstalling(true)
-      try {
-        await deferredPrompt.prompt()
-        const { outcome } = await deferredPrompt.userChoice
-        if (outcome === 'accepted') {
-          setShowPrompt(false)
-          setIsStandalone(true)
-          localStorage.setItem('alfsouq_pwa_installed', 'true')
-        }
-      } catch (err) {
-        console.log('Install prompt error:', err)
+    if (!deferredPrompt) return
+
+    setInstalling(true)
+    try {
+      // Trigger Chrome's Native 1-Click Installation Sheet directly
+      await deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') {
+        setShowPrompt(false)
+        setIsStandalone(true)
+        localStorage.setItem('alfsouq_pwa_installed', 'true')
       }
+    } catch (err) {
+      console.log('Install prompt error:', err)
+    } finally {
       setInstalling(false)
       setDeferredPrompt(null)
-    } else {
-      // Fallback instruction if Chrome event hasn't fired yet
-      alert('لتثبيت التطبيق بنقرة واحدة:\n\nاضغط على خيارات المتصفح (⋮) أعلى شاشة كروم ثم اختر "التثبيت في الشاشة الرئيسية 📲"')
     }
   }
 
@@ -148,7 +152,7 @@ export default function InstallPwaPrompt() {
                 className="mt-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer disabled:opacity-50"
               >
                 <Download size={15} />
-                <span>{installing ? 'جاري فتح نافذة التثبيت...' : 'تثبيت التطبيق بنقرة واحدة 📲'}</span>
+                <span>{installing ? 'جاري التثبيت...' : 'تثبيت التطبيق بنقرة واحدة 📲'}</span>
               </button>
             )}
           </div>
