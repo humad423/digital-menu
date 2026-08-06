@@ -6,7 +6,7 @@ import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -25,6 +25,58 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true)
   const [authenticatedOwner, setAuthenticatedOwner] = useState<any>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+
+  // ── Partner PWA App Install State ─────────────────────────────
+  const [canInstallPwa, setCanInstallPwa] = useState(false)
+  const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(null)
+
+  useEffect(() => {
+    const isStandalone = typeof window !== 'undefined' && (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://')
+    )
+
+    if (isStandalone) return
+
+    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
+      setDeferredPwaPrompt((window as any).deferredPwaPrompt)
+      setCanInstallPwa(true)
+    }
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault()
+      ;(window as any).deferredPwaPrompt = e
+      setDeferredPwaPrompt(e)
+      setCanInstallPwa(true)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+
+    const isMobile = typeof window !== 'undefined' && /mobile|iphone|ipad|ipod|android/i.test(navigator.userAgent)
+    if (isMobile && !isStandalone) {
+      setCanInstallPwa(true)
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+  }, [])
+
+  const handleInstallPartnerPwa = async () => {
+    const promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
+    if (promptObj) {
+      try {
+        await promptObj.prompt()
+        const { outcome } = await promptObj.userChoice
+        if (outcome === 'accepted') {
+          setCanInstallPwa(false)
+        }
+      } catch (e) {
+        console.log('PWA install error:', e)
+      }
+    } else {
+      alert('لتثبيت لوحة تحكم المطعم كتطبيق على هاتفك:\n\n1. اضغط على زر القائمة في المتصفح (أو المشاركة 📤 في آيفون).\n2. اختر "إضافة إلى الشاشة الرئيسية ➕" (Add to Home Screen).')
+    }
+  }
 
   // ── Sub-category State ─────────────────────────────────────────
   const [newCatName, setNewCatName] = useState('')
@@ -545,41 +597,75 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
   return (
     <div className="min-h-screen flex flex-col" dir="rtl" style={{ background: 'var(--content-bg)' }}>
-      {/* ── Unified Header ── */}
-      <header className="dash-header">
-        <div className="flex items-center gap-3">
-          {restaurant.logo_url
-            ? <img src={restaurant.logo_url} alt="" className="w-9 h-9 rounded-xl object-cover border border-white/10" />
-            : <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-xl" style={{ background: restaurant.primary_color || '#F97316' }}>🏪</div>
-          }
-          <div>
-            <h1 className="text-base font-black leading-tight text-white">{restaurant.name}</h1>
-            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">لوحة التحكم</p>
+      {/* ── Unified Partner Header ── */}
+      <header className="sticky top-0 z-50 bg-slate-900 text-white shadow-lg border-b border-slate-800/80 px-3 py-2.5 min-h-[60px]">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          
+          {/* Logo & Store Name */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {restaurant.logo_url ? (
+              <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-xl object-cover border border-white/10 shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm shrink-0" style={{ background: restaurant.primary_color || '#F97316' }}>
+                🏪
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xs sm:text-sm font-black leading-snug text-white truncate max-w-[120px] sm:max-w-xs">{restaurant.name}</h1>
+              <p className="text-[10px] text-slate-400 font-bold leading-tight">لوحة تحكم الشريك</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="btn btn-ghost text-orange-400 border-orange-500/30 hover:bg-orange-500/20 btn-sm flex items-center gap-1.5"
-            title="إعدادات المتجر وساعات الدوام"
-          >
-            <Settings size={15} />
-            <span>الإعدادات ⚙️</span>
-          </button>
 
-          <a
-            href={getMainDomainMenuUrl(restaurant.slug)}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-ghost text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white btn-sm hidden sm:flex"
-          >
-            {terms.previewBtn}
-          </a>
+          {/* Header Action Buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            
+            {/* PWA Install Button for Partner App */}
+            {canInstallPwa && (
+              <button
+                onClick={handleInstallPartnerPwa}
+                className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-sm flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                title="تثبيت لوحة التحكم كتطبيق على هاتفك"
+              >
+                <Download size={14} />
+                <span className="hidden sm:inline">تثبيت التطبيق 📲</span>
+                <span className="sm:hidden">تثبيت 📲</span>
+              </button>
+            )}
 
-          <button onClick={handleLogout} className="btn btn-danger btn-sm border-red-900/50 bg-red-500/15 text-red-400 hover:bg-red-500/25">
-            <LogOut size={14} />
-            <span className="hidden sm:block">خروج</span>
-          </button>
+            {/* Store Settings Button */}
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="px-2.5 py-1.5 bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 border border-orange-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition active:scale-95"
+              title="إعدادات المتجر وساعات الدوام"
+            >
+              <Settings size={14} />
+              <span className="hidden sm:inline">الإعدادات ⚙️</span>
+            </button>
+
+            {/* Preview Store Link */}
+            <a
+              href={getMainDomainMenuUrl(restaurant.slug)}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1.5 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition"
+              title="معاينة المنيو كما يراه الزوار"
+            >
+              <Eye size={14} className="text-slate-400" />
+              <span className="hidden md:inline">{terms.previewBtn}</span>
+            </a>
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition"
+              title="تسجيل الخروج"
+            >
+              <LogOut size={14} />
+              <span className="hidden sm:inline">خروج</span>
+            </button>
+
+          </div>
+
         </div>
       </header>
 
