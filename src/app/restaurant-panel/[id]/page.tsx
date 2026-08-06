@@ -596,94 +596,90 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   })()
 
   return (
-    <div className="min-h-screen flex flex-col" dir="rtl" style={{ background: 'var(--content-bg)' }}>
-      {/* ── Unified Partner Header ── */}
-      <header className="sticky top-0 z-50 bg-slate-900 text-white shadow-lg border-b border-slate-800/80 px-3 py-2.5 min-h-[60px]">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+    <div className="min-h-screen flex flex-col w-full max-w-full overflow-x-hidden" dir="rtl" style={{ background: 'var(--content-bg)' }}>
+      
+      {/* ── Responsive Partner Header ── */}
+      <header className="sticky top-0 z-50 bg-slate-900 text-white shadow-lg border-b border-slate-800/80 px-3 py-2.5 w-full max-w-full overflow-hidden">
+        <div className="max-w-7xl mx-auto space-y-2">
           
-          {/* Logo & Store Name */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            {restaurant.logo_url ? (
-              <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-xl object-cover border border-white/10 shrink-0" />
-            ) : (
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm shrink-0" style={{ background: restaurant.primary_color || '#F97316' }}>
-                🏪
+          {/* Top Row: Store Info & Exit Button */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {restaurant.logo_url ? (
+                <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-xl object-cover border border-white/10 shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm shrink-0" style={{ background: restaurant.primary_color || '#F97316' }}>
+                  🏪
+                </div>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-xs sm:text-sm font-black leading-snug text-white truncate max-w-[170px] sm:max-w-xs">{restaurant.name}</h1>
+                <p className="text-[10px] text-slate-400 font-bold leading-tight">لوحة تحكم الشريك</p>
               </div>
-            )}
-            <div className="min-w-0">
-              <h1 className="text-xs sm:text-sm font-black leading-snug text-white truncate max-w-[120px] sm:max-w-xs">{restaurant.name}</h1>
-              <p className="text-[10px] text-slate-400 font-bold leading-tight">لوحة تحكم الشريك</p>
             </div>
-          </div>
-
-          {/* Header Action Buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            
-            {/* PWA Install Button for Partner App */}
-            {canInstallPwa && (
-              <button
-                onClick={handleInstallPartnerPwa}
-                className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-sm flex items-center gap-1 transition active:scale-95 cursor-pointer"
-                title="تثبيت لوحة التحكم كتطبيق على هاتفك"
-              >
-                <Download size={14} />
-                <span className="hidden sm:inline">تثبيت التطبيق 📲</span>
-                <span className="sm:hidden">تثبيت 📲</span>
-              </button>
-            )}
-
-            {/* Store Settings Button */}
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="px-2.5 py-1.5 bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 border border-orange-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition active:scale-95"
-              title="إعدادات المتجر وساعات الدوام"
-            >
-              <Settings size={14} />
-              <span className="hidden sm:inline">الإعدادات ⚙️</span>
-            </button>
-
-            {/* Preview Store Link */}
-            <a
-              href={getMainDomainMenuUrl(restaurant.slug)}
-              target="_blank"
-              rel="noreferrer"
-              className="px-2.5 py-1.5 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition"
-              title="معاينة المنيو كما يراه الزوار"
-            >
-              <Eye size={14} className="text-slate-400" />
-              <span className="hidden md:inline">{terms.previewBtn}</span>
-            </a>
 
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition"
+              className="px-2.5 py-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer shrink-0"
               title="تسجيل الخروج"
             >
               <LogOut size={14} />
-              <span className="hidden sm:inline">خروج</span>
+              <span>خروج</span>
+            </button>
+          </div>
+
+          {/* Action Pills Row (Scrollable on Mobile) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-0.5 pb-0.5 -mx-1 px-1">
+            {canInstallPwa && (
+              <button
+                onClick={handleInstallPartnerPwa}
+                className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95"
+                title="تثبيت لوحة التحكم كتطبيق على هاتفك"
+              >
+                <Download size={13} />
+                <span>تثبيت التطبيق 📲</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="px-2.5 py-1.5 bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 border border-orange-500/30 rounded-xl text-xs font-bold flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer"
+            >
+              <Settings size={13} />
+              <span>الإعدادات ⚙️</span>
             </button>
 
+            <a
+              href={getMainDomainMenuUrl(restaurant.slug)}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1.5 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 shrink-0"
+            >
+              <Eye size={13} className="text-slate-400" />
+              <span>{terms.previewBtn}</span>
+            </a>
           </div>
 
         </div>
       </header>
 
       {/* ── Main Content ── */}
-      <main className="flex-1">
+      <main className="flex-1 w-full max-w-full">
         <div className="dash-content">
+          
           {/* Panel Stats */}
-          <div className="grid grid-cols-3 gap-3 mb-6 animate-fade-in-up">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5 animate-fade-in-up">
             {[
               { label: 'الأقسام', value: categories.length, color: '#3B82F6', emoji: '📁' },
               { label: terms.itemLabel, value: menuItems.length, color: '#10B981', emoji: '🍱' },
               { label: 'العروض', value: offers.length, color: '#F97316', emoji: '🔥' },
             ].map(s => (
-              <div key={s.label} className="stat-card">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 hidden sm:flex" style={{ background: s.color + '18' }}>{s.emoji}</div>
+              <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-200/80 shadow-xs flex items-center justify-center sm:justify-start gap-2 sm:gap-3 text-center sm:text-right">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 hidden sm:flex" style={{ background: s.color + '18' }}>{s.emoji}</div>
                 <div>
-                  <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
-                  <p className="text-xs font-bold text-slate-400">{s.label}</p>
+                  <p className="text-base sm:text-xl font-black leading-none mb-1" style={{ color: s.color }}>{s.value}</p>
+                  <p className="text-[10px] sm:text-xs font-bold text-slate-400 leading-tight">{s.label}</p>
                 </div>
               </div>
             ))}
