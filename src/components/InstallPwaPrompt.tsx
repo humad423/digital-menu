@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { Download, X, Share, Sparkles, Loader2, MoreVertical } from 'lucide-react'
+import { Download, X, Share, Sparkles, Loader2 } from 'lucide-react'
 
 export default function InstallPwaPrompt() {
   const pathname = usePathname()
@@ -12,7 +12,6 @@ export default function InstallPwaPrompt() {
   const [isIos, setIsIos] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [installing, setInstalling] = useState(false)
-  const [showAndroidManual, setShowAndroidManual] = useState(false)
 
   useEffect(() => {
     // 1. Strictly ONLY show on Homepage (/)
@@ -92,6 +91,15 @@ export default function InstallPwaPrompt() {
 
     let promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPrompt || deferredRef.current
 
+    if (!promptObj) {
+      // Retry up to 2 seconds for beforeinstallprompt event if browser is initializing
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 100))
+        promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredRef.current
+        if (promptObj) break
+      }
+    }
+
     if (promptObj) {
       try {
         await promptObj.prompt()
@@ -101,7 +109,7 @@ export default function InstallPwaPrompt() {
           setIsStandalone(true)
         }
       } catch (err) {
-        setShowAndroidManual(true)
+        console.log('PWA Prompt execution:', err)
       } finally {
         setInstalling(false)
         setDeferredPrompt(null)
@@ -110,7 +118,6 @@ export default function InstallPwaPrompt() {
       }
     } else {
       setInstalling(false)
-      setShowAndroidManual(true)
     }
   }
 
@@ -160,16 +167,6 @@ export default function InstallPwaPrompt() {
                 </div>
                 <p className="text-slate-300">
                   اضغط على زر المشاركة <Share size={12} className="inline mx-0.5 text-orange-400" /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">"إضافة إلى الشاشة الرئيسية ➕"</span>.
-                </p>
-              </div>
-            ) : showAndroidManual ? (
-              <div className="mt-3 bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700 text-[11px] font-bold text-slate-200 space-y-1 animate-fade-in">
-                <div className="flex items-center gap-1.5 text-amber-400">
-                  <MoreVertical size={13} />
-                  <span>للتثبيت من متصفحك:</span>
-                </div>
-                <p className="text-slate-300 leading-relaxed">
-                  اضغط زر القائمة <MoreVertical size={12} className="inline text-orange-400" /> بمتصفحك ثم اختر <span className="text-white underline font-extrabold">"التثبيت في الشاشة الرئيسية 📲"</span> أو <span className="text-white underline font-extrabold">"الإضافة إلى الشاشة الرئيسية"</span>.
                 </p>
               </div>
             ) : (
