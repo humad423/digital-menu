@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { User, LogOut, Settings, ChevronDown } from 'lucide-react'
+import { User, LogOut, Settings } from 'lucide-react'
 import Link from 'next/link'
 
 export default function UserAuthButton({
@@ -41,19 +41,14 @@ export default function UserAuthButton({
     <div className="relative inline-block text-left">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-2 transition active:scale-95 shadow-sm max-w-[150px] ${
+        className={`w-8 h-8 rounded-full flex items-center justify-center transition active:scale-95 shadow-sm cursor-pointer ${
           isLight
-            ? 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
-            : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
+            ? 'bg-gradient-to-tr from-orange-500 to-amber-400 text-white shadow-orange-500/20'
+            : 'bg-orange-500 text-white'
         } ${className}`}
+        title={displayName}
       >
-        <div className="w-5 h-5 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-xs shadow-inner shrink-0">
-          <User size={12} />
-        </div>
-        <span className="font-bold text-xs truncate">
-          {displayName}
-        </span>
-        <ChevronDown size={13} className={`transition-transform shrink-0 ${showDropdown ? 'rotate-180' : ''}`} />
+        <User size={16} />
       </button>
 
       {/* Dropdown Popup */}
