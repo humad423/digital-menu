@@ -397,31 +397,39 @@ export default function PlatformClient({
           isScrolled ? 'py-2.5 space-y-2.5' : 'py-3.5 space-y-3'
         }`}>
 
-          {/* Row 1: Logo (Right) + Centered Location Pill + User Auth (Left) */}
-          <div className="flex items-center justify-between gap-2">
-            <BrandLogo size="sm" variant="light" showSubtitle={false} />
+          {/* Row 1: Logo (Right) + Dead-Centered Location Pill + User Auth (Left) */}
+          <div className="grid grid-cols-3 items-center w-full">
+            {/* Right: Logo */}
+            <div className="flex items-center justify-start">
+              <BrandLogo size="sm" variant="light" showSubtitle={false} />
+            </div>
 
-            {/* Centered Location Pill */}
-            <button
-              onClick={requestLocation}
-              disabled={locationStatus === 'locating'}
-              className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[160px] disabled:opacity-75"
-            >
-              {locationStatus === 'locating' ? (
-                <Loader2 size={13} className="text-orange-400 shrink-0 animate-spin" />
-              ) : (
-                <MapPin size={13} className="text-orange-400 shrink-0" />
-              )}
-              <span className="truncate text-slate-200">
-                {locationStatus === 'locating'
-                  ? 'جاري التحديد...'
-                  : userArea
-                  ? userArea
-                  : 'موقعي الحالي'}
-              </span>
-            </button>
+            {/* Center: Location Pill */}
+            <div className="flex items-center justify-center min-w-0">
+              <button
+                onClick={requestLocation}
+                disabled={locationStatus === 'locating'}
+                className="flex items-center justify-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[150px] disabled:opacity-75 cursor-pointer shadow-xs"
+              >
+                {locationStatus === 'locating' ? (
+                  <Loader2 size={13} className="text-orange-400 shrink-0 animate-spin" />
+                ) : (
+                  <MapPin size={13} className="text-orange-400 shrink-0" />
+                )}
+                <span className="truncate text-slate-200">
+                  {locationStatus === 'locating'
+                    ? 'جاري التحديد...'
+                    : userArea
+                    ? userArea
+                    : 'موقعي الحالي'}
+                </span>
+              </button>
+            </div>
 
-            <UserAuthButton variant="light" />
+            {/* Left: User Auth */}
+            <div className="flex items-center justify-end">
+              <UserAuthButton variant="light" />
+            </div>
           </div>
 
           {/* Row 2: Search Bar (Collapses smoothly on scroll) */}
