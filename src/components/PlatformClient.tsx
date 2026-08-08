@@ -680,7 +680,7 @@ export default function PlatformClient({
       </header>
 
       {/* ── MAIN CONTAINER ── */}
-      <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-5 space-y-6">
+      <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-5 mb-8 space-y-6">
 
         {/* Location Notice Banner - shown as long as location is approximate (not granted) */}
         {locationStatus === 'default' && (
