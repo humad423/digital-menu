@@ -124,7 +124,11 @@ export default function MenuItem({
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-3 flex gap-3 shadow-xs hover:shadow-md transition-all relative">
+      <div className={`rounded-2xl border p-3 flex gap-3 shadow-xs hover:shadow-md transition-all relative ${
+        isOffer
+          ? 'bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-white border-orange-400/60 shadow-orange-500/5'
+          : 'bg-white border-slate-200/80'
+      }`}>
         {/* Image */}
         {hasImage && (
           <div
@@ -133,11 +137,15 @@ export default function MenuItem({
               imageList.length > 1 ? 'cursor-pointer group' : ''
             }`}
           >
-            {item.primary_image_url || item.bonus_image_url ? (
+            {isOffer ? (
               <SmartOfferImage
                 primaryImage={item.primary_image_url}
                 bonusImage={item.bonus_image_url}
-                customImage={imageList[0] || item.image_url}
+                item3Image={(item as any).item3_image_url}
+                item4Image={(item as any).item4_image_url}
+                itemImages={(item as any).item_images || item.images}
+                customImage={item.image_url}
+                hasCustomImage={(item as any).has_custom_image}
                 minQuantity={item.min_quantity || 1}
                 bonusQuantity={item.bonus_quantity || 1}
                 className="w-full h-full"
@@ -152,8 +160,9 @@ export default function MenuItem({
                 خصم %{discountPercent}
               </div>
             ) : isOffer ? (
-              <div className="absolute top-1.5 right-1.5 bg-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                {item.offer_title || '🔥 عرض'}
+              <div className="absolute top-1.5 right-1.5 bg-gradient-to-r from-orange-600 to-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs flex items-center gap-0.5">
+                <span>🔥</span>
+                <span>{item.offer_title || 'عرض خاص'}</span>
               </div>
             ) : isKiloItem ? (
               <div className="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
@@ -163,7 +172,7 @@ export default function MenuItem({
             ) : null}
 
             {/* Multi-Image Badge */}
-            {imageList.length > 1 && (
+            {imageList.length > 1 && !(isOffer && !(item as any).has_custom_image) && (
               <div className="absolute bottom-1.5 right-1.5 bg-slate-900/85 backdrop-blur-md text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                 <Layers size={10} className="text-orange-400" />
                 <span>{imageList.length} صور</span>

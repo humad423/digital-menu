@@ -67,23 +67,20 @@ export default function MenuClient({
         name: 'العروض والتخفيضات',
         icon: '🔥',
         items: offers.map(o => {
-          let offerImages: string[] = []
-
-          // 1. Check custom offer images
+          let customOfferImages: string[] = []
           if (Array.isArray(o.images)) {
-            offerImages = o.images.filter(Boolean)
+            customOfferImages = o.images.filter(Boolean)
           } else if (typeof o.images === 'string') {
             try {
               const parsed = JSON.parse(o.images)
-              if (Array.isArray(parsed)) offerImages = parsed.filter(Boolean)
+              if (Array.isArray(parsed)) customOfferImages = parsed.filter(Boolean)
             } catch (e) {}
           }
-
-          if (offerImages.length === 0 && o.image_url) {
-            offerImages = [o.image_url]
+          if (customOfferImages.length === 0 && o.image_url) {
+            customOfferImages = [o.image_url]
           }
 
-          // 2. Collect images from primary_item, bonus_item, item3, item4
+          let collectedItemImages: string[] = []
           const collectItemImgs = (itemObj: any) => {
             if (!itemObj) return
             let imgs: string[] = []
@@ -99,7 +96,9 @@ export default function MenuClient({
               imgs = [itemObj.image_url]
             }
             imgs.forEach(imgUrl => {
-              if (!offerImages.includes(imgUrl)) offerImages.push(imgUrl)
+              if (imgUrl && !collectedItemImages.includes(imgUrl)) {
+                collectedItemImages.push(imgUrl)
+              }
             })
           }
 
@@ -108,16 +107,22 @@ export default function MenuClient({
           collectItemImgs(o.item3)
           collectItemImgs(o.item4)
 
+          const finalImages = customOfferImages.length > 0 ? customOfferImages : collectedItemImages
+
           return {
             id: o.id,
             name: o.title,
             description: o.description,
             price: o.offer_price,
             original_price: o.original_price,
-            image_url: offerImages[0] || o.image_url || o.primary_item?.image_url,
-            images: offerImages,
+            image_url: finalImages[0] || o.image_url || o.primary_item?.image_url,
+            images: finalImages,
+            item_images: collectedItemImages,
+            has_custom_image: customOfferImages.length > 0,
             primary_image_url: o.primary_item?.image_url,
             bonus_image_url: o.bonus_item?.image_url,
+            item3_image_url: o.item3?.image_url,
+            item4_image_url: o.item4?.image_url,
             min_quantity: o.min_quantity,
             bonus_quantity: o.bonus_quantity,
             is_offer: true

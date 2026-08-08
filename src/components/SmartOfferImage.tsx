@@ -7,6 +7,7 @@ interface SmartOfferImageProps {
   item4Image?: string | null
   itemImages?: (string | null | undefined)[]
   customImage?: string | null
+  hasCustomImage?: boolean
   minQuantity?: number
   bonusQuantity?: number
   className?: string
@@ -19,12 +20,13 @@ export default function SmartOfferImage({
   item4Image,
   itemImages,
   customImage,
+  hasCustomImage = false,
   minQuantity = 1,
   bonusQuantity = 1,
   className = "w-full h-full"
 }: SmartOfferImageProps) {
-  // If custom image is uploaded, display it directly
-  if (customImage && customImage.trim() !== '') {
+  // If store owner explicitly uploaded a custom offer image, show it
+  if (hasCustomImage && customImage && customImage.trim() !== '') {
     return (
       <div className={`relative overflow-hidden bg-slate-100 ${className}`}>
         <img src={customImage} alt="" className="w-full h-full object-cover" />
@@ -38,6 +40,11 @@ export default function SmartOfferImage({
     images = itemImages.filter((img): img is string => typeof img === 'string' && img.trim() !== '')
   } else {
     images = [primaryImage, bonusImage, item3Image, item4Image].filter((img): img is string => typeof img === 'string' && img.trim() !== '')
+  }
+
+  // Fallback to customImage if no item images found
+  if (images.length === 0 && customImage) {
+    images = [customImage]
   }
 
   // 0 images: Fallback gradient
