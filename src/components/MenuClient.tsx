@@ -133,7 +133,7 @@ export default function MenuClient({
     : filteredCats
 
   return (
-    <div className="pb-24">
+    <div className="min-h-screen flex flex-col justify-between">
 
       {/* ── Search Bar ── */}
       <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 border-b border-slate-200/80 shadow-2xs transform-gpu will-change-transform">

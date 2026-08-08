@@ -430,9 +430,9 @@ export default function PlatformClient({
       .sort((a, b) => a.dist - b.dist)[0]
 
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between p-4 sm:p-6 dir-rtl font-sans">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between dir-rtl font-sans">
         {/* Top Header */}
-        <header className="flex items-center justify-between py-3 border-b border-slate-200/80">
+        <header className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200/80">
           <BrandLogo size="md" />
           <button
             onClick={() => setShowZoneModal(true)}
@@ -569,7 +569,7 @@ export default function PlatformClient({
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-28">
+    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col justify-between">
 
       {/* ── TOP HEADER (Sticky & GPU Accelerated) ── */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md text-white shadow-xl border-b border-slate-800/80 transform-gpu will-change-transform">
