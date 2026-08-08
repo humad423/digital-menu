@@ -931,7 +931,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                           <label className="f-label">المنتج الثاني (اختياري)</label>
                           <select value={offerForm.bonus_item_id} onChange={e => updateOfferField('bonus_item_id', e.target.value)} className="f-input">
                             <option value="">بدون منتج ثاني</option>
-                            {menuItems.map(item => <option key={item.id} value={item.id}>🎁 {item.name} ({item.price} ₺)</option>)}
+                            {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
                           </select>
                         </div>
                         <div>
@@ -951,7 +951,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                             </label>
                             <select value={offerForm.item3_id} onChange={e => updateOfferField('item3_id', e.target.value)} className="f-input">
                               <option value="">اختر المنتج الثالث...</option>
-                              {menuItems.map(item => <option key={item.id} value={item.id}>🎁 {item.name} ({item.price} ₺)</option>)}
+                              {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
                             </select>
                           </div>
                           <div>
@@ -978,7 +978,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                             </label>
                             <select value={offerForm.item4_id} onChange={e => updateOfferField('item4_id', e.target.value)} className="f-input">
                               <option value="">اختر المنتج الرابع...</option>
-                              {menuItems.map(item => <option key={item.id} value={item.id}>🎁 {item.name} ({item.price} ₺)</option>)}
+                              {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
                             </select>
                           </div>
                           <div>
