@@ -39,19 +39,31 @@ export default function InstallPwaPrompt() {
     const isIosDevice = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
     setIsIos(isIosDevice)
 
+    let timer: NodeJS.Timeout | null = null
+
+    const scheduleShowPrompt = () => {
+      if (pathname === '/') {
+        const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
+        if (!sessionDismissed) {
+          if (timer) clearTimeout(timer)
+          timer = setTimeout(() => {
+            setShowPrompt(true)
+          }, 5000)
+        }
+      }
+    }
+
     // 4. Listen for beforeinstallprompt globally on ALL routes
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       ;(window as any).deferredPwaPrompt = e
       deferredRef.current = e
       setDeferredPrompt(e)
-      if (pathname === '/') {
-        const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
-        if (!sessionDismissed) setShowPrompt(true)
-      }
+      scheduleShowPrompt()
     }
 
     const handleAppInstalled = () => {
+      if (timer) clearTimeout(timer)
       setShowPrompt(false)
       setIsStandalone(true)
       trackEvent({ event_type: 'pwa_install' })
@@ -65,23 +77,15 @@ export default function InstallPwaPrompt() {
       const earlyEvt = (window as any).deferredPwaPrompt
       setDeferredPrompt(earlyEvt)
       deferredRef.current = earlyEvt
-      if (pathname === '/') {
-        const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
-        if (!sessionDismissed) setShowPrompt(true)
-      }
+      scheduleShowPrompt()
     }
 
     if (pathname === '/' && isIosDevice) {
-      const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
-      if (!sessionDismissed) {
-        const timer = setTimeout(() => {
-          setShowPrompt(true)
-        }, 2000)
-        return () => clearTimeout(timer)
-      }
+      scheduleShowPrompt()
     }
 
     return () => {
+      if (timer) clearTimeout(timer)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
