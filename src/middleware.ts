@@ -24,6 +24,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Allow direct access to restaurant-panel and dashboard on all subdomains
+  if (pathname.startsWith('/restaurant-panel') || pathname.startsWith('/dashboard')) {
+    return NextResponse.next()
+  }
+
   // 1. لوحة السوبر أدمن (Super Admin)
   // يتعرف على admin.yourdomain.com أو admin-digital-menu.vercel.app
   if (hostname.startsWith('admin.') || hostname.startsWith('admin-')) {

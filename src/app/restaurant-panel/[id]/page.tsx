@@ -132,26 +132,52 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [showItem4Input, setShowItem4Input] = useState(false)
   const [savingOffer, setSavingOffer] = useState(false)
 
-  // Verify standalone restaurant owner session
+  // Verify restaurant owner session or Super Admin access
   useEffect(() => {
-    const savedOwnerSession = typeof window !== 'undefined' ? localStorage.getItem('restaurant_owner_session') : null
-    if (!savedOwnerSession) {
-      router.push('/dashboard')
-      return
-    }
+    async function checkOwnerAuth() {
+      const savedOwnerSession = typeof window !== 'undefined' ? localStorage.getItem('restaurant_owner_session') : null
 
-    try {
-      const parsed = JSON.parse(savedOwnerSession)
-      if (parsed.restaurant_id !== id) {
-        // Owner trying to access another restaurant id
-        router.push(`/restaurant-panel/${parsed.restaurant_id}`)
+      // Check if logged into Supabase as Super Admin
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        if (profile?.role === 'admin') {
+          const adminSession = {
+            restaurant_id: id,
+            restaurant_name: 'Super Admin',
+            role: 'admin'
+          }
+          localStorage.setItem('restaurant_owner_session', JSON.stringify(adminSession))
+          setAuthenticatedOwner(adminSession)
+          return
+        }
+      }
+
+      if (!savedOwnerSession) {
+        const partnerDashboardUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
+          ? 'https://partner.alfsouq.com/dashboard'
+          : '/dashboard'
+        window.location.href = partnerDashboardUrl
         return
       }
-      setAuthenticatedOwner(parsed)
-    } catch (e) {
-      router.push('/dashboard')
+
+      try {
+        const parsed = JSON.parse(savedOwnerSession)
+        if (parsed.role === 'admin' || parsed.restaurant_id === id) {
+          setAuthenticatedOwner(parsed)
+          return
+        }
+        window.location.href = `/restaurant-panel/${parsed.restaurant_id}`
+      } catch (e) {
+        const partnerDashboardUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
+          ? 'https://partner.alfsouq.com/dashboard'
+          : '/dashboard'
+        window.location.href = partnerDashboardUrl
+      }
     }
-  }, [id, router])
+
+    checkOwnerAuth()
+  }, [id])
 
   // ── Delivery Tiers State ─────────────────────────────────────────
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>([])

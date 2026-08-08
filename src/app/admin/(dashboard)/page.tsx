@@ -362,6 +362,20 @@ export default function AdminDashboard() {
     if (confirm('حذف هذا الإعلان؟')) { await supabase.from('platform_ads').delete().eq('id', id); fetchData() }
   }
 
+  const handleImpersonateOwner = (r: any) => {
+    localStorage.setItem('restaurant_owner_session', JSON.stringify({
+      restaurant_id: r.id,
+      restaurant_name: r.name,
+      role: 'admin'
+    }))
+
+    const partnerUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
+      ? `https://partner.alfsouq.com/restaurant-panel/${r.id}`
+      : `/restaurant-panel/${r.id}`
+
+    window.open(partnerUrl, '_blank')
+  }
+
 
 
   // ── Stats ───────────────────────────────────────────────────────
@@ -788,9 +802,13 @@ export default function AdminDashboard() {
                               <Trash2 size={14} />
                             </button>
                           </div>
-                          <Link href="/dashboard" target="_blank" className="btn btn-sm bg-slate-900 text-slate-200 hover:bg-slate-800 w-full text-xs font-bold">
-                            🏪 دخول كصاحب متجر
-                          </Link>
+                          <button
+                            onClick={() => handleImpersonateOwner(r)}
+                            className="btn btn-sm bg-slate-900 text-slate-200 hover:bg-slate-800 w-full text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+                          >
+                            <span>🏪 دخول كصاحب متجر</span>
+                            <ExternalLink size={13} className="text-slate-400" />
+                          </button>
                         </div>
                       </div>
                     </div>
