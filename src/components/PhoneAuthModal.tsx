@@ -1,9 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { auth, RecaptchaVerifier, signInWithPhoneNumber } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
-import { Phone, Lock, X, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react'
+import { Phone, Lock, X, CheckCircle, AlertCircle, ArrowRight, MessageSquare } from 'lucide-react'
 
 export default function PhoneAuthModal() {
   const { isAuthModalOpen, closeAuthModal, onSuccessCallback, loginWithTestPhone } = useAuth()
@@ -14,7 +13,7 @@ export default function PhoneAuthModal() {
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [confirmationResult, setConfirmationResult] = useState<any>(null)
+  const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (isAuthModalOpen) {
@@ -22,38 +21,17 @@ export default function PhoneAuthModal() {
       setPhoneNumber('')
       setOtpCode('')
       setError(null)
+      setInfoMessage(null)
       setLoading(false)
-      setConfirmationResult(null)
     }
   }, [isAuthModalOpen])
 
   if (!isAuthModalOpen) return null
 
-  const setupRecaptcha = () => {
-    if (typeof window === 'undefined') return null
-    if (!(window as any).recaptchaVerifier) {
-      try {
-        (window as any).recaptchaVerifier = new RecaptchaVerifier(
-          auth,
-          'recaptcha-container',
-          {
-            size: 'invisible',
-            callback: () => {},
-            'expired-callback': () => {
-              setError('انتهت صلاحية التحقق، يرجى المحاولة مجدداً.')
-            }
-          }
-        )
-      } catch (e: any) {
-        console.error('Recaptcha init error:', e)
-      }
-    }
-    return (window as any).recaptchaVerifier
-  }
-
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setInfoMessage(null)
     setLoading(true)
 
     let raw = phoneNumber.trim().replace(/\s+/g, '')
@@ -62,32 +40,23 @@ export default function PhoneAuthModal() {
     setFormattedPhoneState(formattedPhone)
 
     try {
-      const appVerifier = setupRecaptcha()
-      if (appVerifier) {
-        const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier)
-        setConfirmationResult(confirmation)
-      }
-      setStep('otp')
-    } catch (err: any) {
-      console.warn('Firebase SMS OTP attempt error:', err)
-      if ((window as any).recaptchaVerifier) {
-        try {
-          (window as any).recaptchaVerifier.clear()
-          ;(window as any).recaptchaVerifier = null
-        } catch (e) {}
+      const res = await fetch('/api/auth/send-whatsapp-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formattedPhone })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'تعذر إرسال كود الواتساب، يرجى المحاولة مجدداً')
       }
 
-      // If Phone Auth is not enabled in Firebase Console (configuration-not-found / operation-not-allowed)
-      // transition smoothly to OTP step so login is never blocked
-      if (
-        err?.code === 'auth/configuration-not-found' ||
-        err?.code === 'auth/operation-not-allowed' ||
-        err?.message?.includes('configuration-not-found')
-      ) {
-        setStep('otp')
-      } else {
-        setError(err?.message || 'تعذر إرسال كود SMS، يرجى التأكد من الرقم والمحاولة مجدداً.')
-      }
+      setInfoMessage(data.message || 'تم إرسال رمز التفعيل بنجاح عبر الواتساب 💬')
+      setStep('otp')
+    } catch (err: any) {
+      console.error('Error sending WhatsApp OTP:', err)
+      setError(err?.message || 'تعذر إرسال كود التحقق عبر الواتساب، يرجى التثبت من الرقم.')
     } finally {
       setLoading(false)
     }
@@ -99,24 +68,26 @@ export default function PhoneAuthModal() {
     setLoading(true)
 
     try {
-      if (confirmationResult) {
-        await confirmationResult.confirm(otpCode)
-      } else {
-        await loginWithTestPhone(formattedPhoneState || phoneNumber)
+      const res = await fetch('/api/auth/verify-whatsapp-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formattedPhoneState || phoneNumber, code: otpCode })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'كود التحقق غير صحيح أو انتهت صلاحيته')
       }
+
+      await loginWithTestPhone(data.phone || formattedPhoneState || phoneNumber)
       closeAuthModal()
       if (onSuccessCallback) {
         onSuccessCallback()
       }
     } catch (err: any) {
-      console.warn('Error verifying OTP, attempting fallback profile creation:', err)
-      try {
-        await loginWithTestPhone(formattedPhoneState || phoneNumber)
-        closeAuthModal()
-        if (onSuccessCallback) onSuccessCallback()
-      } catch (fallbackErr) {
-        setError('كود التحقق غير صحيح أو انتهت صلاحيته. يرجى إعادة المحاولة.')
-      }
+      console.error('Error verifying WhatsApp OTP:', err)
+      setError(err?.message || 'كود التحقق غير صحيح أو انتهت صلاحيته. يرجى إعادة المحاولة.')
     } finally {
       setLoading(false)
     }
@@ -124,9 +95,7 @@ export default function PhoneAuthModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div id="recaptcha-container"></div>
-      
-      <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border border-orange-100 overflow-hidden dir-rtl">
+      <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border border-emerald-100 overflow-hidden dir-rtl">
         {/* Close Button */}
         <button
           onClick={closeAuthModal}
@@ -137,16 +106,16 @@ export default function PhoneAuthModal() {
 
         {/* Header */}
         <div className="text-center mb-6 pt-2">
-          <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
-            {step === 'phone' ? <Phone size={26} /> : <Lock size={26} />}
+          <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
+            {step === 'phone' ? <MessageSquare size={26} /> : <Lock size={26} />}
           </div>
           <h3 className="text-xl font-black text-gray-900">
-            {step === 'phone' ? 'تسجيل الدخول برقم الهاتف' : 'تأكيد كود SMS'}
+            {step === 'phone' ? 'تسجيل الدخول عبر الواتساب' : 'تأكيد كود الواتساب'}
           </h3>
           <p className="text-xs text-gray-500 mt-1 font-medium">
             {step === 'phone'
-              ? 'أدخل رقم هاتفك ليصلك رمز تفعيل SMS آمن عبر الهاتف.'
-              : `أدخل كود التحقق المكون من 6 أرقام المرسل إلى ${formattedPhoneState || phoneNumber}`}
+              ? 'أدخل رقم هاتفك ليصلك كود التفعيل المباشر على حساب الواتساب الخاص بك.'
+              : `أدخل كود التحقق المكون من 6 أرقام المرسل إلى الواتساب (${formattedPhoneState || phoneNumber})`}
           </p>
         </div>
 
@@ -158,14 +127,22 @@ export default function PhoneAuthModal() {
           </div>
         )}
 
+        {/* Info Alert */}
+        {infoMessage && (
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-2">
+            <CheckCircle size={16} className="shrink-0 text-emerald-600" />
+            <span>{infoMessage}</span>
+          </div>
+        )}
+
         {/* Step 1: Phone Input Form */}
         {step === 'phone' && (
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">رقم الهاتف</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">رقم الهاتف المرتبط بالواتساب</label>
               
               {/* LTR Phone Input Bar */}
-              <div className="flex items-center border border-gray-200 rounded-2xl bg-gray-50 focus-within:bg-white focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100 transition overflow-hidden dir-ltr">
+              <div className="flex items-center border border-gray-200 rounded-2xl bg-gray-50 focus-within:bg-white focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100 transition overflow-hidden dir-ltr">
                 {/* Country Select */}
                 <select
                   value={countryCode}
@@ -203,14 +180,14 @@ export default function PhoneAuthModal() {
             <button
               type="submit"
               disabled={loading || !phoneNumber}
-              className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-600 text-white font-black rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <span>إرسال رمز التفعيل SMS</span>
-                  <ArrowRight size={18} className="rotate-180" />
+                  <MessageSquare size={18} />
+                  <span>إرسال كود التفعيل عبر الواتساب 💬</span>
                 </>
               )}
             </button>
@@ -221,7 +198,7 @@ export default function PhoneAuthModal() {
         {step === 'otp' && (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5 text-center">رمز التحقق (SMS OTP)</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5 text-center">رمز تفعيل الواتساب (WhatsApp OTP)</label>
               <input
                 type="text"
                 required
@@ -229,22 +206,14 @@ export default function PhoneAuthModal() {
                 value={otpCode}
                 onChange={e => setOtpCode(e.target.value)}
                 placeholder="123456"
-                className="w-full py-3 border-2 border-orange-200 rounded-2xl text-2xl font-black text-center tracking-[0.5em] text-orange-600 bg-orange-50/50 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition dir-ltr"
+                className="w-full py-3 border-2 border-emerald-200 rounded-2xl text-2xl font-black text-center tracking-[0.5em] text-emerald-600 bg-emerald-50/50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition dir-ltr"
               />
             </div>
-
-            {!confirmationResult && (
-              <div className="bg-orange-50 border border-orange-200 p-2.5 rounded-2xl text-center">
-                <p className="text-[11px] text-orange-800 font-bold">
-                  💡 يمكنك كتابة أي 6 أرقام (مثل <span className="underline font-extrabold">123456</span>) للتسجيل مباشرة الآن.
-                </p>
-              </div>
-            )}
 
             <button
               type="submit"
               disabled={loading || otpCode.length < 6}
-              className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-600 text-white font-black rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
