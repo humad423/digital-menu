@@ -289,8 +289,22 @@ export default function CompletelyStandaloneDashboardPage() {
           </form>
         )}
 
+        {/* CTA Box for New Store WhatsApp Contact */}
+        <div className="mt-6 pt-5 border-t border-gray-800 text-center space-y-2.5">
+          <p className="text-xs text-gray-300 font-bold">تريد الحصول على منيو رقمي جديد لمتجرك؟</p>
+          <a
+            href="https://wa.me/905352574134?text=مرحباً،%20أرغب%20في%20إنشاء%20منيو%20رقمي%20جديد%20لمطعمي%20عبر%20منصة%20ألف%20سوق"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-3 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer no-underline"
+          >
+            <MessageSquare size={16} />
+            <span>تواصل معنا لإنشاء منيو جديد عبر الواتساب 💬</span>
+          </a>
+        </div>
+
         {/* Footer info for Subdomains */}
-        <div className="mt-8 pt-4 border-t border-gray-800 flex items-center justify-between text-xs font-bold text-gray-500">
+        <div className="mt-6 pt-4 border-t border-gray-800 flex items-center justify-between text-xs font-bold text-gray-500">
           <Link href="/" className="hover:text-emerald-400 transition flex items-center gap-1">
             <span>المنصة الرئيسية</span>
           </Link>
