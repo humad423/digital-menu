@@ -187,7 +187,7 @@ export default function PhoneAuthModal() {
               ) : (
                 <>
                   <MessageSquare size={18} />
-                  <span>إرسال كود التفعيل عبر الواتساب 💬</span>
+                  <span>إرسال الرمز 💬</span>
                 </>
               )}
             </button>
