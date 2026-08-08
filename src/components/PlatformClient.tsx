@@ -916,7 +916,12 @@ export default function PlatformClient({
                           ) : deliveryInfo?.available ? (
                             <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1">
                               <Bike size={13} className="text-emerald-600" />
-                              <span>توصيل {deliveryInfo.fee === 0 ? 'مجاني' : `${deliveryInfo.fee} ₺`}</span>
+                              <span>
+                                {deliveryInfo.hasTiers 
+                                  ? `توصيل ${deliveryInfo.fee === 0 ? 'مجاني' : `${deliveryInfo.fee} ₺`}`
+                                  : 'يوجد توصيل'
+                                }
+                              </span>
                               {restaurant.distance !== null && (
                                 <span className="text-[10px] opacity-75 font-normal">({restaurant.distance.toFixed(1)} كم)</span>
                               )}

@@ -24,36 +24,33 @@ export function getDeliveryFeeForDistance(
 ): {
   available: boolean
   fee: number
+  hasTiers: boolean
   tierName?: string
   reason?: string
 } {
-  if (!tiers || !Array.isArray(tiers) || tiers.length === 0) {
-    // No tiers configured: fallback to delivery_radius_km if provided
-    if (deliveryRadiusKm && deliveryRadiusKm > 0) {
-      if (distanceKm <= deliveryRadiusKm) {
-        return { available: true, fee: 20, tierName: 'توصيل عام' }
-      } else {
-        return { available: false, fee: 0, reason: 'خارج نطاق التوصيل' }
-      }
+  const activeTiers = Array.isArray(tiers) ? tiers.filter(t => t && t.is_active !== false) : []
+
+  if (activeTiers.length === 0) {
+    // No tiers configured by store -> general delivery available without distance fee breakdown
+    const maxRadius = deliveryRadiusKm && deliveryRadiusKm > 0 ? deliveryRadiusKm : 50
+    if (distanceKm <= maxRadius) {
+      return { available: true, fee: 0, hasTiers: false, tierName: 'يوجد توصيل' }
+    } else {
+      return { available: false, fee: 0, hasTiers: false, reason: 'خارج نطاق التوصيل' }
     }
-    // No tiers, no radius → show to all (store hasn't configured delivery zones yet)
-    return { available: true, fee: 0, tierName: 'توصيل' }
   }
 
   // Find matching distance tier
-  const matchedTier = tiers.find(t => distanceKm >= t.min_km && distanceKm <= t.max_km)
+  const matchedTier = activeTiers.find(t => distanceKm >= t.min_km && distanceKm <= t.max_km)
 
   if (!matchedTier) {
-    return { available: false, fee: 0, reason: 'خارج مسافة التوصيل المتاحة' }
-  }
-
-  if (!matchedTier.is_active) {
-    return { available: false, fee: 0, reason: `التوصيل متوقف لمسافة (${matchedTier.min_km}-${matchedTier.max_km} كم)` }
+    return { available: false, fee: 0, hasTiers: true, reason: 'خارج مسافة التوصيل المتاحة' }
   }
 
   return {
     available: true,
     fee: matchedTier.fee,
+    hasTiers: true,
     tierName: `${matchedTier.min_km} - ${matchedTier.max_km} كم`
   }
 }

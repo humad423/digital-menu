@@ -8,6 +8,7 @@ export default function StoreDeliveryBadge({ restaurant }: { restaurant: any }) 
   const [deliveryInfo, setDeliveryInfo] = useState<{
     available: boolean
     fee: number
+    hasTiers: boolean
     distanceKm: number | null
     tierName?: string
   } | null>(null)
@@ -47,7 +48,13 @@ export default function StoreDeliveryBadge({ restaurant }: { restaurant: any }) 
   }
 
   if (!deliveryInfo) {
-    return null
+    const hasTiers = Array.isArray(restaurant?.delivery_tiers) && restaurant.delivery_tiers.some((t: any) => t && t.is_active !== false)
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-lg">
+        <Bike size={12} className="text-emerald-600 shrink-0" />
+        <span>{hasTiers ? 'توصيل متوفر' : 'يوجد توصيل'}</span>
+      </span>
+    )
   }
 
   if (!deliveryInfo.available) {
@@ -58,6 +65,22 @@ export default function StoreDeliveryBadge({ restaurant }: { restaurant: any }) 
     )
   }
 
+  // If store HAS NO configured delivery tiers, show "يوجد توصيل"
+  if (!deliveryInfo.hasTiers) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-lg">
+        <Bike size={12} className="text-emerald-600 shrink-0" />
+        <span>يوجد توصيل</span>
+        {deliveryInfo.distanceKm !== null && (
+          <span className="text-[10px] opacity-75 font-normal">
+            ({deliveryInfo.distanceKm.toFixed(1)} كم)
+          </span>
+        )}
+      </span>
+    )
+  }
+
+  // If store HAS configured delivery tiers, show tier fee
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-lg">
       <Bike size={12} className="text-emerald-600 shrink-0" />
