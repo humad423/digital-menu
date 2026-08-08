@@ -8,9 +8,10 @@ import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
 import AdminAnalyticsTab from '@/components/AdminAnalyticsTab'
 import AdminBusinessTypesTab, { BusinessType } from '@/components/AdminBusinessTypesTab'
+import AdminLegalPagesTab from '@/components/AdminLegalPagesTab'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, BarChart3, Tag } from 'lucide-react'
+import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, BarChart3, Tag, ShieldCheck } from 'lucide-react'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
@@ -19,6 +20,7 @@ const TABS = [
   { key: 'analytics', label: 'التحليلات والنمو 📊', Icon: BarChart3 },
   { key: 'offers', label: 'العروض والتخفيضات', Icon: Flame },
   { key: 'business_types', label: 'أنواع الأنشطة 🏷️', Icon: Tag },
+  { key: 'legal', label: 'الخصوصية والشروط 📜', Icon: ShieldCheck },
   { key: 'map', label: 'الخريطة التفاعلية 🗺️', Icon: MapIcon },
   { key: 'categories', label: 'التصنيفات الفرعية', Icon: LayoutGrid },
   { key: 'zones', label: 'المناطق الجغرافية', Icon: MapPin },
@@ -1515,6 +1517,12 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'legal' && (
+          <div className="tab-content">
+            <AdminLegalPagesTab />
           </div>
         )}
       </div>
