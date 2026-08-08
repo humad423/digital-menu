@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useCartStore } from '@/store/cartStore'
-import { Plus, Minus, ChevronLeft, ChevronRight, X, Layers } from 'lucide-react'
+import { Plus, Minus, ChevronLeft, ChevronRight, X, Layers, Scale, DollarSign, ShoppingBag } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import SmartOfferImage from '@/components/SmartOfferImage'
 
@@ -13,6 +13,8 @@ type Item = Database['public']['Tables']['menu_items']['Row'] & {
   bonus_quantity?: number
   offer_title?: string
   images?: any
+  unit?: string
+  allow_custom_amount?: boolean
 }
 
 export default function MenuItem({
@@ -33,6 +35,13 @@ export default function MenuItem({
   const [popped, setPopped] = useState(false)
   const [showGallery, setShowGallery] = useState(false)
   const [galleryIndex, setGalleryIndex] = useState(0)
+
+  // ── Kilo / Custom Weight State ─────────────────────────────────
+  const isKiloItem = item.unit === 'kg' || item.allow_custom_amount === true
+  const [showKiloModal, setShowKiloModal] = useState(false)
+  const [kiloMode, setKiloMode] = useState<'amount' | 'weight'>('amount')
+  const [customPriceInput, setCustomPriceInput] = useState<string>('100')
+  const [customWeightInput, setCustomWeightInput] = useState<string>('0.5')
 
   // Parse multi-images
   let imageList: string[] = []
@@ -68,7 +77,47 @@ export default function MenuItem({
     : null
 
   const handleAdd = () => {
+    if (isKiloItem) {
+      setShowKiloModal(true)
+      return
+    }
     addItem(item, restaurantId)
+    setPopped(true)
+    setTimeout(() => setPopped(false), 250)
+  }
+
+  // Kilo Calculations
+  const pricePerKg = Number(item.price) || 1
+  const numPriceInput = parseFloat(customPriceInput) || 0
+  const numWeightInput = parseFloat(customWeightInput) || 0
+
+  const calculatedWeightFromPrice = numPriceInput > 0 ? (numPriceInput / pricePerKg) : 0
+  const calculatedPriceFromWeight = numWeightInput > 0 ? Math.round(numWeightInput * pricePerKg) : 0
+
+  const handleAddKiloItem = () => {
+    const isAmountMode = kiloMode === 'amount'
+    if (isAmountMode && numPriceInput <= 0) return alert('يرجى إدخال مبلغ صحيح بالليرة')
+    if (!isAmountMode && numWeightInput <= 0) return alert('يرجى إدخال وزن صحيح بالكيلو')
+
+    const finalPrice = isAmountMode ? numPriceInput : calculatedPriceFromWeight
+    const calculatedW = isAmountMode ? calculatedWeightFromPrice : numWeightInput
+    const weightStr = calculatedW < 1
+      ? `${Math.round(calculatedW * 1000)} جرام`
+      : `${calculatedW.toFixed(2)} كغ`
+
+    const variantText = isAmountMode
+      ? `بمبلغ ${numPriceInput} ₺ - حوالي ${weightStr}`
+      : `وزن ${numWeightInput} كغ - ${finalPrice} ₺`
+
+    const cartObj = {
+      id: `${item.id}-${isAmountMode ? 'p' + numPriceInput : 'w' + numWeightInput}`,
+      name: `${item.name} (${variantText})`,
+      price: finalPrice,
+      image_url: imageList[0] || item.image_url || null
+    }
+
+    addItem(cartObj, restaurantId)
+    setShowKiloModal(false)
     setPopped(true)
     setTimeout(() => setPopped(false), 250)
   }
@@ -106,9 +155,14 @@ export default function MenuItem({
               <div className="absolute top-1.5 right-1.5 bg-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs">
                 {item.offer_title || '🔥 عرض'}
               </div>
+            ) : isKiloItem ? (
+              <div className="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                <Scale size={10} />
+                <span>بالكيلو</span>
+              </div>
             ) : null}
 
-            {/* Multi-Image Badge for Clothing / Fashion */}
+            {/* Multi-Image Badge */}
             {imageList.length > 1 && (
               <div className="absolute bottom-1.5 right-1.5 bg-slate-900/85 backdrop-blur-md text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                 <Layers size={10} className="text-orange-400" />
@@ -157,7 +211,7 @@ export default function MenuItem({
             {/* Price */}
             <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-base font-black text-orange-600">
-                {item.price} ₺
+                {item.price} ₺ {isKiloItem && <span className="text-xs font-bold text-slate-400">/ كغ</span>}
               </span>
               {item.original_price && item.original_price > item.price && (
                 <span className="text-xs font-bold text-slate-400 line-through">
@@ -166,11 +220,19 @@ export default function MenuItem({
               )}
             </div>
 
-            {/* Add / Qty Buttons OR Pickup Badge */}
+            {/* Add / Qty Buttons OR Kilo Button */}
             {hasDelivery === false ? (
               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200/60">
                 🏪 استلام فقط
               </span>
+            ) : isKiloItem ? (
+              <button
+                onClick={() => setShowKiloModal(true)}
+                className="px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+              >
+                <Scale size={13} />
+                <span>حدد الكمية</span>
+              </button>
             ) : qty === 0 ? (
               <button
                 onClick={handleAdd}
@@ -205,6 +267,193 @@ export default function MenuItem({
           </div>
         </div>
       </div>
+
+      {/* ── Kilo / Custom Weight & Amount Selector Modal ── */}
+      {showKiloModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in dir-rtl">
+          <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-slate-100 animate-slide-up">
+            
+            {/* Modal Header */}
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  ⚖️
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-white">{item.name}</h4>
+                  <p className="text-[11px] text-amber-400 font-bold">
+                    السعر: {pricePerKg} ₺ لكل كيلو
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowKiloModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 space-y-4">
+              
+              {/* Mode Tabs */}
+              <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl">
+                <button
+                  onClick={() => setKiloMode('amount')}
+                  className={`py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition ${
+                    kiloMode === 'amount'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <DollarSign size={14} />
+                  <span>حسب المبلغ (₺)</span>
+                </button>
+                <button
+                  onClick={() => setKiloMode('weight')}
+                  className={`py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition ${
+                    kiloMode === 'weight'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Scale size={14} />
+                  <span>حسب الوزن (كغ)</span>
+                </button>
+              </div>
+
+              {/* MODE 1: Select by Amount (₺) */}
+              {kiloMode === 'amount' && (
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-700 block">
+                    اختر مبلع سريع أو أدخل أي مبلغ بالليرة:
+                  </label>
+                  
+                  {/* Preset Price Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {['50', '100', '150', '200', pricePerKg.toString()].map(preset => (
+                      <button
+                        key={preset}
+                        onClick={() => setCustomPriceInput(preset)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition ${
+                          customPriceInput === preset
+                            ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {preset === pricePerKg.toString() ? `${preset} ₺ (1 كغ)` : `${preset} ₺`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Price Input */}
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={customPriceInput}
+                      onChange={e => setCustomPriceInput(e.target.value)}
+                      placeholder="أدخل المبلغ بالليرة..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 text-left font-black text-lg text-slate-900 outline-none focus:border-amber-500 dir-ltr"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-400">
+                      ₺ ليرة
+                    </span>
+                  </div>
+
+                  {/* Realtime Calculated Weight Badge */}
+                  {numPriceInput > 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-center justify-between text-xs font-black text-amber-900">
+                      <span>⚖️ الكمية المحسوبة:</span>
+                      <span className="text-sm font-black text-amber-700">
+                        {calculatedWeightFromPrice < 1
+                          ? `${Math.round(calculatedWeightFromPrice * 1000)} جرام`
+                          : `${calculatedWeightFromPrice.toFixed(2)} كيلو (كغ)`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* MODE 2: Select by Weight (كغ) */}
+              {kiloMode === 'weight' && (
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-700 block">
+                    اختر وزن شائع أو أدخل أي وزن بالكيلو:
+                  </label>
+
+                  {/* Preset Weight Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: 'ربع كيلو (0.25)', val: '0.25' },
+                      { label: 'نصف كيلو (0.5)', val: '0.5' },
+                      { label: 'ثلاثة أرباع (0.75)', val: '0.75' },
+                      { label: 'كيلو (1.0)', val: '1.0' },
+                      { label: 'كيلوين (2.0)', val: '2.0' },
+                    ].map(w => (
+                      <button
+                        key={w.val}
+                        onClick={() => setCustomWeightInput(w.val)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition ${
+                          customWeightInput === w.val
+                            ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {w.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Weight Input */}
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.05"
+                      value={customWeightInput}
+                      onChange={e => setCustomWeightInput(e.target.value)}
+                      placeholder="أدخل الوزن بالكيلو..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 text-left font-black text-lg text-slate-900 outline-none focus:border-amber-500 dir-ltr"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-400">
+                      كغ (كيلو)
+                    </span>
+                  </div>
+
+                  {/* Realtime Calculated Price Badge */}
+                  {numWeightInput > 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-center justify-between text-xs font-black text-amber-900">
+                      <span>💰 السعر الإجمالي:</span>
+                      <span className="text-sm font-black text-amber-700">
+                        {calculatedPriceFromWeight} ₺
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold block">إجمالي الصنف</span>
+                <span className="text-lg font-black text-amber-600">
+                  {kiloMode === 'amount' ? numPriceInput : calculatedPriceFromWeight} ₺
+                </span>
+              </div>
+              <button
+                onClick={handleAddKiloItem}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-3 rounded-2xl text-xs flex items-center gap-2 transition shadow-md cursor-pointer active:scale-95"
+              >
+                <ShoppingBag size={16} />
+                <span>إضافة للسلة</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Multi-Image Gallery Lightbox Modal */}
       {showGallery && imageList.length > 0 && (
@@ -271,7 +520,7 @@ export default function MenuItem({
             <div className="p-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3">
               <div>
                 <span className="text-xs text-slate-400 font-bold block">السعر</span>
-                <span className="text-lg font-black text-orange-500">{item.price} ₺</span>
+                <span className="text-lg font-black text-orange-500">{item.price} ₺ {isKiloItem && '/ كغ'}</span>
               </div>
               <button
                 onClick={() => {

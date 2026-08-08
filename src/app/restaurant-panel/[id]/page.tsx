@@ -103,7 +103,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [editItemId, setEditItemId] = useState<string | null>(null)
   const [itemForm, setItemForm] = useState({
     category_id: '', name: '', description: '', price: '', image_url: '', is_available: true,
-    is_offer: false, original_price: '', offer_title: '', images: [] as string[], sizesText: ''
+    is_offer: false, original_price: '', offer_title: '', images: [] as string[], sizesText: '',
+    unit: 'piece', allow_custom_amount: false
   })
   const [savingItem, setSavingItem] = useState(false)
 
@@ -322,6 +323,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       image_url: primaryImg,
       images: itemForm.images || (primaryImg ? [primaryImg] : []),
       sizes: sizesArray,
+      unit: itemForm.unit || (itemForm.allow_custom_amount ? 'kg' : 'piece'),
+      allow_custom_amount: !!itemForm.allow_custom_amount,
       is_available: itemForm.is_available,
       is_offer: itemForm.is_offer,
       original_price: itemForm.original_price ? parseFloat(itemForm.original_price) : null,
@@ -348,7 +351,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setSavingItem(false)
     setShowItemForm(false)
     setEditItemId(null)
-    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
+    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false })
     fetchData(false)
   }
 
@@ -379,6 +382,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       image_url: item.image_url || '',
       images: parsedImages,
       sizesText: parsedSizes.join(', '),
+      unit: item.unit || (item.allow_custom_amount ? 'kg' : 'piece'),
+      allow_custom_amount: item.allow_custom_amount ?? item.unit === 'kg',
       is_available: item.is_available,
       is_offer: item.is_offer || false,
       original_price: item.original_price ? item.original_price.toString() : '',
@@ -1082,7 +1087,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     <p className="text-xs text-slate-400 font-medium mt-0.5">{menuItems.length} عنصر في {categories.length} قسم</p>
                   </div>
                   <button
-                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '' }) }}
+                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false }) }}
                     disabled={categories.length === 0}
                     className="btn btn-dark btn-sm disabled:opacity-40"
                   >
@@ -1127,7 +1132,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         </div>
                         <div>
                           <label className="f-label">
-                            {restaurant?.store_type === 'supermarket' ? 'سعر العرض (TL) *' : 'السعر (TL) *'}
+                            {(itemForm.unit === 'kg' || itemForm.allow_custom_amount)
+                              ? 'سعر الكيلو (TL) *'
+                              : (restaurant?.store_type === 'supermarket' ? 'سعر العرض (TL) *' : 'السعر (TL) *')
+                            }
                           </label>
                           <input type="number" step="0.5" required value={itemForm.price} onChange={e => setItemForm({ ...itemForm, price: e.target.value })} className="f-input text-orange-600 font-black" />
                         </div>
@@ -1143,6 +1151,30 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                             />
                           </div>
                         )}
+
+                        {/* Kilo / Custom Weight Selling Option */}
+                        <div className="md:col-span-2 bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xl">⚖️</span>
+                            <div>
+                              <h4 className="font-black text-xs text-amber-900">هذا المنتج يُباع بالكيلو / بالوزن</h4>
+                              <p className="text-[10px] text-amber-700 font-medium">يتيح للزبون الطلب بمبلغ محدد (مثال: بـ 100 ليرة) أو بوزن معين (مثال: ربع كيلو / نصف كيلو)</p>
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs font-bold text-xs text-amber-900 shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={itemForm.unit === 'kg' || itemForm.allow_custom_amount}
+                              onChange={e => setItemForm({
+                                ...itemForm,
+                                unit: e.target.checked ? 'kg' : 'piece',
+                                allow_custom_amount: e.target.checked
+                              })}
+                              className="w-4 h-4 accent-amber-600 rounded cursor-pointer"
+                            />
+                            <span>بيع بالكيلو (وزن)</span>
+                          </label>
+                        </div>
                         <div className="md:col-span-2">
                           <label className="f-label">الوصف والتفاصيل (اختياري)</label>
                           <textarea rows={2} value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="المكونات والمواصفات..." className="f-input" />
