@@ -135,49 +135,51 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   // Verify restaurant owner session or Super Admin access
   useEffect(() => {
     async function checkOwnerAuth() {
-      const savedOwnerSession = typeof window !== 'undefined' ? localStorage.getItem('restaurant_owner_session') : null
-      const isParamAdmin = typeof window !== 'undefined' && (
-        new URLSearchParams(window.location.search).get('auth') === 'admin' ||
-        new URLSearchParams(window.location.search).get('impersonate') === 'true'
-      )
+      if (!id) return
 
-      // Check if logged into Supabase as Super Admin or passed auth=admin param
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user || isParamAdmin) {
-        const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
-        if (profile?.role === 'admin' || isParamAdmin) {
-          const adminSession = {
-            restaurant_id: id,
-            restaurant_name: 'Super Admin',
-            role: 'admin'
-          }
-          localStorage.setItem('restaurant_owner_session', JSON.stringify(adminSession))
-          setAuthenticatedOwner(adminSession)
-          return
-        }
+      const savedOwnerSession = typeof window !== 'undefined' ? localStorage.getItem('restaurant_owner_session') : null
+      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+      const isParamAdmin = searchParams?.get('auth') === 'admin' || searchParams?.get('impersonate') === 'true'
+
+      let parsedSession: any = null
+      if (savedOwnerSession) {
+        try { parsedSession = JSON.parse(savedOwnerSession) } catch (e) {}
       }
 
-      if (!savedOwnerSession) {
-        const partnerDashboardUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
-          ? 'https://partner.alfsouq.com/dashboard'
-          : '/dashboard'
-        window.location.href = partnerDashboardUrl
+      // Check if logged into Supabase as Super Admin
+      const { data: { user } } = await supabase.auth.getUser()
+      let isAdminUser = false
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        if (profile?.role === 'admin') isAdminUser = true
+      }
+
+      // If opening from admin dashboard (?auth=admin) OR logged in as admin OR session has admin role:
+      if (isParamAdmin || isAdminUser || parsedSession?.role === 'admin') {
+        const adminSession = {
+          restaurant_id: id,
+          restaurant_name: 'Super Admin',
+          role: 'admin'
+        }
+        localStorage.setItem('restaurant_owner_session', JSON.stringify(adminSession))
+        setAuthenticatedOwner(adminSession)
         return
       }
 
-      try {
-        const parsed = JSON.parse(savedOwnerSession)
-        if (parsed.role === 'admin' || parsed.restaurant_id === id) {
-          setAuthenticatedOwner(parsed)
+      // Regular Store Owner check
+      if (parsedSession) {
+        if (parsedSession.restaurant_id === id) {
+          setAuthenticatedOwner(parsedSession)
           return
         }
-        window.location.href = `/restaurant-panel/${parsed.restaurant_id}`
-      } catch (e) {
-        const partnerDashboardUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
-          ? 'https://partner.alfsouq.com/dashboard'
-          : '/dashboard'
-        window.location.href = partnerDashboardUrl
+        // Clear session if owner attempts to view a store that isn't theirs
+        localStorage.removeItem('restaurant_owner_session')
       }
+
+      const partnerDashboardUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
+        ? 'https://partner.alfsouq.com/dashboard'
+        : '/dashboard'
+      window.location.href = partnerDashboardUrl
     }
 
     checkOwnerAuth()
