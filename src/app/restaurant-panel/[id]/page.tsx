@@ -469,6 +469,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
     const payload = {
       restaurant_id: id,
+      type: 'bundle',
       primary_item_id: offerForm.primary_item_id,
       min_quantity: parseInt(offerForm.min_quantity) || 1,
       bonus_item_id: offerForm.bonus_item_id || null,
@@ -488,11 +489,24 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
     if (editOfferId) {
       setOffers(prev => prev.map(o => o.id === editOfferId ? { ...o, ...payload } : o))
-      await supabase.from('offers').update(payload).eq('id', editOfferId)
+      const { error } = await supabase.from('offers').update(payload).eq('id', editOfferId)
+      if (error) {
+        alert('خطأ في تعديل العرض: ' + error.message)
+        setSavingOffer(false)
+        return
+      }
     } else {
       const { data: maxOffer } = await supabase.from('offers').select('sort_order').order('sort_order', { ascending: false }).limit(1)
       const nextRank = (maxOffer && maxOffer[0]?.sort_order && maxOffer[0].sort_order > 0) ? (maxOffer[0].sort_order + 1) : 1
-      await supabase.from('offers').insert([{ ...payload, sort_order: nextRank }])
+      const { data: insertedData, error } = await supabase.from('offers').insert([{ ...payload, sort_order: nextRank }]).select()
+      if (error) {
+        alert('خطأ في إضافة العرض: ' + error.message)
+        setSavingOffer(false)
+        return
+      }
+      if (insertedData && insertedData[0]) {
+        setOffers(prev => [insertedData[0], ...prev])
+      }
     }
 
     setSavingOffer(false)
