@@ -351,7 +351,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setSavingItem(false)
     setShowItemForm(false)
     setEditItemId(null)
-    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false })
+    setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false })
     fetchData(false)
   }
 
@@ -1087,7 +1087,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     <p className="text-xs text-slate-400 font-medium mt-0.5">{menuItems.length} عنصر في {categories.length} قسم</p>
                   </div>
                   <button
-                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false }) }}
+                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false }) }}
                     disabled={categories.length === 0}
                     className="btn btn-dark btn-sm disabled:opacity-40"
                   >
@@ -1113,7 +1113,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         <div>
                           <label className="f-label">القسم الفرعي *</label>
                           <select required value={itemForm.category_id} onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })} className="f-input">
-                            <option value="">اختر القسم...</option>
+                            <option value="">-- غير محدد (اختر القسم الفرعي) --</option>
                             {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                           </select>
                         </div>
