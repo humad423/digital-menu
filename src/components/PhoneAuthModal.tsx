@@ -233,6 +233,14 @@ export default function PhoneAuthModal() {
               />
             </div>
 
+            {!confirmationResult && (
+              <div className="bg-orange-50 border border-orange-200 p-2.5 rounded-2xl text-center">
+                <p className="text-[11px] text-orange-800 font-bold">
+                  💡 يمكنك كتابة أي 6 أرقام (مثل <span className="underline font-extrabold">123456</span>) للتسجيل مباشرة الآن.
+                </p>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading || otpCode.length < 6}
