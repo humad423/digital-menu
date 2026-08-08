@@ -166,6 +166,7 @@ export default function PlatformClient({
   const [sortBy, setSortBy]               = useState<'distance' | 'rating' | 'delivery_fee' | 'newest'>('distance')
   const [showAllRanked, setShowAllRanked] = useState(false)
   const [showAllLatest, setShowAllLatest] = useState(false)
+  const [showZoneModal, setShowZoneModal] = useState(false)
   const offersRef   = useRef<HTMLDivElement>(null)
   const searchRef   = useRef<HTMLInputElement>(null)
 
@@ -400,6 +401,170 @@ export default function PlatformClient({
     offersRef.current.scrollLeft = offerScrollL - (e.pageX - offersRef.current.offsetLeft - offerStartX) * 1.5
   }
 
+  // Check if user is within any active service zone
+  const activeServiceZones = (serviceZones || []).filter((z: any) => z.is_active !== false && z.latitude && z.longitude)
+  const isUserInCoverage = activeServiceZones.length === 0 || activeServiceZones.some((z: any) => {
+    const dist = calculateDistance(userLoc.lat, userLoc.lng, Number(z.latitude), Number(z.longitude))
+    return dist <= (Number(z.radius_km) || 15)
+  })
+
+  const handleSelectZone = (zone: any) => {
+    const coords = { lat: Number(zone.latitude), lng: Number(zone.longitude) }
+    setUserLoc(coords)
+    setUserArea(zone.name)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('alfsouq_user_loc', JSON.stringify(coords))
+      localStorage.setItem('alfsouq_user_area', zone.name)
+    }
+    setShowZoneModal(false)
+  }
+
+  // Render Outside Coverage Screen if user is outside coverage zone
+  if (locationStatus !== 'locating' && !isUserInCoverage) {
+    const nearestZone = activeServiceZones
+      .map((z: any) => ({
+        ...z,
+        dist: calculateDistance(userLoc.lat, userLoc.lng, Number(z.latitude), Number(z.longitude))
+      }))
+      .sort((a, b) => a.dist - b.dist)[0]
+
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between p-4 sm:p-6 dir-rtl font-sans">
+        {/* Top Header */}
+        <header className="flex items-center justify-between py-3 border-b border-slate-200/80">
+          <BrandLogo size="md" />
+          <button
+            onClick={() => setShowZoneModal(true)}
+            className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-3.5 py-1.5 rounded-full text-xs font-black transition cursor-pointer shadow-xs"
+          >
+            <MapPin size={14} className="text-amber-600" />
+            <span>{userArea || 'اختر المنطقة 📍'}</span>
+          </button>
+        </header>
+
+        {/* Main Content */}
+        <main className="my-auto py-8 text-center space-y-6 max-w-md mx-auto">
+          
+          {/* Illustration Badge */}
+          <div className="relative mx-auto w-24 h-24 rounded-3xl bg-gradient-to-tr from-orange-500 via-amber-500 to-yellow-400 p-0.5 shadow-xl flex items-center justify-center animate-bounce-slow">
+            <div className="w-full h-full bg-white rounded-[22px] flex items-center justify-center text-4xl">
+              📍
+            </div>
+            <div className="absolute -bottom-2 -right-2 bg-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+              قريباً 🚀
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <span className="inline-block bg-orange-100 text-orange-800 text-xs font-black px-3.5 py-1 rounded-full border border-orange-200">
+              سيكون متوفر قريباً في منطقتك ✨
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+              عذراً، خدمات التطبيق غير متوفرة في موقعك الحالي حالياً
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+              نعمل باستمرار على توسيع نطاق خدماتنا للتواجد في منطقتك بالقريب العاجل 🚀
+            </p>
+          </div>
+
+          {/* Distance Info Card */}
+          {nearestZone && (
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs text-xs font-bold text-slate-600 flex items-center justify-between gap-3 text-right">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🗺️</span>
+                <div>
+                  <span className="block text-slate-900 font-black">أقرب منطقة تغطية حالية:</span>
+                  <span className="text-slate-500 font-medium">{nearestZone.name} (تبعد {nearestZone.dist.toFixed(1)} كم)</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowZoneModal(true)}
+                className="text-orange-600 hover:underline shrink-0 text-xs font-black cursor-pointer"
+              >
+                تغيير المنطقة 📍
+              </button>
+            </div>
+          )}
+
+          {/* Merchant / Business Owner CTA Card */}
+          <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700/80 text-right space-y-4 relative overflow-hidden">
+            <div className="absolute -top-10 -left-10 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-xl shrink-0">
+                🏪
+              </div>
+              <div>
+                <h3 className="font-black text-sm text-white">هل تملك متجراً أو مطعماً وتريد الحصول على المنيو الخاص بك؟</h3>
+                <p className="text-xs text-slate-300 font-medium mt-1 leading-relaxed">
+                  للحصول على المنيو الخاص بك وتفعيل نظام الطلبات لمتجرك تواصل معنا مباشرة عبر الواتساب.
+                </p>
+              </div>
+            </div>
+
+            <a
+              href="https://wa.me/905352574134?text=مرحباً،%20أرغب%20في%20الحصول%20على%20منيو%20رقمي%20خاص%20بمتجري%20عبر%20منصة%20ألف%20سوق"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-2xl shadow-lg flex items-center justify-center gap-2.5 transition active:scale-95 text-center no-underline cursor-pointer"
+            >
+              <span>💬 تواصل معنا عبر الواتساب (05352574134+)</span>
+            </a>
+          </div>
+
+        </main>
+
+        {/* Footer */}
+        <footer className="text-center py-3 text-xs text-slate-400 font-bold border-t border-slate-200/80">
+          منصة ألف سوق الرقمية © 2026
+        </footer>
+
+        {/* Zone Selector Modal */}
+        {showZoneModal && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-slate-100 p-5 space-y-4 text-right">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+                  <MapPin size={16} className="text-orange-500" />
+                  <span>تحديد أو اختيار منطقة التغطية</span>
+                </h4>
+                <button onClick={() => setShowZoneModal(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500 font-medium">
+                يمكنك إعادة تحديد موقعك عبر GPS أو اختيار إحدى مناطق التغطية المتاحة:
+              </p>
+
+              <button
+                onClick={() => { setShowZoneModal(false); requestLocation(); }}
+                className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 font-black text-xs py-2.5 px-3 rounded-2xl border border-orange-200 flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <MapPin size={14} />
+                <span>إعادة تحديد موقعي الحقيقي عبر GPS 🛰️</span>
+              </button>
+
+              <div className="space-y-1.5 pt-2">
+                <span className="text-[11px] font-black text-slate-400 block">مناطق التغطية المتاحة حالياً:</span>
+                {activeServiceZones.map((z: any) => (
+                  <button
+                    key={z.id}
+                    onClick={() => handleSelectZone(z)}
+                    className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
+                  >
+                    <span>📍 {z.name}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-28">
 
@@ -419,7 +584,7 @@ export default function PlatformClient({
             {/* Center: Location Pill */}
             <div className="flex items-center justify-center min-w-0">
               <button
-                onClick={requestLocation}
+                onClick={() => setShowZoneModal(true)}
                 disabled={locationStatus === 'locating'}
                 className="flex items-center justify-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[150px] disabled:opacity-75 cursor-pointer shadow-xs"
               >
@@ -947,6 +1112,49 @@ export default function PlatformClient({
         </section>
 
       </main>
+
+      {/* Zone Selector Modal */}
+      {showZoneModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-slate-100 p-5 space-y-4 text-right dir-rtl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+                <MapPin size={16} className="text-orange-500" />
+                <span>تحديد أو اختيار منطقة التغطية</span>
+              </h4>
+              <button onClick={() => setShowZoneModal(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 font-medium">
+              يمكنك إعادة تحديد موقعك عبر GPS أو اختيار إحدى مناطق التغطية المتاحة:
+            </p>
+
+            <button
+              onClick={() => { setShowZoneModal(false); requestLocation(); }}
+              className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 font-black text-xs py-2.5 px-3 rounded-2xl border border-orange-200 flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <MapPin size={14} />
+              <span>إعادة تحديد موقعي الحقيقي عبر GPS 🛰️</span>
+            </button>
+
+            <div className="space-y-1.5 pt-2">
+              <span className="text-[11px] font-black text-slate-400 block">مناطق التغطية المتاحة حالياً:</span>
+              {activeServiceZones.map((z: any) => (
+                <button
+                  key={z.id}
+                  onClick={() => handleSelectZone(z)}
+                  className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
+                >
+                  <span>📍 {z.name}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
