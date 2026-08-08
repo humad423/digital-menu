@@ -59,8 +59,8 @@ export default async function Home() {
   })
 
   return (
-    <main className="min-h-screen bg-gray-50" dir="rtl">
-      <div className="max-w-xl mx-auto min-h-screen bg-white shadow-xl overflow-x-clip relative">
+    <main className="min-h-screen bg-gray-900" dir="rtl">
+      <div className="max-w-xl mx-auto min-h-screen bg-slate-900 shadow-xl overflow-x-clip relative flex flex-col justify-between">
         <PlatformClient 
           restaurants={restaurantsWithCats}
           categories={categories || []}

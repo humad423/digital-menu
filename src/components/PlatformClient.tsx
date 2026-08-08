@@ -516,9 +516,7 @@ export default function PlatformClient({
         </main>
 
         {/* Footer */}
-        <footer className="text-center py-3 text-xs text-slate-400 font-bold border-t border-slate-200/80">
-          منصة ألف سوق الرقمية © 2026
-        </footer>
+        <Footer />
 
         {/* Zone Selector Modal */}
         {showZoneModal && (
