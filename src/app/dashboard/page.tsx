@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { auth, RecaptchaVerifier, signInWithPhoneNumber } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import { Store, Phone, Lock, ArrowLeft, LogIn, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
@@ -18,6 +19,7 @@ export default function CompletelyStandaloneDashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formattedPhoneState, setFormattedPhoneState] = useState('')
+  const [confirmationResult, setConfirmationResult] = useState<any>(null)
 
   useEffect(() => {
     // Check if separate restaurant owner session exists
@@ -42,7 +44,29 @@ export default function CompletelyStandaloneDashboardPage() {
     setPhoneNumber(clean)
   }
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const setupRecaptcha = () => {
+    if (typeof window === 'undefined') return null
+    if (!(window as any).recaptchaVerifier) {
+      try {
+        (window as any).recaptchaVerifier = new RecaptchaVerifier(
+          auth,
+          'recaptcha-container',
+          {
+            size: 'invisible',
+            callback: () => {},
+            'expired-callback': () => {
+              setError('انتهت صلاحية التحقق، يرجى المحاولة مجدداً.')
+            }
+          }
+        )
+      } catch (e: any) {
+        console.error('Recaptcha error:', e)
+      }
+    }
+    return (window as any).recaptchaVerifier
+  }
+
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     if (!phoneNumber) {
@@ -50,10 +74,31 @@ export default function CompletelyStandaloneDashboardPage() {
       return
     }
 
-    let raw = phoneNumber.trim()
-    let formatted = raw.startsWith('+') ? raw : countryCode + raw
-    setFormattedPhoneState(formatted)
-    setStep('otp')
+    setIsSubmitting(true)
+    try {
+      let raw = phoneNumber.trim().replace(/\s+/g, '')
+      if (raw.startsWith('0')) raw = raw.replace(/^0+/, '')
+      let formatted = raw.startsWith('+') ? raw : countryCode + raw
+      setFormattedPhoneState(formatted)
+
+      const appVerifier = setupRecaptcha()
+      if (appVerifier) {
+        const confirmation = await signInWithPhoneNumber(auth, formatted, appVerifier)
+        setConfirmationResult(confirmation)
+      }
+      setStep('otp')
+    } catch (err: any) {
+      console.error('Error sending owner SMS OTP:', err)
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear()
+          ;(window as any).recaptchaVerifier = null
+        } catch (e) {}
+      }
+      setError('تعذر إرسال كود SMS، يرجى التثبت من صحة الرقم والمحاولة مجدداً.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -62,6 +107,10 @@ export default function CompletelyStandaloneDashboardPage() {
     setIsSubmitting(true)
 
     try {
+      if (confirmationResult) {
+        await confirmationResult.confirm(otpCode)
+      }
+
       const targetPhone = formattedPhoneState || phoneNumber
 
       // 1. Check in profiles table for a profile linked to a restaurant
@@ -105,7 +154,7 @@ export default function CompletelyStandaloneDashboardPage() {
       router.push(`/restaurant-panel/${resId}`)
     } catch (err: any) {
       console.error('Error verifying owner login:', err)
-      setError('حدث خطأ أثناء تسجيل الدخول، يرجى المحاولة لاحقاً.')
+      setError('كود التحقق غير صحيح أو انتهت صلاحيته. يرجى التأكد وإعادة المحاولة.')
     } finally {
       setIsSubmitting(false)
     }
@@ -124,6 +173,7 @@ export default function CompletelyStandaloneDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black flex items-center justify-center p-5 dir-rtl text-white">
+      <div id="recaptcha-container"></div>
       <div className="w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
         {/* Decorative ambient glow */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl pointer-events-none" />
@@ -182,10 +232,17 @@ export default function CompletelyStandaloneDashboardPage() {
 
             <button
               type="submit"
-              className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition flex items-center justify-center gap-2"
+              disabled={isSubmitting || !phoneNumber}
+              className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              <span>إرسال كود التحقق</span>
-              <ArrowLeft size={18} />
+              {isSubmitting ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <span>إرسال رمز التفعيل SMS</span>
+                  <ArrowLeft size={18} />
+                </>
+              )}
             </button>
           </form>
         ) : (
@@ -197,7 +254,7 @@ export default function CompletelyStandaloneDashboardPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-300 mb-2 text-center">أدخل رمز التحقق (OTP)</label>
+              <label className="block text-xs font-bold text-gray-300 mb-2 text-center">أدخل رمز التحقق (SMS OTP)</label>
               <input
                 type="text"
                 maxLength={6}
@@ -205,20 +262,14 @@ export default function CompletelyStandaloneDashboardPage() {
                 value={otpCode}
                 onChange={e => setOtpCode(e.target.value)}
                 placeholder="1 2 3 4 5 6"
-                className="w-full bg-gray-800 border border-gray-700 text-amber-400 font-black text-2xl tracking-[0.4em] text-center py-3.5 rounded-2xl focus:border-orange-500 outline-none transition"
+                className="w-full bg-gray-800 border border-gray-700 text-amber-400 font-black text-2xl tracking-[0.4em] text-center py-3.5 rounded-2xl focus:border-orange-500 outline-none transition dir-ltr"
               />
-            </div>
-
-            <div className="bg-gray-800/80 p-3 rounded-2xl border border-gray-700/60 text-center">
-              <p className="text-[11px] text-gray-400 font-bold">
-                💡 كود التفعيل التجريبي السريع هو: <span className="text-orange-400 font-black text-xs">123456</span>
-              </p>
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={isSubmitting || otpCode.length < 6}
+              className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -233,7 +284,7 @@ export default function CompletelyStandaloneDashboardPage() {
             <button
               type="button"
               onClick={() => setStep('phone')}
-              className="w-full text-xs text-gray-400 font-bold hover:text-white transition text-center block pt-1"
+              className="w-full text-xs text-gray-400 font-bold hover:text-white transition text-center block pt-1 cursor-pointer"
             >
               تغيير رقم الهاتف ↩️
             </button>

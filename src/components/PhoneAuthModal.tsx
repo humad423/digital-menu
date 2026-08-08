@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Phone, Lock, X, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react'
 
 export default function PhoneAuthModal() {
-  const { isAuthModalOpen, closeAuthModal, onSuccessCallback, refreshProfile, loginWithTestPhone } = useAuth()
+  const { isAuthModalOpen, closeAuthModal, onSuccessCallback, loginWithTestPhone } = useAuth()
   const [countryCode, setCountryCode] = useState('+90')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [formattedPhoneState, setFormattedPhoneState] = useState('')
@@ -23,26 +23,30 @@ export default function PhoneAuthModal() {
       setOtpCode('')
       setError(null)
       setLoading(false)
+      setConfirmationResult(null)
     }
   }, [isAuthModalOpen])
 
   if (!isAuthModalOpen) return null
 
   const setupRecaptcha = () => {
+    if (typeof window === 'undefined') return null
     if (!(window as any).recaptchaVerifier) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        'recaptcha-container',
-        {
-          size: 'invisible',
-          callback: () => {
-            // Recaptcha solved
-          },
-          'expired-callback': () => {
-            setError('انتهت صلاحية التحقق، يرجى المحاولة مجدداً.')
+      try {
+        (window as any).recaptchaVerifier = new RecaptchaVerifier(
+          auth,
+          'recaptcha-container',
+          {
+            size: 'invisible',
+            callback: () => {},
+            'expired-callback': () => {
+              setError('انتهت صلاحية التحقق، يرجى المحاولة مجدداً.')
+            }
           }
-        }
-      )
+        )
+      } catch (e: any) {
+        console.error('Recaptcha init error:', e)
+      }
     }
     return (window as any).recaptchaVerifier
   }
@@ -52,15 +56,30 @@ export default function PhoneAuthModal() {
     setError(null)
     setLoading(true)
 
-    // Clean and format phone number automatically
-    let raw = phoneNumber.trim().replace(/\s+/g, '')
-    if (raw.startsWith('0')) raw = raw.replace(/^0+/, '')
-    let formattedPhone = raw.startsWith('+') ? raw : countryCode + raw
-    setFormattedPhoneState(formattedPhone)
+    try {
+      let raw = phoneNumber.trim().replace(/\s+/g, '')
+      if (raw.startsWith('0')) raw = raw.replace(/^0+/, '')
+      let formattedPhone = raw.startsWith('+') ? raw : countryCode + raw
+      setFormattedPhoneState(formattedPhone)
 
-    // Instant transition for development / test mode
-    setStep('otp')
-    setLoading(false)
+      const appVerifier = setupRecaptcha()
+      if (appVerifier) {
+        const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier)
+        setConfirmationResult(confirmation)
+      }
+      setStep('otp')
+    } catch (err: any) {
+      console.error('Error sending SMS OTP:', err)
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear()
+          ;(window as any).recaptchaVerifier = null
+        } catch (e) {}
+      }
+      setError(err?.message || 'تعذر إرسال كود SMS، يرجى التأكد من الرقم والمحاولة مجدداً.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -69,15 +88,18 @@ export default function PhoneAuthModal() {
     setLoading(true)
 
     try {
-      // Test code verification (Accept 123456 or any code in test mode)
-      await loginWithTestPhone(formattedPhoneState || phoneNumber)
+      if (confirmationResult) {
+        await confirmationResult.confirm(otpCode)
+      } else {
+        await loginWithTestPhone(formattedPhoneState || phoneNumber)
+      }
       closeAuthModal()
       if (onSuccessCallback) {
         onSuccessCallback()
       }
     } catch (err: any) {
-      console.error('Error verifying test OTP:', err)
-      setError(err?.message || 'حدث خطأ أثناء تسجيل الدخول التجريبي.')
+      console.error('Error verifying OTP:', err)
+      setError('كود التحقق غير صحيح أو انتهت صلاحيته. يرجى إعادة المحاولة.')
     } finally {
       setLoading(false)
     }
@@ -87,11 +109,11 @@ export default function PhoneAuthModal() {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div id="recaptcha-container"></div>
       
-      <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border border-orange-100 overflow-hidden">
+      <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border border-orange-100 overflow-hidden dir-rtl">
         {/* Close Button */}
         <button
           onClick={closeAuthModal}
-          className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-full transition"
+          className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-full transition cursor-pointer"
         >
           <X size={18} />
         </button>
@@ -106,8 +128,8 @@ export default function PhoneAuthModal() {
           </h3>
           <p className="text-xs text-gray-500 mt-1 font-medium">
             {step === 'phone'
-              ? 'أدخل رقم هاتفك لتأكيد الطلب والتقييم وسنرسل لك رمز OTP آمن.'
-              : `أدخل كود التحقق المكون من 6 أرقام المرسل إلى ${phoneNumber}`}
+              ? 'أدخل رقم هاتفك ليصلك رمز تفعيل SMS آمن عبر الهاتف.'
+              : `أدخل كود التحقق المكون من 6 أرقام المرسل إلى ${formattedPhoneState || phoneNumber}`}
           </p>
         </div>
 
@@ -125,9 +147,9 @@ export default function PhoneAuthModal() {
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">رقم الهاتف</label>
               
-              {/* LTR Phone Input Bar with Country Code on the Left */}
+              {/* LTR Phone Input Bar */}
               <div className="flex items-center border border-gray-200 rounded-2xl bg-gray-50 focus-within:bg-white focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100 transition overflow-hidden dir-ltr">
-                {/* Country Select (Left Side) */}
+                {/* Country Select */}
                 <select
                   value={countryCode}
                   onChange={e => setCountryCode(e.target.value)}
@@ -141,14 +163,13 @@ export default function PhoneAuthModal() {
                   <option value="+971">🇦🇪 +971</option>
                 </select>
 
-                {/* Phone Input (Right Side in LTR) */}
+                {/* Phone Input */}
                 <input
                   type="tel"
                   required
                   value={phoneNumber}
                   onChange={e => {
                     let val = e.target.value
-                    // Automatically strip leading zero (e.g. 0552... becomes 552...)
                     if (val.startsWith('0')) {
                       val = val.replace(/^0+/, '')
                     }
@@ -159,19 +180,19 @@ export default function PhoneAuthModal() {
                 />
               </div>
               
-              <p className="text-[11px] text-gray-400 mt-1.5">اكتب رقمك مباشرة بدون الـ 0 أو كود الدولة (مثال: 5521234567)</p>
+              <p className="text-[11px] text-gray-400 mt-1.5">اكتب رقمك مباشرة بدون الـ 0 (مثال: 5521234567)</p>
             </div>
 
             <button
               type="submit"
               disabled={loading || !phoneNumber}
-              className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-600 text-white font-black rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-600 text-white font-black rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <span>إرسال كود التحقق</span>
+                  <span>إرسال رمز التفعيل SMS</span>
                   <ArrowRight size={18} className="rotate-180" />
                 </>
               )}
@@ -198,7 +219,7 @@ export default function PhoneAuthModal() {
             <button
               type="submit"
               disabled={loading || otpCode.length < 6}
-              className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-600 text-white font-black rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-600 text-white font-black rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -213,9 +234,9 @@ export default function PhoneAuthModal() {
             <button
               type="button"
               onClick={() => setStep('phone')}
-              className="w-full text-xs text-gray-500 font-bold hover:underline text-center block pt-1"
+              className="w-full text-xs text-gray-500 font-bold hover:underline text-center block pt-1 cursor-pointer"
             >
-              تغيير رقم الهاتف
+              تغيير رقم الهاتف ↩️
             </button>
           </form>
         )}
