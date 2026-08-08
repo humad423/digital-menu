@@ -738,7 +738,7 @@ export default function PlatformClient({
               onMouseMove={offerMouseMove}
               onMouseUp={() => setIsDragOffer(false)}
               onMouseLeave={() => setIsDragOffer(false)}
-              className={`flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 hide-scrollbar scroll-smooth snap-x snap-mandatory ${isDragOffer ? 'cursor-grabbing' : 'cursor-grab'}`}
+              className={`flex gap-3 overflow-x-auto pb-2 hide-scrollbar scroll-smooth snap-x snap-mandatory ${isDragOffer ? 'cursor-grabbing' : 'cursor-grab'}`}
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {visibleRankedOffers.map(offer => {
@@ -820,7 +820,7 @@ export default function PlatformClient({
 
             {/* Slider */}
             <div
-              className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 hide-scrollbar scroll-smooth snap-x snap-mandatory cursor-grab"
+              className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar scroll-smooth snap-x snap-mandatory cursor-grab"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {visibleLatestOffers.map(offer => {
@@ -897,7 +897,7 @@ export default function PlatformClient({
               )}
             </div>
 
-            <div className="flex gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-1">
+            <div className="flex gap-2.5 overflow-x-auto hide-scrollbar pb-1">
               {categories.map(cat => {
                 const isActive = activeCat === cat.id
                 return (

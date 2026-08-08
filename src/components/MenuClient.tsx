@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import MenuItem from '@/components/MenuItem'
 import { Search, X } from 'lucide-react'
 import { trackEvent } from '@/utils/analytics'
@@ -219,7 +220,18 @@ export default function MenuClient({
         )}
       </div>
 
-      <Footer />
+      {/* Light, Clean Store Menu Footer */}
+      <footer className="mt-12 py-8 px-4 bg-slate-100 border-t border-slate-200 text-center space-y-3 text-xs text-slate-500 dir-rtl">
+        <p className="font-black text-slate-700">{restaurantName || 'المتجر'} • منصة ألف سوق Alfsouq</p>
+        <div className="flex items-center justify-center gap-4 text-[11px] font-bold text-slate-600">
+          <Link href="/privacy" className="hover:text-orange-600 transition">Privacy Policy</Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:text-orange-600 transition">Terms of Service</Link>
+          <span>•</span>
+          <a href="https://wa.me/905352574134" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">الدعم الفني</a>
+        </div>
+        <p className="text-[10px] text-slate-400">© {new Date().getFullYear()} جميع الحقوق محفوظة لمنصة ألف سوق</p>
+      </footer>
     </div>
   )
 }
