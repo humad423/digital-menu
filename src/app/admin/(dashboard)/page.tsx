@@ -7,9 +7,10 @@ import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
 import AdminAnalyticsTab from '@/components/AdminAnalyticsTab'
+import AdminBusinessTypesTab, { BusinessType } from '@/components/AdminBusinessTypesTab'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, BarChart3 } from 'lucide-react'
+import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, BarChart3, Tag } from 'lucide-react'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
@@ -17,8 +18,9 @@ const TABS = [
   { key: 'restaurants', label: 'المتاجر', Icon: Store },
   { key: 'analytics', label: 'التحليلات والنمو 📊', Icon: BarChart3 },
   { key: 'offers', label: 'العروض والتخفيضات', Icon: Flame },
+  { key: 'business_types', label: 'أنواع الأنشطة 🏷️', Icon: Tag },
   { key: 'map', label: 'الخريطة التفاعلية 🗺️', Icon: MapIcon },
-  { key: 'categories', label: 'التصنيفات', Icon: LayoutGrid },
+  { key: 'categories', label: 'التصنيفات الفرعية', Icon: LayoutGrid },
   { key: 'zones', label: 'المناطق الجغرافية', Icon: MapPin },
   { key: 'ads', label: 'الإعلانات', Icon: ImageIcon },
   { key: 'orders', label: 'الطلبات', Icon: ClipboardList },
@@ -33,6 +35,7 @@ export default function AdminDashboard() {
   const [restaurantCategoryMap, setRestaurantCategoryMap] = useState<Record<string, string[]>>({})
   const [orders, setOrders] = useState<any[]>([])
   const [serviceZones, setServiceZones] = useState<any[]>([])
+  const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('restaurants')
   const [selectedStoreForSettings, setSelectedStoreForSettings] = useState<any>(null)
@@ -46,7 +49,7 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     setLoading(true)
-    const [resRes, catRes, adsRes, relRes, ordRes, zonesRes, profRes, offersRes] = await Promise.all([
+    const [resRes, catRes, adsRes, relRes, ordRes, zonesRes, profRes, offersRes, bTypesRes] = await Promise.all([
       supabase.from('restaurants').select('*').order('created_at', { ascending: false }),
       supabase.from('platform_categories').select('*').order('created_at', { ascending: true }),
       supabase.from('platform_ads').select('*').order('sort_order', { ascending: true }),
@@ -54,11 +57,13 @@ export default function AdminDashboard() {
       supabase.from('orders').select('*, restaurants(name)').order('created_at', { ascending: false }),
       supabase.from('service_zones').select('*').order('created_at', { ascending: true }),
       supabase.from('profiles').select('restaurant_id, phone').eq('role', 'restaurant_owner'),
-      supabase.from('offers').select('*, restaurants(id, name, slug), primary_item:menu_items!primary_item_id(name, image_url), bonus_item:menu_items!bonus_item_id(name, image_url), item3:menu_items!item3_id(name, image_url), item4:menu_items!item4_id(name, image_url)').order('sort_order', { ascending: true }).order('created_at', { ascending: false })
+      supabase.from('offers').select('*, restaurants(id, name, slug), primary_item:menu_items!primary_item_id(name, image_url), bonus_item:menu_items!bonus_item_id(name, image_url), item3:menu_items!item3_id(name, image_url), item4:menu_items!item4_id(name, image_url)').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
+      supabase.from('business_types').select('*').order('sort_order', { ascending: true })
     ])
     if (resRes.data) setRestaurants(resRes.data)
     if (catRes.data) setPlatformCategories(catRes.data)
     if (adsRes.data) setPlatformAds(adsRes.data)
+    if (bTypesRes.data && bTypesRes.data.length > 0) setBusinessTypes(bTypesRes.data)
     if (offersRes.data) {
       const sorted = [...offersRes.data].sort((a, b) => {
         const orderA = (a.sort_order && a.sort_order > 0) ? a.sort_order : 999999
@@ -424,6 +429,13 @@ export default function AdminDashboard() {
         )}
 
         {/* ══════════════════════════════════════
+            BUSINESS TYPES TAB
+        ══════════════════════════════════════ */}
+        {!loading && activeTab === 'business_types' && (
+          <AdminBusinessTypesTab businessTypes={businessTypes} onRefresh={fetchData} />
+        )}
+
+        {/* ══════════════════════════════════════
             RESTAURANTS TAB
         ══════════════════════════════════════ */}
         {!loading && activeTab === 'restaurants' && (
@@ -461,14 +473,15 @@ export default function AdminDashboard() {
                       <div>
                         <label className="f-label">نوع النشاط التجاري *</label>
                         <select
-                          value={resForm.store_type || 'restaurant'}
+                          value={resForm.store_type || (businessTypes[0]?.slug || 'restaurant')}
                           onChange={e => setResForm({ ...resForm, store_type: e.target.value })}
-                          className="f-input"
+                          className="f-input font-bold"
                         >
-                          <option value="restaurant">🍔 مطعم / مأكولات</option>
-                          <option value="supermarket">🛒 سوبر ماركت / مواد غذائية</option>
-                          <option value="clothing">👗 محلات ألبسة وموضة</option>
-                          <option value="other">🎁 خدمات ومتاجر أخرى</option>
+                          {businessTypes.map(bt => (
+                            <option key={bt.id} value={bt.slug}>
+                              {bt.icon} {bt.name}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -706,7 +719,10 @@ export default function AdminDashboard() {
                           </div>
                           <div className="flex flex-col items-end gap-1 shrink-0">
                             <span className="badge badge-gray font-bold">
-                              {r.store_type === 'supermarket' ? '🛒 سوبرماركت' : r.store_type === 'clothing' ? '👗 ألبسة' : r.store_type === 'other' ? '🎁 متجر' : '🍔 مطعم'}
+                              {(() => {
+                                const bt = businessTypes.find(b => b.slug === r.store_type)
+                                return bt ? `${bt.icon} ${bt.name}` : (r.store_type === 'supermarket' ? '🛒 سوبرماركت' : r.store_type === 'clothing' ? '👗 ألبسة' : r.store_type === 'other' ? '🎁 متجر' : '🍔 مطعم')
+                              })()}
                             </span>
                             {(() => {
                               const status = getStoreStatus(r)

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { Search, MapPin, Clock, ChevronLeft, ChevronRight, X, Bike, Star, Sparkles, Loader2, ArrowUpDown } from 'lucide-react'
 
+import { createClient } from '@/utils/supabase/client'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
 import UserAuthButton from '@/components/UserAuthButton'
@@ -161,11 +162,22 @@ export default function PlatformClient({
   const [activeCat, setActiveCat]         = useState<string | null>(null)
   const [searchQuery, setSearchQuery]     = useState('')
   const [activeStoreType, setActiveStoreType] = useState<string>('all')
+  const [businessTypes, setBusinessTypes] = useState<any[]>([])
   const [sortBy, setSortBy]               = useState<'distance' | 'rating' | 'delivery_fee' | 'newest'>('distance')
   const [showAllRanked, setShowAllRanked] = useState(false)
   const [showAllLatest, setShowAllLatest] = useState(false)
   const offersRef   = useRef<HTMLDivElement>(null)
   const searchRef   = useRef<HTMLInputElement>(null)
+
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function fetchBTypes() {
+      const { data } = await supabase.from('business_types').select('*').eq('is_active', true).order('sort_order', { ascending: true })
+      if (data && data.length > 0) setBusinessTypes(data)
+    }
+    fetchBTypes()
+  }, [])
 
   const [isDragOffer, setIsDragOffer]   = useState(false)
   const [offerStartX, setOfferStartX]   = useState(0)
@@ -460,16 +472,17 @@ export default function PlatformClient({
           </div>
 
           {/* Row 3: Business Type Selector Tabs (Shrinks on scroll) */}
-          <div className={`flex items-center overflow-x-auto hide-scrollbar pt-1 pb-1 -mx-1 px-1 transition-all duration-300 ${
-            isScrolled ? 'gap-1.5' : 'gap-1.5'
-          }`}>
-            {[
+          <div className="flex items-center overflow-x-auto hide-scrollbar pt-1 pb-1 -mx-1 px-1 transition-all duration-300 gap-1.5">
+            {(businessTypes.length > 0 ? [
+              { key: 'all', label: 'الكل', icon: '🛍️' },
+              ...businessTypes.map(bt => ({ key: bt.slug, label: bt.name, icon: bt.icon }))
+            ] : [
               { key: 'all', label: 'الكل', icon: '🛍️' },
               { key: 'restaurant', label: 'مطاعم', icon: '🍔' },
               { key: 'supermarket', label: 'سوبر ماركت', icon: '🛒' },
               { key: 'clothing', label: 'ألبسة وموضة', icon: '👗' },
               { key: 'other', label: 'متاجر أخرى', icon: '🎁' },
-            ].map(tab => {
+            ]).map(tab => {
               const isActive = activeStoreType === tab.key
               return (
                 <button
@@ -478,14 +491,14 @@ export default function PlatformClient({
                     setActiveStoreType(tab.key)
                     setActiveCat(null)
                   }}
-                  className={`shrink-0 flex items-center transition-all duration-300 active:scale-95 ${
+                  className={`flex items-center gap-1.5 rounded-full border transition-all duration-200 shrink-0 font-bold cursor-pointer shadow-2xs ${
                     isScrolled
-                      ? 'gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold'
-                      : 'gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black'
+                      ? 'text-[11px] px-2.5 py-1'
+                      : 'text-xs px-3 py-1.5'
                   } ${
                     isActive
-                      ? 'bg-orange-500 text-white shadow-xs'
-                      : 'bg-slate-800/90 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/60'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-transparent shadow-orange-500/20'
+                      : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700/80'
                   }`}
                 >
                   <span className={isScrolled ? 'text-[11px]' : 'text-xs'}>{tab.icon}</span>

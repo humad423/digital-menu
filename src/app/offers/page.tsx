@@ -14,20 +14,25 @@ export default function AllOffersPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedType, setSelectedType] = useState<string>('all')
+  const [businessTypes, setBusinessTypes] = useState<any[]>([])
 
   const supabase = createClient()
 
   useEffect(() => {
     async function fetchOffers() {
       setLoading(true)
-      const { data } = await supabase
-        .from('offers')
-        .select('*, restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false })
+      const [offRes, btRes] = await Promise.all([
+        supabase
+          .from('offers')
+          .select('*, restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: false }),
+        supabase.from('business_types').select('*').eq('is_active', true).order('sort_order', { ascending: true })
+      ])
 
-      if (data) setOffers(data)
+      if (offRes.data) setOffers(offRes.data)
+      if (btRes.data && btRes.data.length > 0) setBusinessTypes(btRes.data)
       setLoading(false)
     }
     fetchOffers()
@@ -120,13 +125,16 @@ export default function AllOffersPage() {
 
           {/* Business Type Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-0.5 pb-1 -mx-1 px-1">
-            {[
+            {(businessTypes.length > 0 ? [
+              { key: 'all', label: 'الكل', icon: '🛍️' },
+              ...businessTypes.map(bt => ({ key: bt.slug, label: bt.name, icon: bt.icon }))
+            ] : [
               { key: 'all', label: 'الكل', icon: '🛍️' },
               { key: 'restaurant', label: 'مطاعم', icon: '🍔' },
               { key: 'supermarket', label: 'سوبر ماركت', icon: '🛒' },
               { key: 'clothing', label: 'ألبسة وموضة', icon: '👗' },
               { key: 'other', label: 'متاجر أخرى', icon: '🎁' },
-            ].map(tab => {
+            ]).map(tab => {
               const isActive = selectedType === tab.key
               return (
                 <button
