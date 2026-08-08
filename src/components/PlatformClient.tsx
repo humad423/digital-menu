@@ -403,7 +403,7 @@ export default function PlatformClient({
 
   // Check if user is within any active service zone
   const activeServiceZones = (serviceZones || []).filter((z: any) => z.is_active !== false && z.latitude && z.longitude)
-  const isUserInCoverage = activeServiceZones.length === 0 || activeServiceZones.some((z: any) => {
+  const isUserInCoverage = activeServiceZones.length > 0 && activeServiceZones.some((z: any) => {
     const dist = calculateDistance(userLoc.lat, userLoc.lng, Number(z.latitude), Number(z.longitude))
     return dist <= (Number(z.radius_km) || 15)
   })
@@ -547,16 +547,20 @@ export default function PlatformClient({
 
               <div className="space-y-1.5 pt-2">
                 <span className="text-[11px] font-black text-slate-400 block">مناطق التغطية المتاحة حالياً:</span>
-                {activeServiceZones.map((z: any) => (
-                  <button
-                    key={z.id}
-                    onClick={() => handleSelectZone(z)}
-                    className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
-                  >
-                    <span>📍 {z.name}</span>
-                    <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
-                  </button>
-                ))}
+                {activeServiceZones.length === 0 ? (
+                  <p className="text-xs text-slate-400 font-medium py-2">لا توجد مناطق تغطية مضافة في النظام حالياً</p>
+                ) : (
+                  activeServiceZones.map((z: any) => (
+                    <button
+                      key={z.id}
+                      onClick={() => handleSelectZone(z)}
+                      className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
+                    >
+                      <span>📍 {z.name}</span>
+                      <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1141,16 +1145,20 @@ export default function PlatformClient({
 
             <div className="space-y-1.5 pt-2">
               <span className="text-[11px] font-black text-slate-400 block">مناطق التغطية المتاحة حالياً:</span>
-              {activeServiceZones.map((z: any) => (
-                <button
-                  key={z.id}
-                  onClick={() => handleSelectZone(z)}
-                  className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
-                >
-                  <span>📍 {z.name}</span>
-                  <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
-                </button>
-              ))}
+              {activeServiceZones.length === 0 ? (
+                <p className="text-xs text-slate-400 font-medium py-2">لا توجد مناطق تغطية مضافة في النظام حالياً</p>
+              ) : (
+                activeServiceZones.map((z: any) => (
+                  <button
+                    key={z.id}
+                    onClick={() => handleSelectZone(z)}
+                    className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
+                  >
+                    <span>📍 {z.name}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
