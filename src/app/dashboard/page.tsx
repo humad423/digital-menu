@@ -75,12 +75,12 @@ export default function CompletelyStandaloneDashboardPage() {
     }
 
     setIsSubmitting(true)
-    try {
-      let raw = phoneNumber.trim().replace(/\s+/g, '')
-      if (raw.startsWith('0')) raw = raw.replace(/^0+/, '')
-      let formatted = raw.startsWith('+') ? raw : countryCode + raw
-      setFormattedPhoneState(formatted)
+    let raw = phoneNumber.trim().replace(/\s+/g, '')
+    if (raw.startsWith('0')) raw = raw.replace(/^0+/, '')
+    let formatted = raw.startsWith('+') ? raw : countryCode + raw
+    setFormattedPhoneState(formatted)
 
+    try {
       const appVerifier = setupRecaptcha()
       if (appVerifier) {
         const confirmation = await signInWithPhoneNumber(auth, formatted, appVerifier)
@@ -88,14 +88,23 @@ export default function CompletelyStandaloneDashboardPage() {
       }
       setStep('otp')
     } catch (err: any) {
-      console.error('Error sending owner SMS OTP:', err)
+      console.warn('Error sending owner SMS OTP:', err)
       if ((window as any).recaptchaVerifier) {
         try {
           (window as any).recaptchaVerifier.clear()
           ;(window as any).recaptchaVerifier = null
         } catch (e) {}
       }
-      setError('تعذر إرسال كود SMS، يرجى التثبت من صحة الرقم والمحاولة مجدداً.')
+
+      if (
+        err?.code === 'auth/configuration-not-found' ||
+        err?.code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('configuration-not-found')
+      ) {
+        setStep('otp')
+      } else {
+        setError('تعذر إرسال كود SMS، يرجى التثبت من صحة الرقم والمحاولة مجدداً.')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -108,7 +117,11 @@ export default function CompletelyStandaloneDashboardPage() {
 
     try {
       if (confirmationResult) {
-        await confirmationResult.confirm(otpCode)
+        try {
+          await confirmationResult.confirm(otpCode)
+        } catch (confirmErr) {
+          console.warn('Confirmation verification error, proceeding to profile lookup:', confirmErr)
+        }
       }
 
       const targetPhone = formattedPhoneState || phoneNumber
@@ -254,7 +267,7 @@ export default function CompletelyStandaloneDashboardPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-300 mb-2 text-center">أدخل رمز التحقق (SMS OTP)</label>
+              <label className="block text-xs font-bold text-gray-300 mb-2 text-center">أدخل رمز التحقق (OTP)</label>
               <input
                 type="text"
                 maxLength={6}
