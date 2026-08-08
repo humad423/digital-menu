@@ -24,14 +24,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Allow direct access to restaurant-panel and dashboard on all subdomains
-  if (pathname.startsWith('/restaurant-panel') || pathname.startsWith('/dashboard')) {
-    return NextResponse.next()
-  }
-
-  // 1. لوحة السوبر أدمن (Super Admin)
-  // يتعرف على admin.yourdomain.com أو admin-digital-menu.vercel.app
+  // 1. لوحة السوبر أدمن (Super Admin Domain: admin.alfsouq.com)
   if (hostname.startsWith('admin.') || hostname.startsWith('admin-')) {
+    // If admin domain tries to access partner dashboard or restaurant panel, redirect to partner domain
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/restaurant-panel')) {
+      if (hostname.includes('alfsouq.com')) {
+        return NextResponse.redirect(`https://partner.alfsouq.com${pathname}${url.search}`)
+      }
+      return NextResponse.next()
+    }
+
     if (!pathname.startsWith('/admin')) {
       url.pathname = `/admin${pathname === '/' ? '' : pathname}`
       return NextResponse.rewrite(url)
@@ -39,8 +41,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 2. لوحة صاحب المطعم (Restaurant Owner)
-  // يتعرف على partner.yourdomain.com أو partner-digital-menu.vercel.app
+  // 2. لوحة صاحب المطعم (Restaurant Owner Domain: partner.alfsouq.com)
   if (hostname.startsWith('partner.') || hostname.startsWith('partner-') || hostname.startsWith('restaurant.')) {
     if (!pathname.startsWith('/dashboard') && !pathname.startsWith('/restaurant-panel')) {
       url.pathname = `/dashboard${pathname === '/' ? '' : pathname}`

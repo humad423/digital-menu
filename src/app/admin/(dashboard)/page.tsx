@@ -370,8 +370,8 @@ export default function AdminDashboard() {
     }))
 
     const partnerUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
-      ? `https://partner.alfsouq.com/restaurant-panel/${r.id}`
-      : `/restaurant-panel/${r.id}`
+      ? `https://partner.alfsouq.com/restaurant-panel/${r.id}?auth=admin`
+      : `/restaurant-panel/${r.id}?auth=admin`
 
     window.open(partnerUrl, '_blank')
   }
