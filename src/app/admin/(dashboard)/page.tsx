@@ -529,11 +529,17 @@ export default function AdminDashboard() {
                     {/* Images */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="f-label mb-2">لوجو المطعم</label>
+                        <label className="f-label mb-1">لوجو المطعم / المتجر 🖼️</label>
+                        <p className="text-[10px] text-slate-400 font-bold mb-2">
+                          💡 المقاس المثالي: <span className="text-orange-600">500 × 500 بكسل</span> (نسبة 1:1 مربع)
+                        </p>
                         <ImageUpload value={resForm.logo_url} onChange={(url) => setResForm({ ...resForm, logo_url: url })} />
                       </div>
                       <div>
-                        <label className="f-label mb-2">صورة الغلاف</label>
+                        <label className="f-label mb-1">صورة الغلاف 🏙️</label>
+                        <p className="text-[10px] text-slate-400 font-bold mb-2">
+                          💡 المقاس المثالي: <span className="text-orange-600">1200 × 675 بكسل</span> (نسبة 16:9 عريض)
+                        </p>
                         <ImageUpload value={resForm.cover_url} onChange={(url) => setResForm({ ...resForm, cover_url: url })} />
                       </div>
                     </div>
