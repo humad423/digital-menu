@@ -190,9 +190,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [newTier, setNewTier] = useState({ min_km: '', max_km: '', fee: '', is_active: true })
   const [savingTiers, setSavingTiers] = useState(false)
 
-  const fetchData = async () => {
+  const fetchData = async (showFullSpinner = false) => {
     try {
-      setLoading(true)
+      if (showFullSpinner) setLoading(true)
       const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
       if (resData) {
         setRestaurant(resData)
@@ -217,13 +217,13 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     } catch (err) {
       console.error('Error fetching restaurant data:', err)
     } finally {
-      setLoading(false)
+      if (showFullSpinner) setLoading(false)
     }
   }
 
   useEffect(() => {
     if (authenticatedOwner) {
-      fetchData()
+      fetchData(true)
     }
   }, [authenticatedOwner])
 
@@ -238,20 +238,30 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const saveCategory = async (e: React.FormEvent) => {
     e.preventDefault()
     if (editCatId) {
-      await supabase.from('categories').update({ name: editCatName, sort_order: editCatSort }).eq('id', editCatId)
+      setCategories(prev => prev.map(c => c.id === editCatId ? { ...c, name: editCatName, sort_order: editCatSort } : c))
+      const targetEditId = editCatId
+      const targetName = editCatName
+      const targetSort = editCatSort
       setEditCatId(null)
+      await supabase.from('categories').update({ name: targetName, sort_order: targetSort }).eq('id', targetEditId)
     } else {
+      if (!newCatName.trim()) return
       const maxSort = categories.length > 0 ? Math.max(...categories.map(c => c.sort_order || 0)) + 1 : 1
-      await supabase.from('categories').insert([{ restaurant_id: id, name: newCatName, sort_order: maxSort }])
+      const catToInsert = { restaurant_id: id, name: newCatName.trim(), sort_order: maxSort }
       setNewCatName('')
+      const { data } = await supabase.from('categories').insert([catToInsert]).select()
+      if (data && data[0]) {
+        setCategories(prev => [...prev, data[0]])
+      }
     }
-    fetchData()
+    fetchData(false)
   }
 
   const deleteCategory = async (catId: string, name: string) => {
     if (confirm(`حذف القسم "${name}" مع كافة منتجاته؟`)) {
+      setCategories(prev => prev.filter(c => c.id !== catId))
       await supabase.from('categories').delete().eq('id', catId)
-      fetchData()
+      fetchData(false)
     }
   }
 
@@ -319,6 +329,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     }
 
     if (editItemId) {
+      setMenuItems(prev => prev.map(i => i.id === editItemId ? { ...i, ...payload } : i))
       const { error } = await supabase.from('menu_items').update(payload).eq('id', editItemId)
       if (error) {
         alert('خطأ في حفظ المنتج: ' + error.message)
@@ -338,7 +349,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setShowItemForm(false)
     setEditItemId(null)
     setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '' })
-    fetchData()
+    fetchData(false)
   }
 
   const handleEditItem = (item: any) => {
@@ -378,14 +389,17 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const toggleItemAvailability = async (item: any) => {
-    await supabase.from('menu_items').update({ is_available: !item.is_available }).eq('id', item.id)
-    fetchData()
+    const newStatus = !item.is_available
+    setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, is_available: newStatus } : i))
+    await supabase.from('menu_items').update({ is_available: newStatus }).eq('id', item.id)
+    fetchData(false)
   }
 
   const deleteItem = async (id: string, name: string) => {
     if (confirm(`حذف المنتج "${name}"؟`)) {
+      setMenuItems(prev => prev.filter(i => i.id !== id))
       await supabase.from('menu_items').delete().eq('id', id)
-      fetchData()
+      fetchData(false)
     }
   }
 
@@ -468,6 +482,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     }
 
     if (editOfferId) {
+      setOffers(prev => prev.map(o => o.id === editOfferId ? { ...o, ...payload } : o))
       await supabase.from('offers').update(payload).eq('id', editOfferId)
     } else {
       const { data: maxOffer } = await supabase.from('offers').select('sort_order').order('sort_order', { ascending: false }).limit(1)
@@ -483,7 +498,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1',
       title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true
     })
-    fetchData()
+    fetchData(false)
   }
 
   const handleEditOffer = (offer: any) => {
@@ -520,8 +535,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const toggleOfferActive = async (offer: any) => {
-    await supabase.from('offers').update({ is_active: !offer.is_active }).eq('id', offer.id)
-    fetchData()
+    const newStatus = !offer.is_active
+    setOffers(prev => prev.map(o => o.id === offer.id ? { ...o, is_active: newStatus } : o))
+    await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id)
+    fetchData(false)
   }
 
   const deleteOffer = async (offerId: string) => {
