@@ -64,7 +64,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full w-full bg-slate-950 text-slate-900 antialiased overflow-x-hidden">
         <AuthProvider>
           <Suspense fallback={null}>
             <TopProgressBar />
