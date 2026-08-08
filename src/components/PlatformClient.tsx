@@ -12,6 +12,7 @@ import BrandLogo from '@/components/BrandLogo'
 import { calculateDistance, getDeliveryFeeForDistance, isStoreWithinRange } from '@/utils/distance'
 import { getStoreStatus } from '@/utils/storeStatus'
 import { trackEvent } from '@/utils/analytics'
+import Footer from '@/components/Footer'
 
 // ═══════════════════════════════════════════════════════════
 //  ADS SLIDER (Touch + Mouse Drag + Dots + Arrows)
@@ -1163,6 +1164,9 @@ export default function PlatformClient({
           </div>
         </div>
       )}
+
+      {/* Footer Component */}
+      <Footer />
     </div>
   )
 }

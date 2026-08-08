@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import MenuItem from '@/components/MenuItem'
 import { Search, X } from 'lucide-react'
 import { trackEvent } from '@/utils/analytics'
+import Footer from '@/components/Footer'
 
 export default function MenuClient({
   restaurantId,
@@ -218,6 +219,7 @@ export default function MenuClient({
         )}
       </div>
 
+      <Footer />
     </div>
   )
 }
