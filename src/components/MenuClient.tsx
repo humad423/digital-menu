@@ -134,7 +134,7 @@ export default function MenuClient({
     : filteredCats
 
   return (
-    <div className="min-h-screen flex flex-col justify-between">
+    <div className="pb-10">
 
       {/* ── Search Bar ── */}
       <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 border-b border-slate-200/80 shadow-2xs transform-gpu will-change-transform">
@@ -220,18 +220,7 @@ export default function MenuClient({
         )}
       </div>
 
-      {/* Light, Clean Store Menu Footer */}
-      <footer className="mt-12 py-8 px-4 bg-slate-100 border-t border-slate-200 text-center space-y-3 text-xs text-slate-500 dir-rtl">
-        <p className="font-black text-slate-700">{restaurantName || 'المتجر'} • منصة ألف سوق Alfsouq</p>
-        <div className="flex items-center justify-center gap-4 text-[11px] font-bold text-slate-600">
-          <Link href="/privacy" className="hover:text-orange-600 transition">Privacy Policy</Link>
-          <span>•</span>
-          <Link href="/terms" className="hover:text-orange-600 transition">Terms of Service</Link>
-          <span>•</span>
-          <a href="https://wa.me/905352574134" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">الدعم الفني</a>
-        </div>
-        <p className="text-[10px] text-slate-400">© {new Date().getFullYear()} جميع الحقوق محفوظة لمنصة ألف سوق</p>
-      </footer>
+
     </div>
   )
 }

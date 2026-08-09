@@ -680,7 +680,7 @@ export default function PlatformClient({
       </header>
 
       {/* ── MAIN CONTAINER ── */}
-      <main className="max-w-md sm:max-w-lg mx-auto px-4 mt-5 mb-8 space-y-6">
+      <main className="w-full max-w-md sm:max-w-lg mx-auto px-3 sm:px-4 mt-5 mb-8 space-y-6">
 
         {/* Location Notice Banner - shown as long as location is approximate (not granted) */}
         {locationStatus === 'default' && (
@@ -980,7 +980,7 @@ export default function PlatformClient({
                     key={restaurant.id}
                     href={`/m/${restaurant.slug}`}
                     prefetch={true}
-                    className="group bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] active:brightness-95 transition-all duration-150 flex flex-col relative cursor-pointer select-none"
+                    className="group bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] active:brightness-95 transition-all duration-150 flex flex-col relative cursor-pointer select-none w-full"
                   >
                     {/* Cover Header */}
                     <div className="h-44 sm:h-48 w-full bg-slate-900 relative overflow-hidden shrink-0">
@@ -1056,18 +1056,18 @@ export default function PlatformClient({
                           )}
                         </div>
 
-                        <div className="flex-1 min-w-0 pt-0.5">
+                        <div className="flex-1 min-w-0 pt-0.5 overflow-hidden">
                           <div className="flex items-center justify-between gap-1">
-                            <h3 className="text-base font-black text-slate-900 group-hover:text-orange-600 transition-colors truncate">
+                            <h3 className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors truncate leading-tight">
                               {restaurant.name}
                             </h3>
-                            <div className="bg-amber-50 text-amber-900 border border-amber-200/80 px-2 py-0.5 rounded-lg text-xs font-black flex items-center gap-1 shrink-0">
-                              <Star size={11} className="text-amber-500 fill-amber-500" />
+                            <div className="bg-amber-50 text-amber-900 border border-amber-200/80 px-1.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 shrink-0">
+                              <Star size={10} className="text-amber-500 fill-amber-500" />
                               <span>{restaurant.avg_rating || 'جديد'}</span>
                             </div>
                           </div>
                           {restaurantCats.length > 0 && (
-                            <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
+                            <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
                               {restaurantCats.map((c: any) => c.name).join(' · ')}
                             </p>
                           )}
@@ -1075,33 +1075,33 @@ export default function PlatformClient({
                       </div>
 
                       {/* Footer Info: Delivery Fee & Action */}
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                        <div>
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500 flex-wrap">
+                        <div className="min-w-0 flex-1">
                           {restaurant.has_delivery === false ? (
                             <span className="font-bold text-slate-600 flex items-center gap-1">
                               <span>🏪 استلام من الفرع</span>
                             </span>
                           ) : deliveryInfo?.available ? (
-                            <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1">
-                              <Bike size={13} className="text-emerald-600" />
-                              <span>
+                            <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-1 rounded-xl flex items-center gap-1 w-fit max-w-full">
+                              <Bike size={13} className="text-emerald-600 shrink-0" />
+                              <span className="truncate">
                                 {deliveryInfo.hasTiers 
                                   ? `توصيل ${deliveryInfo.fee === 0 ? 'مجاني' : `${deliveryInfo.fee} ₺`}`
                                   : 'يوجد توصيل'
                                 }
                               </span>
                               {restaurant.distance !== null && (
-                                <span className="text-[10px] opacity-75 font-normal">({restaurant.distance.toFixed(1)} كم)</span>
+                                <span className="text-[10px] opacity-75 font-normal shrink-0">({restaurant.distance.toFixed(1)} كم)</span>
                               )}
                             </span>
                           ) : (
-                            <span className="font-bold text-rose-600 bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-xl">
+                            <span className="font-bold text-rose-600 bg-rose-50 border border-rose-200/80 px-2 py-1 rounded-xl text-[11px]">
                               🚫 خارج نطاق التوصيل
                             </span>
                           )}
                         </div>
 
-                        <div className="text-orange-600 font-black flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        <div className="text-orange-600 font-black flex items-center gap-1 group-hover:translate-x-1 transition-transform shrink-0">
                           <span>تصفح المنيو</span>
                           <ChevronLeft size={14} />
                         </div>

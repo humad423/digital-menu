@@ -59,16 +59,14 @@ export default async function Home() {
   })
 
   return (
-    <main className="min-h-screen bg-slate-950 w-full flex flex-col items-center justify-start font-sans" dir="rtl">
-      <div className="w-full max-w-md sm:max-w-lg mx-auto min-h-screen bg-slate-50 shadow-2xl overflow-x-hidden relative flex flex-col justify-between">
-        <PlatformClient 
-          restaurants={restaurantsWithCats}
-          categories={categories || []}
-          ads={ads || []}
-          offers={offers || []}
-          serviceZones={serviceZones || []}
-        />
-      </div>
+    <main className="min-h-screen bg-slate-50 w-full font-sans overflow-x-hidden" dir="rtl">
+      <PlatformClient 
+        restaurants={restaurantsWithCats}
+        categories={categories || []}
+        ads={ads || []}
+        offers={offers || []}
+        serviceZones={serviceZones || []}
+      />
     </main>
   )
 
