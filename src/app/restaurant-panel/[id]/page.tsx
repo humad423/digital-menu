@@ -190,6 +190,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>([])
   const [newTier, setNewTier] = useState({ min_km: '', max_km: '', fee: '', is_active: true })
   const [savingTiers, setSavingTiers] = useState(false)
+  const [savingDelivery, setSavingDelivery] = useState(false)
 
   const fetchData = async (showFullSpinner = false) => {
     try {
@@ -197,11 +198,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
       if (resData) {
         setRestaurant(resData)
-        setDeliveryTiers(resData.delivery_tiers || [
-          { min_km: 0, max_km: 10, fee: 25, is_active: true },
-          { min_km: 10, max_km: 20, fee: 50, is_active: true },
-          { min_km: 20, max_km: 30, fee: 85, is_active: true }
-        ])
+        setDeliveryTiers(resData.delivery_tiers || [])
       }
 
       const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })
@@ -305,6 +302,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setSavingTiers(true)
     await supabase.from('restaurants').update({ delivery_tiers: tiers }).eq('id', id)
     setSavingTiers(false)
+  }
+
+  const toggleDelivery = async () => {
+    const newVal = restaurant?.has_delivery === false ? true : false
+    setSavingDelivery(true)
+    setRestaurant((prev: any) => ({ ...prev, has_delivery: newVal }))
+    await supabase.from('restaurants').update({ has_delivery: newVal }).eq('id', id)
+    setSavingDelivery(false)
   }
 
   // ── Items CRUD ──────────────────────────────────────────────────
@@ -820,13 +825,27 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 </div>
               </div>
 
-              {/* Delivery Tiers Card (Available for all store types with delivery) */}
-              {restaurant?.has_delivery !== false && (
-                <div className="c-card">
-                  <div className="c-card-header">
-                    <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
+              {/* Delivery Tiers Card (Always visible - with toggle to enable/disable delivery) */}
+              <div className="c-card">
+                <div className="c-card-header">
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
+                  <div className="flex items-center gap-2">
                     {savingTiers && <span className="text-xs text-orange-500 font-bold animate-pulse">حفظ...</span>}
+                    {/* has_delivery toggle */}
+                    <button
+                      onClick={toggleDelivery}
+                      disabled={savingDelivery}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer disabled:opacity-60 ${
+                        restaurant?.has_delivery !== false
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      }`}
+                    >
+                      <span>{restaurant?.has_delivery !== false ? '🛵' : '🚫'}</span>
+                      <span>{savingDelivery ? 'جاري...' : restaurant?.has_delivery !== false ? 'التوصيل مفعّل' : 'التوصيل معطّل'}</span>
+                    </button>
                   </div>
+                </div>
                   <div className="c-card-body">
                     <form onSubmit={handleAddTier} className="space-y-3 mb-4 bg-orange-50 p-3 rounded-2xl border border-orange-100">
                       <div className="grid grid-cols-3 gap-2">
@@ -871,8 +890,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
 
             {/* ── RIGHT MAIN: Items + Offers ── */}
             <div className="lg:col-span-2 space-y-6">

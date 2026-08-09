@@ -106,8 +106,8 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
         </div>
       )}
 
-      {/* 3. Delivery Fee & Distance Info Banner (When Open & Within Delivery Radius) */}
-      {status.isOpen && !outOfRadius && deliveryInfo && deliveryInfo.available && restaurant.has_delivery !== false && (
+      {/* 3. Delivery Fee & Distance Info Banner (Only when tiers are configured AND fee is known) */}
+      {status.isOpen && !outOfRadius && deliveryInfo && deliveryInfo.available && deliveryInfo.hasTiers && restaurant.has_delivery !== false && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3 px-4 flex items-center justify-between gap-3 text-emerald-950 shadow-2xs">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
