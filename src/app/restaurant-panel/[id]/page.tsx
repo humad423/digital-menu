@@ -758,9 +758,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           {/* Panel Stats */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5 animate-fade-in-up">
             {[
-              { label: 'الأقسام', value: categories.length, color: '#3B82F6', emoji: '📁' },
-              { label: terms.itemLabel, value: menuItems.length, color: '#10B981', emoji: '🍱' },
               { label: 'العروض', value: offers.length, color: '#F97316', emoji: '🔥' },
+              { label: terms.itemLabel, value: menuItems.length, color: '#10B981', emoji: '🍱' },
+              { label: 'الأقسام', value: categories.length, color: '#3B82F6', emoji: '📁' },
             ].map(s => (
               <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-200/80 shadow-xs flex items-center justify-center sm:justify-start gap-2 sm:gap-3 text-center sm:text-right">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 hidden sm:flex" style={{ background: s.color + '18' }}>{s.emoji}</div>
@@ -775,127 +775,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           {/* ══════════ MAIN GRID ══════════ */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up">
 
-            {/* ── LEFT SIDEBAR: Categories + Delivery ── */}
-            <div className="space-y-5 lg:col-span-1">
-
-              {/* Categories Card */}
-              <div className="c-card">
-                <div className="c-card-header">
-                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>📁</span> {terms.subCatsHeader}</h3>
-                  <span className="badge badge-gray">{categories.length}</span>
-                </div>
-                <div className="c-card-body">
-                  <form onSubmit={saveCategory} className="flex gap-2 mb-4">
-                    <input
-                      type="text" required
-                      placeholder="قسم جديد..."
-                      value={editCatId ? editCatName : newCatName}
-                      onChange={e => editCatId ? setEditCatName(e.target.value) : setNewCatName(e.target.value)}
-                      className="f-input flex-1"
-                    />
-                    <button type="submit" className="btn btn-dark btn-sm shrink-0">
-                      {editCatId ? 'حفظ' : <Plus size={16} />}
-                    </button>
-                    {editCatId && (
-                      <button type="button" onClick={() => setEditCatId(null)} className="btn btn-ghost btn-sm"><X size={14} /></button>
-                    )}
-                  </form>
-                  <div className="space-y-2">
-                    {categories.map(cat => (
-                      <div key={cat.id} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition">
-                        <div>
-                          <span className="font-bold text-sm text-slate-800">{cat.name}</span>
-                          <span className="text-xs text-slate-400 mr-2">{menuItems.filter(m => m.category_id === cat.id).length} {terms.countUnit}</span>
-                        </div>
-                        <div className="flex gap-1">
-                          <button onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setEditCatSort(cat.sort_order || 0) }}
-                            className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100 p-1.5">
-                            <Edit size={13} />
-                          </button>
-                          <button onClick={() => deleteCategory(cat.id, cat.name)} className="btn btn-danger btn-sm p-1.5">
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {categories.length === 0 && (
-                      <p className="text-center text-slate-400 text-sm py-4">أضف أول قسم للمنيو</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Delivery Tiers Card (Always visible - with toggle to enable/disable delivery) */}
-              <div className="c-card">
-                <div className="c-card-header">
-                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
-                  <div className="flex items-center gap-2">
-                    {savingTiers && <span className="text-xs text-orange-500 font-bold animate-pulse">حفظ...</span>}
-                    {/* has_delivery toggle */}
-                    <button
-                      onClick={toggleDelivery}
-                      disabled={savingDelivery}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer disabled:opacity-60 ${
-                        restaurant?.has_delivery !== false
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                      }`}
-                    >
-                      <span>{restaurant?.has_delivery !== false ? '🛵' : '🚫'}</span>
-                      <span>{savingDelivery ? 'جاري...' : restaurant?.has_delivery !== false ? 'التوصيل مفعّل' : 'التوصيل معطّل'}</span>
-                    </button>
-                  </div>
-                </div>
-                  <div className="c-card-body">
-                    <form onSubmit={handleAddTier} className="space-y-3 mb-4 bg-orange-50 p-3 rounded-2xl border border-orange-100">
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { label: 'من (كم)', key: 'min_km', placeholder: '0' },
-                          { label: 'إلى (كم)', key: 'max_km', placeholder: '10' },
-                          { label: 'الأجرة TL', key: 'fee', placeholder: '25' },
-                        ].map(f => (
-                          <div key={f.key}>
-                            <label className="f-label">{f.label}</label>
-                            <input type="number" step="0.5" required placeholder={f.placeholder}
-                              value={(newTier as any)[f.key]}
-                              onChange={e => setNewTier({ ...newTier, [f.key]: e.target.value })}
-                              className="f-input" />
-                          </div>
-                        ))}
-                      </div>
-                      <button type="submit" className="btn btn-primary w-full">
-                        <Plus size={15} /> إضافة شريحة
-                      </button>
-                    </form>
-
-                    <div className="space-y-2">
-                      {deliveryTiers.map((tier, idx) => (
-                        <div key={idx} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                          <div>
-                            <p className="font-black text-xs text-slate-800">{tier.min_km} – {tier.max_km} كم</p>
-                            <p className="text-xs text-orange-500 font-bold">{tier.fee} TL</p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <button onClick={() => toggleTierActive(idx)}
-                              className={`badge cursor-pointer ${tier.is_active ? 'badge-green' : 'badge-red'}`}>
-                              {tier.is_active ? 'مفعّل' : 'معطّل'}
-                            </button>
-                            <button onClick={() => deleteTier(idx)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={13} /></button>
-                          </div>
-                        </div>
-                      ))}
-                      {deliveryTiers.length === 0 && (
-                        <p className="text-center text-slate-400 text-xs py-3">لا توجد شرائح توصيل بعد</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>{/* ── END LEFT SIDEBAR ── */}
-
-            {/* ── RIGHT MAIN: Items + Offers ── */}
+            {/* ── MAIN SECTION: Offers + Products ── */}
             <div className="lg:col-span-2 space-y-6">
 
-              {/* OFFERS SECTION */}
+              {/* 1. OFFERS SECTION */}
               <div className="c-card border-t-4 border-t-orange-400">
                 <div className="c-card-header">
                   <div>
@@ -1108,7 +991,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 </div>
               </div>
 
-              {/* MENU ITEMS SECTION */}
+              {/* 2. MENU ITEMS SECTION */}
               <div className="c-card">
                 <div className="c-card-header">
                   <div>
@@ -1129,7 +1012,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
                 {categories.length === 0 && (
                   <div className="mx-4 mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-700 text-sm font-bold text-center">
-                    ⚠️ أضف قسماً فرعياً من القائمة اليسرى أولاً
+                    ⚠️ أضف قسماً فرعياً من قائمة أقسام المتجر في الأسفل أولاً
                   </div>
                 )}
 
@@ -1300,6 +1183,125 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
               </div>
 
             </div>
+
+            {/* ── SIDEBAR SECTION: Delivery + Categories ── */}
+            <div className="space-y-5 lg:col-span-1">
+
+              {/* 3. Delivery Tiers Card */}
+              <div className="c-card">
+                <div className="c-card-header">
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>🛵</span> شرائح التوصيل</h3>
+                  <div className="flex items-center gap-2">
+                    {savingTiers && <span className="text-xs text-orange-500 font-bold animate-pulse">حفظ...</span>}
+                    {/* has_delivery toggle */}
+                    <button
+                      onClick={toggleDelivery}
+                      disabled={savingDelivery}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer disabled:opacity-60 ${
+                        restaurant?.has_delivery !== false
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      }`}
+                    >
+                      <span>{restaurant?.has_delivery !== false ? '🛵' : '🚫'}</span>
+                      <span>{savingDelivery ? 'جاري...' : restaurant?.has_delivery !== false ? 'التوصيل مفعّل' : 'التوصيل معطّل'}</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="c-card-body">
+                  <form onSubmit={handleAddTier} className="space-y-3 mb-4 bg-orange-50 p-3 rounded-2xl border border-orange-100">
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'من (كم)', key: 'min_km', placeholder: '0' },
+                        { label: 'إلى (كم)', key: 'max_km', placeholder: '10' },
+                        { label: 'الأجرة TL', key: 'fee', placeholder: '25' },
+                      ].map(f => (
+                        <div key={f.key}>
+                          <label className="f-label">{f.label}</label>
+                          <input type="number" step="0.5" required placeholder={f.placeholder}
+                            value={(newTier as any)[f.key]}
+                            onChange={e => setNewTier({ ...newTier, [f.key]: e.target.value })}
+                            className="f-input" />
+                        </div>
+                      ))}
+                    </div>
+                    <button type="submit" className="btn btn-primary w-full">
+                      <Plus size={15} /> إضافة شريحة
+                    </button>
+                  </form>
+
+                  <div className="space-y-2">
+                    {deliveryTiers.map((tier, idx) => (
+                      <div key={idx} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <div>
+                          <p className="font-black text-xs text-slate-800">{tier.min_km} – {tier.max_km} كم</p>
+                          <p className="text-xs text-orange-500 font-bold">{tier.fee} TL</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => toggleTierActive(idx)}
+                            className={`badge cursor-pointer ${tier.is_active ? 'badge-green' : 'badge-red'}`}>
+                            {tier.is_active ? 'مفعّل' : 'معطّل'}
+                          </button>
+                          <button onClick={() => deleteTier(idx)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                    ))}
+                    {deliveryTiers.length === 0 && (
+                      <p className="text-center text-slate-400 text-xs py-3">لا توجد شرائح توصيل بعد</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Categories Card */}
+              <div className="c-card">
+                <div className="c-card-header">
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>📁</span> {terms.subCatsHeader}</h3>
+                  <span className="badge badge-gray">{categories.length}</span>
+                </div>
+                <div className="c-card-body">
+                  <form onSubmit={saveCategory} className="flex gap-2 mb-4">
+                    <input
+                      type="text" required
+                      placeholder="قسم جديد..."
+                      value={editCatId ? editCatName : newCatName}
+                      onChange={e => editCatId ? setEditCatName(e.target.value) : setNewCatName(e.target.value)}
+                      className="f-input flex-1"
+                    />
+                    <button type="submit" className="btn btn-dark btn-sm shrink-0">
+                      {editCatId ? 'حفظ' : <Plus size={16} />}
+                    </button>
+                    {editCatId && (
+                      <button type="button" onClick={() => setEditCatId(null)} className="btn btn-ghost btn-sm"><X size={14} /></button>
+                    )}
+                  </form>
+                  <div className="space-y-2">
+                    {categories.map(cat => (
+                      <div key={cat.id} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition">
+                        <div>
+                          <span className="font-bold text-sm text-slate-800">{cat.name}</span>
+                          <span className="text-xs text-slate-400 mr-2">{menuItems.filter(m => m.category_id === cat.id).length} {terms.countUnit}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setEditCatSort(cat.sort_order || 0) }}
+                            className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100 p-1.5">
+                            <Edit size={13} />
+                          </button>
+                          <button onClick={() => deleteCategory(cat.id, cat.name)} className="btn btn-danger btn-sm p-1.5">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {categories.length === 0 && (
+                      <p className="text-center text-slate-400 text-sm py-4">أضف أول قسم للمنيو</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
           </div>
         </div>
       </main>
