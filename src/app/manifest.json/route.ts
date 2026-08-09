@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
       scope: "/",
       display: "standalone",
       display_override: ["standalone", "minimal-ui"],
-      background_color: "#0F172A",
-      theme_color: "#F97316",
+      background_color: "#052e16",
+      theme_color: "#16a34a",
       orientation: "portrait-primary",
       dir: "rtl",
       lang: "ar",
@@ -30,13 +30,13 @@ export async function GET(request: NextRequest) {
       prefer_related_applications: false,
       icons: [
         {
-          src: "/icon-192.png",
+          src: "/partner-icon-192.png",
           sizes: "192x192",
           type: "image/png",
           purpose: "any maskable"
         },
         {
-          src: "/icon-512.png",
+          src: "/partner-icon-512.png",
           sizes: "512x512",
           type: "image/png",
           purpose: "any maskable"
