@@ -890,6 +890,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     </div>
                   </div>
                 </div>
+              </div>{/* ── END LEFT SIDEBAR ── */}
 
             {/* ── RIGHT MAIN: Items + Offers ── */}
             <div className="lg:col-span-2 space-y-6">

@@ -10,6 +10,7 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
   const [deliveryInfo, setDeliveryInfo] = useState<{
     available: boolean
     fee: number
+    hasTiers: boolean
     distanceKm: number | null
     tierName?: string
   } | null>(null)
