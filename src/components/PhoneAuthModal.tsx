@@ -28,20 +28,29 @@ export default function PhoneAuthModal() {
       setInfoMessage(null)
       setLoading(false)
       setConfirmationResult(null)
+
+      // Pre-initialize and render reCAPTCHA in background for instant click response
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && !recaptchaVerifierRef.current) {
+          try {
+            recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+              size: 'invisible',
+              callback: () => {}
+            })
+            recaptchaVerifierRef.current.render().catch(() => {})
+          } catch (e) {}
+        }
+      }, 100)
     }
   }, [isAuthModalOpen])
 
   if (!isAuthModalOpen) return null
 
-  // Setup Invisible Recaptcha for Firebase
   const setupRecaptcha = () => {
     if (typeof window !== 'undefined' && !recaptchaVerifierRef.current) {
       try {
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {
-            console.log('reCAPTCHA verified successfully')
-          }
+          size: 'invisible'
         })
       } catch (err) {
         console.warn('reCAPTCHA setup notice:', err)

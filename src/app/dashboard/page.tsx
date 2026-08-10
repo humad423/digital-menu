@@ -38,6 +38,18 @@ export default function CompletelyStandaloneDashboardPage() {
       } catch (e) {}
     }
     setLoading(false)
+
+    // Pre-render recaptcha in background
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && !recaptchaRef.current) {
+        try {
+          recaptchaRef.current = new RecaptchaVerifier(auth, 'dashboard-recaptcha', {
+            size: 'invisible'
+          })
+          recaptchaRef.current.render().catch(() => {})
+        } catch (e) {}
+      }
+    }, 200)
   }, [router])
 
   const handlePhoneChange = (val: string) => {
