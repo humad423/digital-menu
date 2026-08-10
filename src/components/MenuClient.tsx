@@ -225,7 +225,14 @@ export default function MenuClient({
               {/* Always single column - mobile-first experience */}
               <div className="grid grid-cols-1 gap-3.5">
                 {cat.items.map((item: any) => (
-                  <MenuItem key={item.id} item={item} restaurantId={restaurantId} storeType={storeType} hasDelivery={restaurant?.has_delivery !== false} />
+                  <MenuItem
+                    key={item.id}
+                    item={item}
+                    restaurantId={restaurantId}
+                    storeType={storeType}
+                    hasDelivery={restaurant?.has_delivery !== false}
+                    enableWhatsappOrders={restaurant?.enable_whatsapp_orders !== false}
+                  />
                 ))}
               </div>
             </section>

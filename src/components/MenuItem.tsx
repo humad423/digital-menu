@@ -21,12 +21,14 @@ export default function MenuItem({
   item,
   restaurantId,
   storeType = 'restaurant',
-  hasDelivery = true
+  hasDelivery = true,
+  enableWhatsappOrders = true
 }: {
   item: Item
   restaurantId: string
   storeType?: string
   hasDelivery?: boolean
+  enableWhatsappOrders?: boolean
 }) {
   const addItem       = useCartStore(s => s.addItem)
   const updateQty     = useCartStore(s => s.updateQuantity)
@@ -230,7 +232,7 @@ export default function MenuItem({
             </div>
 
             {/* Add / Qty Buttons OR Kilo Button */}
-            {hasDelivery === false ? (
+            {enableWhatsappOrders === false ? null : hasDelivery === false ? (
               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200/60">
                 🏪 استلام فقط
               </span>
@@ -531,15 +533,17 @@ export default function MenuItem({
                 <span className="text-xs text-slate-400 font-bold block">السعر</span>
                 <span className="text-lg font-black text-orange-500">{item.price} ₺ {isKiloItem && '/ كغ'}</span>
               </div>
-              <button
-                onClick={() => {
-                  handleAdd()
-                  setShowGallery(false)
-                }}
-                className="bg-orange-500 hover:bg-orange-600 text-white font-black px-6 py-2.5 rounded-2xl text-xs flex items-center gap-2 transition shadow-md"
-              >
-                <Plus size={16} /> إضافة للسلة
-              </button>
+              {enableWhatsappOrders !== false && (
+                <button
+                  onClick={() => {
+                    handleAdd()
+                    setShowGallery(false)
+                  }}
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-black px-6 py-2.5 rounded-2xl text-xs flex items-center gap-2 transition shadow-md"
+                >
+                  <Plus size={16} /> إضافة للسلة
+                </button>
+              )}
             </div>
           </div>
         </div>
