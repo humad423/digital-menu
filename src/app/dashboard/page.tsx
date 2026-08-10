@@ -61,12 +61,17 @@ export default function CompletelyStandaloneDashboardPage() {
   }
 
   const setupRecaptcha = () => {
-    if (!recaptchaRef.current) {
-      try {
-        recaptchaRef.current = new RecaptchaVerifier(auth, 'dashboard-recaptcha', {
-          size: 'invisible'
-        })
-      } catch (e) {}
+    if (typeof window !== 'undefined') {
+      const elem = document.getElementById('dashboard-recaptcha')
+      if (elem && !recaptchaRef.current) {
+        try {
+          recaptchaRef.current = new RecaptchaVerifier(auth, 'dashboard-recaptcha', {
+            size: 'invisible'
+          })
+        } catch (e) {
+          console.warn('Dashboard recaptcha setup error:', e)
+        }
+      }
     }
   }
 
@@ -178,6 +183,9 @@ export default function CompletelyStandaloneDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black flex items-center justify-center p-5 dir-rtl text-white">
+      {/* Invisible Recaptcha Container */}
+      <div id="dashboard-recaptcha"></div>
+
       <div className="w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
         {/* Decorative ambient glow */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
