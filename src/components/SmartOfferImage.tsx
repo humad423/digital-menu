@@ -28,8 +28,8 @@ export default function SmartOfferImage({
   // If store owner explicitly uploaded a custom offer image, show it
   if (hasCustomImage && customImage && customImage.trim() !== '') {
     return (
-      <div className={`relative overflow-hidden bg-slate-100 ${className}`}>
-        <img src={customImage} alt="" className="w-full h-full object-cover" />
+      <div className={`relative overflow-hidden bg-slate-100 animate-pulse-none ${className}`}>
+        <img src={customImage} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
       </div>
     )
   }
@@ -60,7 +60,7 @@ export default function SmartOfferImage({
   if (images.length === 1) {
     return (
       <div className={`relative overflow-hidden bg-slate-100 ${className}`}>
-        <img src={images[0]} alt="" className="w-full h-full object-cover" />
+        <img src={images[0]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
         {minQuantity > 1 && (
           <div className="absolute top-2 right-2 bg-slate-950/80 backdrop-blur-md text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/20">
             {minQuantity}x
@@ -75,10 +75,10 @@ export default function SmartOfferImage({
     return (
       <div className={`relative overflow-hidden bg-slate-200 grid grid-cols-2 gap-0.5 ${className}`}>
         <div className="w-full h-full overflow-hidden relative">
-          <img src={images[0]} alt="" className="w-full h-full object-cover" />
+          <img src={images[0]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
         </div>
         <div className="w-full h-full overflow-hidden relative">
-          <img src={images[1]} alt="" className="w-full h-full object-cover" />
+          <img src={images[1]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
         </div>
       </div>
     )
@@ -89,14 +89,14 @@ export default function SmartOfferImage({
     return (
       <div className={`relative overflow-hidden bg-slate-200 grid grid-cols-2 gap-0.5 ${className}`}>
         <div className="w-full h-full overflow-hidden relative">
-          <img src={images[0]} alt="" className="w-full h-full object-cover" />
+          <img src={images[0]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
         </div>
         <div className="grid grid-rows-2 gap-0.5 w-full h-full">
           <div className="w-full h-full overflow-hidden relative">
-            <img src={images[1]} alt="" className="w-full h-full object-cover" />
+            <img src={images[1]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
           </div>
           <div className="w-full h-full overflow-hidden relative">
-            <img src={images[2]} alt="" className="w-full h-full object-cover" />
+            <img src={images[2]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
           </div>
         </div>
       </div>
@@ -108,7 +108,7 @@ export default function SmartOfferImage({
     <div className={`relative overflow-hidden bg-slate-200 grid grid-cols-2 grid-rows-2 gap-0.5 ${className}`}>
       {images.slice(0, 4).map((img, idx) => (
         <div key={idx} className="w-full h-full overflow-hidden relative">
-          <img src={img} alt="" className="w-full h-full object-cover" />
+          <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
         </div>
       ))}
     </div>

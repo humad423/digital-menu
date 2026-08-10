@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import MenuItem from '@/components/MenuItem'
 import { Search, X } from 'lucide-react'
@@ -43,6 +43,15 @@ export default function MenuClient({
   }, [categories])
 
   useEffect(() => {
+    if (restaurantId && (categories.length > 0 || menuItems.length > 0)) {
+      try {
+        const cacheData = { categories, menuItems, offers, timestamp: Date.now() }
+        localStorage.setItem(`alfsouq_menu_cache_${restaurantId}`, JSON.stringify(cacheData))
+      } catch (e) {}
+    }
+  }, [restaurantId, categories, menuItems, offers])
+
+  useEffect(() => {
     if (restaurantId) {
       trackEvent({ event_type: 'menu_view', store_id: restaurantId })
     }
@@ -54,17 +63,18 @@ export default function MenuClient({
     if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 110, behavior: 'smooth' })
   }
 
-  const filteredCats = categories.map(cat => ({
-    ...cat,
-    items: menuItems.filter(i =>
-      i.category_id === cat.id &&
-      (i.name.includes(searchQuery) || (i.description && i.description.includes(searchQuery)))
-    )
-  })).filter(c => c.items.length > 0)
+  const displayCats = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    const filteredCats = categories.map(cat => ({
+      ...cat,
+      items: menuItems.filter(i =>
+        i.category_id === cat.id &&
+        (!query || i.name.toLowerCase().includes(query) || (i.description && i.description.toLowerCase().includes(query)))
+      )
+    })).filter(c => c.items.length > 0)
 
-  // Merge special offers into categories if exists
-  const displayCats = offers.length > 0 && !searchQuery
-    ? [{
+    if (offers.length > 0 && !query) {
+      return [{
         id: 'offers-special',
         name: 'العروض والتخفيضات',
         icon: '🔥',
@@ -131,7 +141,10 @@ export default function MenuClient({
           }
         })
       }, ...filteredCats]
-    : filteredCats
+    }
+
+    return filteredCats
+  }, [categories, menuItems, offers, searchQuery])
 
   return (
     <div className="pb-10">
