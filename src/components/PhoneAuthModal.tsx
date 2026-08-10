@@ -73,6 +73,7 @@ export default function PhoneAuthModal() {
       setupRecaptcha()
       const appVerifier = recaptchaVerifierRef.current!
 
+      auth.languageCode = 'ar'
       const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier)
       setConfirmationResult(confirmation)
       setInfoMessage(`تم إرسال كود التفعيل عبر رسالة نصية SMS إلى الرقم (${formattedPhone}) 📱`)

@@ -93,6 +93,7 @@ export default function CompletelyStandaloneDashboardPage() {
     try {
       setupRecaptcha()
       const appVerifier = recaptchaRef.current!
+      auth.languageCode = 'ar'
       const confirmation = await signInWithPhoneNumber(auth, formatted, appVerifier)
       setConfirmationResult(confirmation)
       setInfoMessage(`تم إرسال كود التفعيل عبر رسالة نصية SMS إلى الرقم (${formatted}) 📱`)
