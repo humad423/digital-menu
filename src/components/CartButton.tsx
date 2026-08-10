@@ -49,35 +49,38 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
 
     let locationUrl: string | null = null
 
-    if (shareLocation) {
-      let savedLat: number | null = null
-      let savedLng: number | null = null
+    // Always attempt to fetch location for admin order tracking
+    let savedLat: number | null = null
+    let savedLng: number | null = null
 
-      try {
-        const storedLocStr = localStorage.getItem('user_location')
-        if (storedLocStr) {
-          const parsed = JSON.parse(storedLocStr)
-          if (parsed.lat && parsed.lng) {
-            savedLat = Number(parsed.lat)
-            savedLng = Number(parsed.lng)
-          }
+    try {
+      const storedLocStr = localStorage.getItem('user_location') || localStorage.getItem('alfsouq_user_loc')
+      if (storedLocStr) {
+        const parsed = JSON.parse(storedLocStr)
+        if (parsed.lat && parsed.lng) {
+          savedLat = Number(parsed.lat)
+          savedLng = Number(parsed.lng)
         }
-      } catch (e) {}
+      }
+    } catch (e) {}
 
-      if (savedLat && savedLng) {
-        locationUrl = `https://www.google.com/maps?q=${savedLat},${savedLng}`
-      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 6000,
-              maximumAge: 300000
-            })
+    if (savedLat && savedLng) {
+      locationUrl = `https://www.google.com/maps?q=${savedLat},${savedLng}`
+    } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 5000,
+            maximumAge: 300000
           })
-          const { latitude: lat, longitude: lng } = pos.coords
-          locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
-        } catch (err) {
+        })
+        const { latitude: lat, longitude: lng } = pos.coords
+        locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
+        try { localStorage.setItem('user_location', JSON.stringify({ lat, lng })) } catch (e) {}
+      } catch (err) {
+        // If shareLocation was explicitly checked and position couldn't be resolved, inform user
+        if (shareLocation) {
           setError('تعذر تحديد موقعك الحالي تلقائياً. يمكنك إلغاء خيار (إرفاق موقعي) وإرسال الطلب مباشرة.')
           setChecking(false)
           return
@@ -103,7 +106,7 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
       const text = items.map(i => `${i.quantity}x ${i.name} (${(i.price * i.quantity).toFixed(2)} ₺)`).join('\n')
       let msg = `مرحباً مطعم ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺`
 
-      if (locationUrl) {
+      if (shareLocation && locationUrl) {
         msg += `\n\n📍 موقعي:\n${locationUrl}`
       }
 
