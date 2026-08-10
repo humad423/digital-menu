@@ -17,11 +17,15 @@ export const DAYS_OF_WEEK = [
   { key: 'السبت', label: 'السبت' },
 ]
 
-export function getNowInTimezone(timeZone = 'Europe/Istanbul') {
+export function getNowInTimezone(overrideTimeZone?: string) {
   try {
     const now = new Date()
+    // On client (browser), automatically detect the exact timezone of the visitor's device!
+    // On server (SSR), default to GMT+3 ('Europe/Istanbul') instead of UTC.
+    const userTimeZone = overrideTimeZone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'Europe/Istanbul')
+
     const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone,
+      timeZone: userTimeZone,
       weekday: 'short',
       hour: 'numeric',
       minute: 'numeric',
@@ -44,14 +48,14 @@ export function getNowInTimezone(timeZone = 'Europe/Istanbul') {
     }
 
     const dayIndex = dayMap[weekdayStr] !== undefined ? dayMap[weekdayStr] : now.getDay()
-    return { dayIndex, hour, minute }
+    return { dayIndex, hour, minute, userTimeZone }
   } catch (e) {
     const now = new Date()
-    return { dayIndex: now.getDay(), hour: now.getHours(), minute: now.getMinutes() }
+    return { dayIndex: now.getDay(), hour: now.getHours(), minute: now.getMinutes(), userTimeZone: 'local' }
   }
 }
 
-export function getStoreStatus(restaurant: any, targetTimeZone = 'Europe/Istanbul'): StoreStatus {
+export function getStoreStatus(restaurant: any, targetTimeZone?: string): StoreStatus {
   if (!restaurant) {
     return {
       isOpen: true,
@@ -74,7 +78,7 @@ export function getStoreStatus(restaurant: any, targetTimeZone = 'Europe/Istanbu
     }
   }
 
-  // 2. Check weekly days off (in local timezone)
+  // 2. Check weekly days off (in visitor device / local timezone)
   const { dayIndex, hour, minute } = getNowInTimezone(targetTimeZone)
   const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
   const currentDayName = ARABIC_DAYS[dayIndex]
