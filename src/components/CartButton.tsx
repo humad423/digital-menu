@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext'
 import { getStoreStatus } from '@/utils/storeStatus'
 
 type Restaurant = Pick<Database['public']['Tables']['restaurants']['Row'], 'id' | 'name' | 'whatsapp_number' | 'latitude' | 'longitude' | 'delivery_radius_km'> & {
+  enable_whatsapp_orders?: boolean | null
   is_active?: boolean
   is_holiday?: boolean
   holiday_message?: string
@@ -32,6 +33,7 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
   const totalItems = items.reduce((a, i) => a + i.quantity, 0)
   const totalPrice = items.reduce((a, i) => a + i.price * i.quantity, 0)
 
+  if (restaurant.enable_whatsapp_orders === false) return null
   if (!items.length) return null
 
   const handleCheckout = async () => {

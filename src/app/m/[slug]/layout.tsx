@@ -29,7 +29,7 @@ export default async function RestaurantLayout({
   const supabase = await createClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_on_holiday, opening_time, closing_time, days_off')
+    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -144,7 +144,19 @@ export default async function RestaurantLayout({
         {children}
       </main>
 
-      {restaurant.has_delivery === false ? (
+      {restaurant.enable_whatsapp_orders === false ? (
+        <div className="fixed bottom-4 left-0 right-0 z-40 px-4 max-w-md sm:max-w-lg mx-auto">
+          <div className="bg-slate-900 text-white rounded-2xl p-3 px-4 shadow-xl border border-slate-800 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base shrink-0">📖</span>
+              <div className="min-w-0">
+                <p className="font-black text-xs text-white truncate">تصفح وعرض المنيو فقط</p>
+                <p className="text-[10px] text-slate-400 font-medium truncate">خيار استقبال الطلبات عبر الواتساب مغلق حالياً لهذا المتجر</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : restaurant.has_delivery === false ? (
         <div className="fixed bottom-4 left-0 right-0 z-40 px-4 max-w-md sm:max-w-lg mx-auto">
           <div className="bg-slate-900 text-white rounded-2xl p-3 px-4 shadow-xl border border-slate-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">

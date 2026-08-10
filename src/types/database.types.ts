@@ -25,6 +25,7 @@ export interface Database {
           delivery_radius_km: number | null
           store_type: string | null
           has_delivery: boolean | null
+          enable_whatsapp_orders: boolean | null
         }
         Insert: {
           id?: string
@@ -41,6 +42,7 @@ export interface Database {
           delivery_radius_km?: number | null
           store_type?: string | null
           has_delivery?: boolean | null
+          enable_whatsapp_orders?: boolean | null
         }
         Update: {
           id?: string
@@ -57,6 +59,7 @@ export interface Database {
           delivery_radius_km?: number | null
           store_type?: string | null
           has_delivery?: boolean | null
+          enable_whatsapp_orders?: boolean | null
         }
       }
       categories: {

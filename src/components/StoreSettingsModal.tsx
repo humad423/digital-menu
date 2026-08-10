@@ -32,6 +32,7 @@ export default function StoreSettingsModal({
   )
   const [isOnHoliday, setIsOnHoliday] = useState<boolean>(!!restaurant?.is_on_holiday)
   const [holidayMessage, setHolidayMessage] = useState(restaurant?.holiday_message || '')
+  const [enableWhatsappOrders, setEnableWhatsappOrders] = useState<boolean>(restaurant?.enable_whatsapp_orders !== false)
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(Number(restaurant?.delivery_radius_km) || 15)
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>(
     Array.isArray(restaurant?.delivery_tiers) ? restaurant.delivery_tiers : []
@@ -53,6 +54,7 @@ export default function StoreSettingsModal({
       setDaysOff(Array.isArray(restaurant.days_off) ? restaurant.days_off : [])
       setIsOnHoliday(!!restaurant.is_on_holiday)
       setHolidayMessage(restaurant.holiday_message || '')
+      setEnableWhatsappOrders(restaurant.enable_whatsapp_orders !== false)
       setDeliveryRadiusKm(Number(restaurant.delivery_radius_km) || 15)
       setDeliveryTiers(Array.isArray(restaurant.delivery_tiers) ? restaurant.delivery_tiers : [])
       setErrorMsg('')
@@ -120,6 +122,7 @@ export default function StoreSettingsModal({
       closing_time: closingTime,
       days_off: daysOff,
       is_on_holiday: isOnHoliday,
+      enable_whatsapp_orders: enableWhatsappOrders,
       delivery_radius_km: deliveryRadiusKm,
       delivery_tiers: deliveryTiers
     }
@@ -206,6 +209,27 @@ export default function StoreSettingsModal({
                 className="f-input text-xs font-bold bg-white"
               />
             )}
+          </div>
+
+          {/* WhatsApp Order Toggle */}
+          <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0">
+                💬
+              </div>
+              <div>
+                <h4 className="font-black text-xs text-slate-900">تفعيل زر الطلب عبر الواتساب</h4>
+                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                  عند إيقاف هذا الخيار، سيظهر المنيو للزوار للعرض والتصفح فقط ولن يظهر زر إرسال الطلب.
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={enableWhatsappOrders}
+              onChange={e => setEnableWhatsappOrders(e.target.checked)}
+              className="w-5 h-5 accent-emerald-600 rounded cursor-pointer shrink-0"
+            />
           </div>
 
           {/* Basic Info */}

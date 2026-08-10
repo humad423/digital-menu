@@ -312,6 +312,15 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setSavingDelivery(false)
   }
 
+  const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false)
+  const toggleWhatsappOrders = async () => {
+    const newVal = restaurant?.enable_whatsapp_orders === false ? true : false
+    setSavingWhatsappToggle(true)
+    setRestaurant((prev: any) => ({ ...prev, enable_whatsapp_orders: newVal }))
+    await supabase.from('restaurants').update({ enable_whatsapp_orders: newVal }).eq('id', id)
+    setSavingWhatsappToggle(false)
+  }
+
   // ── Items CRUD ──────────────────────────────────────────────────
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1186,6 +1195,36 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
             {/* ── SIDEBAR SECTION: Delivery + Categories ── */}
             <div className="space-y-5 lg:col-span-1">
+
+              {/* Quick Control: WhatsApp Orders */}
+              <div className="c-card p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0">
+                      💬
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-black text-xs text-slate-800">الطلب عبر الواتساب</h4>
+                      <p className="text-[10px] text-slate-400 font-bold truncate">
+                        {restaurant?.enable_whatsapp_orders !== false ? 'مفعّل (يستقبل طلبات)' : 'معطّل (للعرض والتصفح فقط)'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={toggleWhatsappOrders}
+                    disabled={savingWhatsappToggle}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer shrink-0 disabled:opacity-60 ${
+                      restaurant?.enable_whatsapp_orders !== false
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                        : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                    }`}
+                  >
+                    <span>{restaurant?.enable_whatsapp_orders !== false ? '✓' : '✕'}</span>
+                    <span>{savingWhatsappToggle ? 'جاري...' : restaurant?.enable_whatsapp_orders !== false ? 'زر الطلب مفعّل' : 'زر الطلب متوقف'}</span>
+                  </button>
+                </div>
+              </div>
 
               {/* 3. Delivery Tiers Card */}
               <div className="c-card">
