@@ -171,7 +171,7 @@ export interface Database {
           restaurant_id: string
           total_price: number
           items: Json
-          location_url: string
+          location_url: string | null
           status: string
         }
         Insert: {
@@ -180,7 +180,7 @@ export interface Database {
           restaurant_id: string
           total_price: number
           items: Json
-          location_url: string
+          location_url?: string | null
           status?: string
         }
         Update: {
@@ -189,7 +189,7 @@ export interface Database {
           restaurant_id?: string
           total_price?: number
           items?: Json
-          location_url?: string
+          location_url?: string | null
           status?: string
         }
       }
