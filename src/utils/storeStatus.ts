@@ -17,7 +17,41 @@ export const DAYS_OF_WEEK = [
   { key: 'السبت', label: 'السبت' },
 ]
 
-export function getStoreStatus(restaurant: any): StoreStatus {
+export function getNowInTimezone(timeZone = 'Europe/Istanbul') {
+  try {
+    const now = new Date()
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'short',
+      hour: 'numeric',
+      minute: 'numeric',
+      hourCycle: 'h23'
+    })
+    const parts = formatter.formatToParts(now)
+
+    let weekdayStr = ''
+    let hour = now.getHours()
+    let minute = now.getMinutes()
+
+    for (const part of parts) {
+      if (part.type === 'weekday') weekdayStr = part.value
+      if (part.type === 'hour') hour = parseInt(part.value, 10)
+      if (part.type === 'minute') minute = parseInt(part.value, 10)
+    }
+
+    const dayMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6
+    }
+
+    const dayIndex = dayMap[weekdayStr] !== undefined ? dayMap[weekdayStr] : now.getDay()
+    return { dayIndex, hour, minute }
+  } catch (e) {
+    const now = new Date()
+    return { dayIndex: now.getDay(), hour: now.getHours(), minute: now.getMinutes() }
+  }
+}
+
+export function getStoreStatus(restaurant: any, targetTimeZone = 'Europe/Istanbul'): StoreStatus {
   if (!restaurant) {
     return {
       isOpen: true,
@@ -28,7 +62,7 @@ export function getStoreStatus(restaurant: any): StoreStatus {
     }
   }
 
-  // 1. Check manual holiday override
+  // 1. Check manual holiday override (Emergency holiday)
   if (restaurant.is_on_holiday) {
     return {
       isOpen: false,
@@ -36,15 +70,14 @@ export function getStoreStatus(restaurant: any): StoreStatus {
       statusText: 'في عطلة 🌴',
       badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
       dotClass: 'bg-amber-500',
-      subText: 'عطلة مؤقتة',
+      subText: restaurant.holiday_message || 'عطلة مؤقتة',
     }
   }
 
-  // 2. Check weekly days off
-  const now = new Date()
-  const currentDayIndex = now.getDay() // 0 = Sunday, 1 = Monday...
+  // 2. Check weekly days off (in local timezone)
+  const { dayIndex, hour, minute } = getNowInTimezone(targetTimeZone)
   const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
-  const currentDayName = ARABIC_DAYS[currentDayIndex]
+  const currentDayName = ARABIC_DAYS[dayIndex]
   const daysOff = Array.isArray(restaurant.days_off) ? restaurant.days_off : []
 
   if (daysOff.includes(currentDayName)) {
@@ -62,7 +95,7 @@ export function getStoreStatus(restaurant: any): StoreStatus {
   const openTime = restaurant.opening_time || '09:00'
   const closeTime = restaurant.closing_time || '23:00'
 
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const currentMinutes = hour * 60 + minute
 
   const [openH, openM] = openTime.split(':').map(Number)
   const openMinutes = (openH || 0) * 60 + (openM || 0)
@@ -75,7 +108,7 @@ export function getStoreStatus(restaurant: any): StoreStatus {
     // Normal schedule e.g., 09:00 to 23:00
     isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes
   } else {
-    // Overnight schedule e.g., 18:00 to 02:00
+    // Overnight schedule e.g., 18:00 to 02:00 AM
     isOpen = currentMinutes >= openMinutes || currentMinutes < closeMinutes
   }
 
