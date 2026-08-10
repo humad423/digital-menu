@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import MenuItem from '@/components/MenuItem'
 import { Search, X } from 'lucide-react'
-import { trackEvent } from '@/utils/analytics'
+import { trackEvent, usePageDurationTracker } from '@/utils/analytics'
 import Footer from '@/components/Footer'
 
 export default function MenuClient({
@@ -56,6 +56,8 @@ export default function MenuClient({
       trackEvent({ event_type: 'menu_view', store_id: restaurantId })
     }
   }, [restaurantId])
+
+  usePageDurationTracker({ store_id: restaurantId, store_slug: restaurant?.slug })
 
   const scrollTo = (id: string) => {
     setActiveCat(id)
