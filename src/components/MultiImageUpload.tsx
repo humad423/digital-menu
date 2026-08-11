@@ -3,6 +3,36 @@
 import { useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
 
+function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', quality))
+        } else {
+          resolve(e.target?.result as string)
+        }
+      }
+      img.onerror = () => resolve(e.target?.result as string)
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function MultiImageUpload({
   images = [],
   onChange
@@ -62,12 +92,8 @@ export default function MultiImageUpload({
         if (data?.secure_url) {
           newUrls.push(data.secure_url)
         } else {
-          // Fallback base64
-          const base64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (event) => resolve(event.target?.result as string)
-            reader.readAsDataURL(file)
-          })
+          // Fallback to compressed base64
+          const base64 = await compressImageToBase64(file)
           if (base64) newUrls.push(base64)
         }
       } catch (err) {

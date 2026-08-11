@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { ArrowRight, MapPin } from 'lucide-react'
 import { getStoreStatus } from '@/utils/storeStatus'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -134,6 +134,27 @@ export default async function RestaurantLayout({
                 <StoreDeliveryBadge restaurant={restaurant} />
               </div>
             </div>
+
+            {/* Google Maps Store Location Button */}
+            {(() => {
+              const hasCoords = restaurant.latitude && restaurant.longitude && Number(restaurant.latitude) !== 0
+              const mapUrl = hasCoords 
+                ? `https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`
+                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.name)}`
+              
+              return (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-orange-50 hover:bg-orange-500 hover:text-white border border-orange-200/80 text-orange-600 transition-all duration-150 active:scale-95 shadow-2xs group"
+                  title="فتح موقع المحل على الخرائط"
+                >
+                  <MapPin size={18} className="group-hover:scale-110 transition-transform" />
+                  <span className="text-[9px] font-black mt-0.5 whitespace-nowrap">الخريطة</span>
+                </a>
+              )
+            })()}
           </div>
         </div>
       </div>

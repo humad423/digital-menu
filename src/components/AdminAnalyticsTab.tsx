@@ -38,9 +38,9 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     setLoading(true)
     const { data } = await supabase
       .from('analytics_events')
-      .select('*')
+      .select('id, event_type, store_id, store_slug, ad_id, referrer, utm_source, device_type, visitor_id, session_id, session_duration_seconds, created_at')
       .order('created_at', { ascending: false })
-      .limit(5000)
+      .limit(2000)
 
     if (data) setEvents(data)
     setLoading(false)

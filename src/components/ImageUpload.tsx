@@ -3,6 +3,36 @@
 import { useState } from 'react'
 import { ImagePlus, X, Link as LinkIcon, Upload } from 'lucide-react'
 
+function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', quality))
+        } else {
+          resolve(e.target?.result as string)
+        }
+      }
+      img.onerror = () => resolve(e.target?.result as string)
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function ImageUpload({ 
   value, 
   onChange 
@@ -56,14 +86,10 @@ export default function ImageUpload({
       if (data?.secure_url) {
         onChange(data.secure_url)
       } else {
-        // Fallback to FileReader base64 if Cloudinary returns an error
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          const base64Url = event.target?.result as string
-          if (base64Url) onChange(base64Url)
-          setUploading(false)
-        }
-        reader.readAsDataURL(file)
+        // Fallback to compressed base64 if Cloudinary returns an error
+        const compressedBase64 = await compressImageToBase64(file)
+        if (compressedBase64) onChange(compressedBase64)
+        setUploading(false)
         return
       }
     } catch (err) {

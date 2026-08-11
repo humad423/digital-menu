@@ -177,7 +177,7 @@ export default function AllOffersPage() {
                 <Link
                   key={offer.id}
                   href={`/m/${res.slug}`}
-                  prefetch={true}
+                  prefetch={false}
                   className="group bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] active:brightness-95 transition-all duration-150 overflow-hidden block relative flex flex-col justify-between cursor-pointer select-none"
                 >
                   {/* Offer Badge */}

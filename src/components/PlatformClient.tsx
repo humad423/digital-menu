@@ -748,7 +748,7 @@ export default function PlatformClient({
                   <Link
                     key={`ranked-${offer.id}`}
                     href={`/m/${res.slug}`}
-                    prefetch={true}
+                    prefetch={false}
                     className="w-60 sm:w-64 shrink-0 bg-white rounded-2xl border border-orange-200/60 shadow-2xs hover:shadow-md transition-all duration-150 active:scale-[0.97] active:brightness-95 overflow-hidden snap-start block relative cursor-pointer select-none"
                   >
                     {/* Offer Badge */}
@@ -830,7 +830,7 @@ export default function PlatformClient({
                   <Link
                     key={`latest-${offer.id}`}
                     href={`/m/${res.slug}`}
-                    prefetch={true}
+                    prefetch={false}
                     className="w-60 sm:w-64 shrink-0 bg-white rounded-2xl border border-blue-200/60 shadow-2xs hover:shadow-md transition-all duration-150 active:scale-[0.97] active:brightness-95 overflow-hidden snap-start block relative cursor-pointer select-none"
                   >
                     {/* New Badge */}
@@ -979,7 +979,7 @@ export default function PlatformClient({
                   <Link
                     key={restaurant.id}
                     href={`/m/${restaurant.slug}`}
-                    prefetch={true}
+                    prefetch={false}
                     className="group bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] active:brightness-95 transition-all duration-150 flex flex-col relative cursor-pointer select-none w-full"
                   >
                     {/* Cover Header */}
