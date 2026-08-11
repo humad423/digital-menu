@@ -22,12 +22,12 @@ export default async function RestaurantMenuPage({
   }
 
   const [
-    { data: categories },
+    { data: rawCategories },
     { data: offers }
   ] = await Promise.all([
     supabase
       .from('categories')
-      .select('*')
+      .select('*, menu_items(*)')
       .eq('restaurant_id', restaurant.id)
       .order('sort_order', { ascending: true }),
 
@@ -39,15 +39,10 @@ export default async function RestaurantMenuPage({
       .order('created_at', { ascending: false })
   ])
 
-  const categoryIds = categories?.map(c => c.id) || []
-
-  const { data: menuItems } = categoryIds.length > 0
-    ? await supabase
-        .from('menu_items')
-        .select('*')
-        .in('category_id', categoryIds)
-        .eq('is_available', true)
-    : { data: [] }
+  const categories = rawCategories?.map(({ menu_items, ...cat }) => cat) || []
+  const menuItems = rawCategories
+    ?.flatMap(cat => (cat.menu_items || []) as any[])
+    .filter(item => item.is_available !== false) || []
 
   if (!categories || categories.length === 0) {
     return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر قيد التجهيز حالياً...</div>
