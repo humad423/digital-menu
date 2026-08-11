@@ -21,6 +21,7 @@ export default function PhoneAuthModal() {
 
   useEffect(() => {
     if (isAuthModalOpen) {
+      auth.languageCode = 'ar'
       setStep('phone')
       setPhoneNumber('')
       setOtpCode('')
@@ -33,6 +34,7 @@ export default function PhoneAuthModal() {
       setTimeout(() => {
         if (typeof window !== 'undefined' && !recaptchaVerifierRef.current) {
           try {
+            auth.languageCode = 'ar'
             recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
               size: 'invisible',
               callback: () => {}
@@ -49,6 +51,7 @@ export default function PhoneAuthModal() {
   const setupRecaptcha = () => {
     if (typeof window !== 'undefined' && !recaptchaVerifierRef.current) {
       try {
+        auth.languageCode = 'ar'
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible'
         })

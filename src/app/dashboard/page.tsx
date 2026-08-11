@@ -43,6 +43,7 @@ export default function CompletelyStandaloneDashboardPage() {
     setTimeout(() => {
       if (typeof window !== 'undefined' && !recaptchaRef.current) {
         try {
+          auth.languageCode = 'ar'
           recaptchaRef.current = new RecaptchaVerifier(auth, 'dashboard-recaptcha', {
             size: 'invisible'
           })
@@ -65,6 +66,7 @@ export default function CompletelyStandaloneDashboardPage() {
       const elem = document.getElementById('dashboard-recaptcha')
       if (elem && !recaptchaRef.current) {
         try {
+          auth.languageCode = 'ar'
           recaptchaRef.current = new RecaptchaVerifier(auth, 'dashboard-recaptcha', {
             size: 'invisible'
           })
