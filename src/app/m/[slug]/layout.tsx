@@ -8,6 +8,7 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, MapPin } from 'lucide-react'
 import { getStoreStatus } from '@/utils/storeStatus'
+import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 
 export const revalidate = 60
 
@@ -68,7 +69,7 @@ export default async function RestaurantLayout({
       <div className="relative">
         <div className="h-44 sm:h-52 w-full bg-slate-900 relative overflow-hidden">
           {restaurant.cover_url ? (
-            <img src={restaurant.cover_url} alt="" className="w-full h-full object-cover opacity-90" />
+            <img src={getOptimizedImageUrl(restaurant.cover_url, 1000)} alt="" className="w-full h-full object-cover opacity-90" />
           ) : (
             <div
               className="w-full h-full opacity-90"
@@ -105,7 +106,7 @@ export default async function RestaurantLayout({
             {/* Logo */}
             <div className="w-14 h-14 rounded-2xl bg-white p-1 border-2 border-slate-100 shadow-xs shrink-0 overflow-hidden">
               {restaurant.logo_url ? (
-                <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-xl" />
+                <img src={getOptimizedImageUrl(restaurant.logo_url, 200)} alt="" className="w-full h-full object-contain rounded-xl" />
               ) : (
                 <div
                   className="w-full h-full rounded-xl flex items-center justify-center text-lg font-black text-white"

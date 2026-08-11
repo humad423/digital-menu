@@ -5,6 +5,7 @@ import { useCartStore } from '@/store/cartStore'
 import { Plus, Minus, ChevronLeft, ChevronRight, X, Layers, Scale, DollarSign, ShoppingBag } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import SmartOfferImage from '@/components/SmartOfferImage'
+import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 
 type Item = Database['public']['Tables']['menu_items']['Row'] & {
   primary_image_url?: string
@@ -153,7 +154,7 @@ export default function MenuItem({
                 className="w-full h-full"
               />
             ) : (
-              <img src={imageList[0] || item.image_url!} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
+              <img src={getOptimizedImageUrl(imageList[0] || item.image_url, 600)} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
             )}
 
             {/* Discount Badge for Supermarket */}
