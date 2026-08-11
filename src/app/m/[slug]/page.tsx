@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createPublicClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
 
@@ -10,7 +10,7 @@ export default async function RestaurantMenuPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('id, name, store_type, has_delivery, primary_color, cover_url, logo_url')

@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zaxnwqyrdkbquvtkqvyd.supabase.co'
@@ -28,4 +29,13 @@ export async function createClient() {
       },
     }
   )
+}
+
+/**
+ * Public Supabase Client for uncached public pages (Menu, Homepage, Offers, Reviews).
+ * Avoids invoking cookies() so Next.js can cache responses at Vercel's Edge CDN,
+ * reducing Vercel Fast Origin Transfer usage by ~95%.
+ */
+export function createPublicClient() {
+  return createSupabaseClient<any>(supabaseUrl, supabaseAnonKey)
 }

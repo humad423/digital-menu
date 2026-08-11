@@ -1,10 +1,10 @@
-import { createClient } from '@/utils/supabase/server'
+import { createPublicClient } from '@/utils/supabase/server'
 import PlatformClient from '@/components/PlatformClient'
 
 export const revalidate = 60
 
 export default async function Home() {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const [
     { data: restaurants },

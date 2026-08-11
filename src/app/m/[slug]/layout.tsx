@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createPublicClient } from '@/utils/supabase/server'
 import CartButton from '@/components/CartButton'
 import UserAuthButton from '@/components/UserAuthButton'
 import RestaurantRating from '@/components/RestaurantRating'
@@ -15,7 +15,7 @@ export const revalidate = 60
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data: r } = await supabase.from('restaurants').select('name').eq('slug', slug).maybeSingle()
   return { title: r ? `${r.name} | مِنيو` : 'مطعم غير موجود' }
 }
@@ -28,7 +28,7 @@ export default async function RestaurantLayout({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off')

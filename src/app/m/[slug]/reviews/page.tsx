@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createPublicClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import ReviewsClient from './ReviewsClient'
 
@@ -6,7 +6,7 @@ export const revalidate = 60
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('name')
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function RestaurantReviewsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data: restaurant } = await supabase
     .from('restaurants')
