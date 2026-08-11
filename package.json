@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "icons:pwa": "node generate-pwa-icons.mjs",
+    "icons:partner": "node generate-partner-icons.mjs",
+    "icons:all": "node generate-pwa-icons.mjs && node generate-partner-icons.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

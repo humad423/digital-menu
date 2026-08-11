@@ -14,6 +14,9 @@ export default function InstallPwaPrompt() {
   const [isStandalone, setIsStandalone] = useState(false)
   const [installing, setInstalling] = useState(false)
 
+  const isPartnerPage = pathname.startsWith('/dashboard') || pathname.startsWith('/restaurant-panel') || pathname.startsWith('/admin')
+  const isEligiblePage = pathname === '/' || isPartnerPage
+
   useEffect(() => {
     // 1. Check if already installed in standalone mode
     const isStandaloneApp = typeof window !== 'undefined' && (
@@ -42,13 +45,14 @@ export default function InstallPwaPrompt() {
     let timer: NodeJS.Timeout | null = null
 
     const scheduleShowPrompt = () => {
-      if (pathname === '/') {
-        const sessionDismissed = sessionStorage.getItem('alfsouq_pwa_dismissed')
+      if (isEligiblePage) {
+        const dismissKey = isPartnerPage ? 'alfsouq_partner_pwa_dismissed' : 'alfsouq_pwa_dismissed'
+        const sessionDismissed = sessionStorage.getItem(dismissKey)
         if (!sessionDismissed) {
           if (timer) clearTimeout(timer)
           timer = setTimeout(() => {
             setShowPrompt(true)
-          }, 5000)
+          }, 4000)
         }
       }
     }
@@ -80,7 +84,7 @@ export default function InstallPwaPrompt() {
       scheduleShowPrompt()
     }
 
-    if (pathname === '/' && isIosDevice) {
+    if (isEligiblePage && isIosDevice) {
       scheduleShowPrompt()
     }
 
@@ -89,7 +93,7 @@ export default function InstallPwaPrompt() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [pathname])
+  }, [pathname, isEligiblePage, isPartnerPage])
 
   const handleInstallClick = async () => {
     const promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPrompt || deferredRef.current
@@ -114,18 +118,30 @@ export default function InstallPwaPrompt() {
 
   const handleDismiss = () => {
     setShowPrompt(false)
-    sessionStorage.setItem('alfsouq_pwa_dismissed', 'true')
+    const dismissKey = isPartnerPage ? 'alfsouq_partner_pwa_dismissed' : 'alfsouq_pwa_dismissed'
+    sessionStorage.setItem(dismissKey, 'true')
   }
 
-  // Hide banner if NOT on Homepage (/) OR running in native standalone app
-  if (pathname !== '/' || isStandalone || !showPrompt) return null
+  // Hide banner if NOT eligible page OR running in native standalone app
+  if (!isEligiblePage || isStandalone || !showPrompt) return null
+
+  const iconSrc = isPartnerPage ? '/partner-icon-192.png' : '/icon-192.png'
+  const title = isPartnerPage ? 'ثبّت تطبيق لوحة الشريك' : 'ثبّت تطبيق "ألف سوق"'
+  const description = isPartnerPage
+    ? 'إدارة الطلبات، المنيو، وتلقي التنبيهات الفورية بنقرة واحدة من شاشة الهاتف.'
+    : 'تصفح أسرع، وصول بنقرة واحدة من شاشة الهاتف، ودعم تصفح بدون إنترنت.'
+  const borderStyle = isPartnerPage ? 'border-emerald-500/30' : 'border-orange-500/30'
+  const glowStyle = isPartnerPage ? 'bg-emerald-500/20' : 'bg-orange-500/20'
+  const buttonStyle = isPartnerPage
+    ? 'bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600'
+    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600'
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto dir-rtl animate-slide-up">
       <div className="bg-slate-900/95 backdrop-blur-xl text-white rounded-3xl p-4 border border-slate-700/80 shadow-2xl relative overflow-hidden">
         
         {/* Background glow */}
-        <div className="absolute -top-10 -right-10 w-28 h-28 bg-orange-500/20 rounded-full blur-2xl pointer-events-none" />
+        <div className={`absolute -top-10 -right-10 w-28 h-28 ${glowStyle} rounded-full blur-2xl pointer-events-none`} />
 
         <button
           onClick={handleDismiss}
@@ -136,28 +152,28 @@ export default function InstallPwaPrompt() {
         </button>
 
         <div className="flex items-start gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 p-0.5 shadow-md shrink-0 flex items-center justify-center text-white font-black text-xl">
-            📲
+          <div className={`w-13 h-13 rounded-2xl overflow-hidden shadow-lg border ${borderStyle} shrink-0 bg-slate-950 flex items-center justify-center`}>
+            <img src={iconSrc} alt={title} className="w-full h-full object-cover" />
           </div>
 
           <div className="flex-1 min-w-0 pr-1">
             <h4 className="font-black text-sm text-white flex items-center gap-1.5 mb-0.5">
-              <span>ثبّت تطبيق "ألف سوق"</span>
-              <Sparkles size={14} className="text-amber-400" />
+              <span>{title}</span>
+              <Sparkles size={14} className={isPartnerPage ? 'text-emerald-400' : 'text-amber-400'} />
             </h4>
             <p className="text-xs text-slate-300 font-medium leading-relaxed">
-              تصفح أسرع، وصول بنقرة واحدة من شاشة الهاتف، ودعم تصفح بدون إنترنت.
+              {description}
             </p>
 
             {/* iOS Instructions */}
             {isIos ? (
               <div className="mt-3 bg-slate-800/80 rounded-2xl p-2.5 border border-slate-700 text-[11px] font-bold text-slate-200 space-y-1">
-                <div className="flex items-center gap-1.5 text-amber-400">
+                <div className={`flex items-center gap-1.5 ${isPartnerPage ? 'text-emerald-400' : 'text-amber-400'}`}>
                   <Share size={13} />
                   <span>لتثبيت التطبيق على آيفون:</span>
                 </div>
                 <p className="text-slate-300">
-                  اضغط على زر المشاركة <Share size={12} className="inline mx-0.5 text-orange-400" /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">"إضافة إلى الشاشة الرئيسية ➕"</span>.
+                  اضغط على زر المشاركة <Share size={12} className={`inline mx-0.5 ${isPartnerPage ? 'text-emerald-400' : 'text-orange-400'}`} /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">"إضافة إلى الشاشة الرئيسية ➕"</span>.
                 </p>
               </div>
             ) : (
@@ -165,7 +181,7 @@ export default function InstallPwaPrompt() {
               <button
                 onClick={handleInstallClick}
                 disabled={installing}
-                className="mt-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer disabled:opacity-75"
+                className={`mt-3 w-full ${buttonStyle} text-white font-black text-xs py-2.5 px-4 rounded-2xl shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer disabled:opacity-75`}
               >
                 {installing ? (
                   <>

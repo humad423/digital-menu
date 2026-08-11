@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+import sharp from 'sharp'
+import path from 'path'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <!-- Vibrant Radiant Orange Gradient -->
     <linearGradient id="pwaBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -69,4 +77,37 @@
     <!-- Dash Right -->
     <rect x="98" y="-4" width="20" height="4" rx="2" fill="#FFFFFF"/>
   </g>
-</svg>
+</svg>`
+
+async function run() {
+  const publicDir = path.join(__dirname, 'public')
+  
+  fs.writeFileSync(path.join(publicDir, 'icon.svg'), svgContent)
+  fs.writeFileSync(path.join(publicDir, 'pwa-icon.svg'), svgContent)
+
+  const svgBuffer = Buffer.from(svgContent)
+
+  await sharp(svgBuffer)
+    .resize(512, 512)
+    .png()
+    .toFile(path.join(publicDir, 'icon-512.png'))
+
+  await sharp(svgBuffer)
+    .resize(192, 192)
+    .png()
+    .toFile(path.join(publicDir, 'icon-192.png'))
+
+  await sharp(svgBuffer)
+    .resize(180, 180)
+    .png()
+    .toFile(path.join(publicDir, 'apple-touch-icon.png'))
+
+  await sharp(svgBuffer)
+    .resize(192, 192)
+    .png()
+    .toFile(path.join(publicDir, 'shortcut-192.png'))
+
+  console.log('✅ Generated all PWA icons successfully!')
+}
+
+run().catch(console.error)
