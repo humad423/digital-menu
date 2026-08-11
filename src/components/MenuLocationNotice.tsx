@@ -49,20 +49,21 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
         }
       } catch (e) {}
 
-      // If no stored location, fetch approximate IP-based location silently in background
+      // If no stored location, fetch approximate IP-based location silently
       if (!userLat || !userLng) {
         try {
-          const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ar')
+          // Provider 1: ipwho.is (Highly accurate for Middle East & Turkey)
+          const res = await fetch('https://ipwho.is/')
           const data = await res.json()
-          if (data && data.latitude && data.longitude) {
+          if (data && data.success !== false && data.latitude && data.longitude) {
             userLat = Number(data.latitude)
             userLng = Number(data.longitude)
             isPrecise = false
           }
         } catch (e) {
-          // Fallback to IP-API
           try {
-            const res = await fetch('https://ipapi.co/json/')
+            // Provider 2: BigDataCloud
+            const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ar')
             const data = await res.json()
             if (data && data.latitude && data.longitude) {
               userLat = Number(data.latitude)
@@ -178,14 +179,17 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
   // Render Warning Notice if user is outside delivery range (Very light subtle top bar)
   if (!outOfRangeInfo) return null
 
+  const isFarDistance = outOfRangeInfo.distanceKm > 150
+  const formattedDistanceText = isFarDistance
+    ? 'خارج نطاق التوصيل التقريبي • يمكن التصفح والطلب'
+    : `خارج نطاق التوصيل التقريبي (${outOfRangeInfo.distanceKm.toFixed(1)} كم) • يمكن التصفح والطلب`
+
   return (
     <div className="w-full bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-md text-amber-950 px-3 py-1.5 flex items-center justify-between gap-2 text-[11px] font-bold animate-fade-in dir-rtl">
       {/* Text & Icon */}
       <div className="flex items-center gap-1.5 min-w-0">
         <AlertTriangle size={14} className="text-amber-600 shrink-0" />
-        <span className="truncate">
-          خارج نطاق التوصيل التقريبي ({outOfRangeInfo.distanceKm.toFixed(1)} كم) • يمكن التصفح والطلب
-        </span>
+        <span className="truncate">{formattedDistanceText}</span>
       </div>
 
       {/* Buttons */}
