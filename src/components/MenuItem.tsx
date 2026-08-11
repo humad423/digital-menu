@@ -126,16 +126,16 @@ export default function MenuItem({
 
   return (
     <>
-      <div className={`rounded-2xl border p-3 flex gap-3 shadow-xs hover:shadow-md transition-all relative ${
+      <div className={`rounded-3xl border p-3.5 flex gap-3.5 shadow-2xs hover:shadow-md transition-all duration-200 active:scale-[0.99] relative overflow-hidden select-none ${
         isOffer
-          ? 'bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-white border-orange-400/60 shadow-orange-500/5'
-          : 'bg-white border-slate-200/80'
+          ? 'bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-white border-orange-400/70 shadow-orange-500/10'
+          : 'bg-white border-slate-200/90'
       }`}>
         {/* Image */}
         {hasImage && (
           <div
             onClick={() => imageList.length > 1 && setShowGallery(true)}
-            className={`w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-xl overflow-hidden bg-slate-100 relative ${
+            className={`w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 relative shadow-2xs ${
               imageList.length > 1 ? 'cursor-pointer group' : ''
             }`}
           >
@@ -187,12 +187,12 @@ export default function MenuItem({
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-1">
-              <h3 className="font-black text-sm text-slate-900 truncate">{item.name}</h3>
+              <h3 className="font-black text-sm sm:text-base text-slate-900 truncate tracking-tight">{item.name}</h3>
               {imageList.length > 1 && (
                 <button
                   type="button"
                   onClick={() => setShowGallery(true)}
-                  className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 shrink-0"
+                  className="text-[10px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-2 py-0.5 rounded-full border border-orange-200 shrink-0 transition"
                 >
                   معرض الصور 📸
                 </button>
@@ -210,7 +210,7 @@ export default function MenuItem({
               <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                 <span className="text-[10px] text-slate-400 font-bold">القياسات:</span>
                 {sizesList.map((sz, i) => (
-                  <span key={i} className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
+                  <span key={i} className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-md border border-slate-200">
                     {sz}
                   </span>
                 ))}
@@ -218,10 +218,10 @@ export default function MenuItem({
             )}
           </div>
 
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between mt-3 pt-1">
             {/* Price */}
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="text-base font-black text-orange-600">
+              <span className="text-base sm:text-lg font-black text-orange-600">
                 {item.price} ₺ {isKiloItem && <span className="text-xs font-bold text-slate-400">/ كغ</span>}
               </span>
               {item.original_price && item.original_price > item.price && (
@@ -233,13 +233,13 @@ export default function MenuItem({
 
             {/* Add / Qty Buttons OR Kilo Button */}
             {enableWhatsappOrders === false ? null : hasDelivery === false ? (
-              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200/60">
+              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-xl border border-slate-200/60">
                 🏪 استلام فقط
               </span>
             ) : isKiloItem ? (
               <button
                 onClick={() => setShowKiloModal(true)}
-                className="px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                className="px-3.5 py-1.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
               >
                 <Scale size={13} />
                 <span>حدد الكمية</span>
@@ -247,7 +247,7 @@ export default function MenuItem({
             ) : qty === 0 ? (
               <button
                 onClick={handleAdd}
-                className={`w-9 h-9 rounded-full text-white flex items-center justify-center shadow-sm transition active:scale-90 ${
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl text-white flex items-center justify-center shadow-xs hover:shadow-md transition-all duration-150 active:scale-90 ${
                   popped ? 'scale-110' : ''
                 }`}
                 style={{ background: 'var(--color-primary, #F97316)' }}
@@ -257,19 +257,19 @@ export default function MenuItem({
               </button>
             ) : (
               <div
-                className="flex items-center gap-1.5 px-2 py-1 rounded-full text-white"
+                className="flex items-center gap-1.5 p-1 rounded-2xl text-white shadow-xs"
                 style={{ background: 'var(--color-primary, #F97316)' }}
               >
                 <button
                   onClick={() => updateQty(item.id, qty - 1)}
-                  className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center active:scale-90 transition"
+                  className="w-7 h-7 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center active:scale-90 transition"
                 >
                   <Minus size={13} strokeWidth={2.5} />
                 </button>
-                <span className="font-black text-xs min-w-[16px] text-center">{qty}</span>
+                <span className="font-black text-xs min-w-[18px] text-center">{qty}</span>
                 <button
                   onClick={handleAdd}
-                  className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center active:scale-90 transition"
+                  className="w-7 h-7 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center active:scale-90 transition"
                 >
                   <Plus size={13} strokeWidth={2.5} />
                 </button>

@@ -166,13 +166,13 @@ export default function MenuClient({
             }
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 shadow-2xs transition"
+            className="w-full bg-white border border-slate-200/90 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 shadow-2xs transition-all"
           />
           <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition p-1"
             >
               <X size={15} />
             </button>
@@ -180,22 +180,22 @@ export default function MenuClient({
         </div>
       </div>
 
-      {/* ── Category Pill Tabs ── */}
+      {/* ── Category Pill Tabs (Mobile Optimized Horizontal Scroll) ── */}
       {!searchQuery && categories.length > 1 && (
-        <div className="sticky top-[54px] z-20 bg-slate-50/95 backdrop-blur-md py-2 border-b border-slate-200/60 flex gap-2 overflow-x-auto hide-scrollbar transform-gpu will-change-transform">
+        <div className="sticky top-[54px] z-20 bg-slate-50/95 backdrop-blur-md py-2.5 -mx-4 px-4 border-b border-slate-200/70 flex gap-2 overflow-x-auto hide-scrollbar scroll-smooth transform-gpu will-change-transform">
           {displayCats.map(cat => {
             const isActive = activeCat === cat.id
             return (
               <button
                 key={cat.id}
                 onClick={() => scrollTo(cat.id)}
-                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
+                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black transition-all duration-200 active:scale-95 select-none ${
                   isActive
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    ? 'bg-slate-900 text-white shadow-xs ring-2 ring-slate-900/20 scale-[1.02]'
+                    : 'bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-100/80 shadow-2xs'
                 }`}
               >
-                <span>{cat.id === 'offers-special' ? '🔥' : (cat.icon || '🍽️')}</span>
+                <span className="text-sm">{cat.id === 'offers-special' ? '🔥' : (cat.icon || '🍽️')}</span>
                 <span>{cat.name}</span>
               </button>
             )
