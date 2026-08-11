@@ -65,9 +65,10 @@ export default async function RestaurantLayout({
     >
       {/* Centered mobile-frame wrapper */}
       <div className="max-w-md sm:max-w-lg mx-auto bg-slate-50 min-h-screen relative shadow-2xl">
+        <MenuLocationNotice restaurant={restaurant} />
 
-      {/* Cover Header */}
-      <div className="relative">
+        {/* Cover Header */}
+        <div className="relative">
         <div className="h-44 sm:h-52 w-full bg-slate-900 relative overflow-hidden">
           {restaurant.cover_url ? (
             <img src={getOptimizedImageUrl(restaurant.cover_url, 1000)} alt="" className="w-full h-full object-cover opacity-90" />
@@ -166,8 +167,6 @@ export default async function RestaurantLayout({
         <StoreHeaderBanner restaurant={restaurant} />
         {children}
       </main>
-
-      <MenuLocationNotice restaurant={restaurant} />
 
       {restaurant.enable_whatsapp_orders === false ? null : restaurant.has_delivery === false ? (
         <div className="fixed bottom-4 left-0 right-0 z-40 px-4 max-w-md sm:max-w-lg mx-auto">

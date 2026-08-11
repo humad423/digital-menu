@@ -160,74 +160,60 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
   // Render Success Notice Toast if location was calibrated successfully
   if (successNotice) {
     return (
-      <div className="fixed bottom-20 left-4 right-4 z-40 max-w-md sm:max-w-lg mx-auto animate-bounce-short dir-rtl">
-        <div className="bg-emerald-900/95 text-white backdrop-blur-md rounded-2xl p-3 px-4 shadow-2xl border border-emerald-500/40 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-            <span className="text-xs font-bold">{successNotice}</span>
-          </div>
-          <button
-            onClick={() => setSuccessNotice(null)}
-            className="text-emerald-300 hover:text-white p-1"
-          >
-            <X size={14} />
-          </button>
+      <div className="w-full bg-emerald-500/15 border-b border-emerald-500/30 backdrop-blur-md text-emerald-950 px-3 py-1.5 text-xs font-bold flex items-center justify-between gap-2 animate-fade-in dir-rtl">
+        <div className="flex items-center gap-1.5 truncate">
+          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+          <span className="truncate">{successNotice}</span>
         </div>
+        <button
+          onClick={() => setSuccessNotice(null)}
+          className="text-emerald-700 hover:text-emerald-950 p-0.5 shrink-0 transition cursor-pointer"
+        >
+          <X size={14} />
+        </button>
       </div>
     )
   }
 
-  // Render Warning Notice if user is outside delivery range
+  // Render Warning Notice if user is outside delivery range (Very light subtle top bar)
   if (!outOfRangeInfo) return null
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-40 max-w-md sm:max-w-lg mx-auto animate-fade-in dir-rtl">
-      <div className="bg-slate-900/95 text-white backdrop-blur-xl rounded-2xl p-3 shadow-2xl border border-amber-500/30 flex items-center justify-between gap-3">
-        {/* Warning Icon & Text */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
-            <AlertTriangle size={17} />
-          </div>
+    <div className="w-full bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-md text-amber-950 px-3 py-1.5 flex items-center justify-between gap-2 text-[11px] font-bold animate-fade-in dir-rtl">
+      {/* Text & Icon */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+        <span className="truncate">
+          خارج نطاق التوصيل التقريبي ({outOfRangeInfo.distanceKm.toFixed(1)} كم) • يمكن التصفح والطلب
+        </span>
+      </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-amber-300 truncate">
-                خارج نطاق التوصيل التقريبي ({outOfRangeInfo.distanceKm.toFixed(1)} كم)
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-300 font-medium truncate mt-0.5">
-              يمكنك التصفح والطلب كالمعتاد
-            </p>
-          </div>
-        </div>
+      {/* Buttons */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={handleCalibrateLocation}
+          disabled={loadingLocation}
+          className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] rounded-md transition flex items-center gap-1 shrink-0 cursor-pointer disabled:opacity-50"
+          title="تحديد الموقع الدقيق"
+        >
+          {loadingLocation ? (
+            <Loader2 size={11} className="animate-spin text-slate-950" />
+          ) : (
+            <Navigation size={11} className="shrink-0" />
+          )}
+          <span>{loadingLocation ? 'تحديد...' : 'دقق موقعك 📍'}</span>
+        </button>
 
-        {/* Buttons */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleCalibrateLocation}
-            disabled={loadingLocation}
-            className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-[11px] rounded-xl shadow-md transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-            title="تحديد الموقع الدقيق"
-          >
-            {loadingLocation ? (
-              <Loader2 size={13} className="animate-spin text-slate-950" />
-            ) : (
-              <Navigation size={13} className="shrink-0" />
-            )}
-            <span>{loadingLocation ? 'تحديد...' : 'دقق موقعك 📍'}</span>
-          </button>
-
-          {/* Dismiss Button */}
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="w-7 h-7 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
-            title="إغلاق التنبيه"
-          >
-            <X size={14} />
-          </button>
-        </div>
+        {/* Dismiss Button */}
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="text-amber-700 hover:text-amber-950 p-0.5 shrink-0 transition cursor-pointer"
+          title="إغلاق التنبيه"
+        >
+          <X size={14} />
+        </button>
       </div>
     </div>
   )
