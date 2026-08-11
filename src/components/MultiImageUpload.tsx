@@ -3,6 +3,51 @@
 import { useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
 
+function compressImageToWebpBlob(file: File, maxWidth = 1200, quality = 0.8): Promise<Blob> {
+  return new Promise((resolve) => {
+    if (file.type.includes('svg') || file.type.includes('gif')) {
+      resolve(file)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob)
+              } else {
+                resolve(file)
+              }
+            },
+            'image/webp',
+            quality
+          )
+        } else {
+          resolve(file)
+        }
+      }
+      img.onerror = () => resolve(file)
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader()
@@ -21,7 +66,7 @@ function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Prom
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/jpeg', quality))
+          resolve(canvas.toDataURL('image/webp', quality))
         } else {
           resolve(e.target?.result as string)
         }
@@ -45,9 +90,9 @@ export default function MultiImageUpload({
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'o2iy0uxo'
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default'
 
-  const MAX_FILE_SIZE_MB = 5
+  const MAX_FILE_SIZE_MB = 10
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/heic']
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files || [])
@@ -59,10 +104,10 @@ export default function MultiImageUpload({
     )
 
     if (validFormatFiles.length < rawFiles.length) {
-      alert('عذراً، تم استبعاد بعض الملفات لأنها ليست ملفات صور صالحة (PNG, JPG, WEBP, GIF, SVG). يمنع رفع أية ملفات غير الصور.')
+      alert('عذراً، تم استبعاد بعض الملفات لأنها ليست ملفات صور صالحة (PNG, JPG, WEBP, GIF, SVG).')
     }
 
-    // 2. Filter out oversized files (> 5MB)
+    // 2. Filter out oversized files (> 10MB)
     const validSizeFiles = validFormatFiles.filter(file => file.size <= MAX_FILE_SIZE_BYTES)
 
     if (validSizeFiles.length < validFormatFiles.length) {
@@ -79,8 +124,11 @@ export default function MultiImageUpload({
 
     for (const file of validSizeFiles) {
       try {
+        const compressedBlob = await compressImageToWebpBlob(file)
+        const webpFileName = file.name.replace(/\.[^/.]+$/, '') + '.webp'
+
         const formData = new FormData()
-        formData.append('file', file)
+        formData.append('file', compressedBlob, webpFileName)
         formData.append('upload_preset', uploadPreset)
 
         const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {

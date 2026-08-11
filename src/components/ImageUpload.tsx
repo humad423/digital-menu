@@ -3,6 +3,52 @@
 import { useState } from 'react'
 import { ImagePlus, X, Link as LinkIcon, Upload } from 'lucide-react'
 
+function compressImageToWebpBlob(file: File, maxWidth = 1200, quality = 0.8): Promise<Blob> {
+  return new Promise((resolve) => {
+    // If SVG or GIF, don't compress via canvas to preserve animation/vector quality
+    if (file.type.includes('svg') || file.type.includes('gif')) {
+      resolve(file)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob)
+              } else {
+                resolve(file)
+              }
+            },
+            'image/webp',
+            quality
+          )
+        } else {
+          resolve(file)
+        }
+      }
+      img.onerror = () => resolve(file)
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader()
@@ -21,7 +67,7 @@ function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Prom
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/jpeg', quality))
+          resolve(canvas.toDataURL('image/webp', quality))
         } else {
           resolve(e.target?.result as string)
         }
@@ -48,33 +94,38 @@ export default function ImageUpload({
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'o2iy0uxo'
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default'
 
-  const MAX_FILE_SIZE_MB = 5
+  const MAX_FILE_SIZE_MB = 10
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/heic']
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     // 1. Validate File Type (Strictly Images Only)
-    if (!file.type.startsWith('image/') || !ALLOWED_IMAGE_TYPES.some(t => file.type.includes(t.replace('image/', '')))) {
-      alert('عذراً، يرجى اختيار ملف صورة فقط (JPG, PNG, WEBP, GIF, SVG). يمنع رفع أية ملفات غير الصور.')
+    if (!file.type.startsWith('image/') && !ALLOWED_IMAGE_TYPES.some(t => file.type.includes(t.replace('image/', '')))) {
+      alert('عذراً، يرجى اختيار ملف صورة فقط (JPG, PNG, WEBP, GIF, SVG).')
       e.target.value = ''
       return
     }
 
-    // 2. Validate File Size (Max 5 MB)
+    // 2. Validate File Size (Max 10 MB raw)
     if (file.size > MAX_FILE_SIZE_BYTES) {
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1)
-      alert(`حجم الصورة (${fileSizeMB} ميغابايت) يتجاوز الحد الأقصى المسموح به (5 ميغابايت).\nيرجى اختيار صورة بحجم أصغر من 5 ميغابايت للحفاظ على سرعة المنصة.`)
+      alert(`حجم الصورة (${fileSizeMB} ميغابايت) يتجاوز الحد الأقصى المسموح به (${MAX_FILE_SIZE_MB} ميغابايت).`)
       e.target.value = ''
       return
     }
 
     try {
       setUploading(true)
+
+      // Convert and compress image to WebP client-side before uploading
+      const compressedBlob = await compressImageToWebpBlob(file)
+      const webpFileName = file.name.replace(/\.[^/.]+$/, '') + '.webp'
+
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', compressedBlob, webpFileName)
       formData.append('upload_preset', uploadPreset)
 
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
@@ -94,7 +145,7 @@ export default function ImageUpload({
       }
     } catch (err) {
       console.error('Cloudinary upload error:', err)
-      alert('تعذر الرفع السحابي على Cloudinary، يمكن استخدام رابط الصورة المباشر.')
+      alert('تعذر الرفع السحابي، يمكنك استخدام رابط الصورة المباشر.')
     } finally {
       setUploading(false)
     }
