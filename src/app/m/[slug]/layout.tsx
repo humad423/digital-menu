@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { ArrowRight, MapPin } from 'lucide-react'
 import { getStoreStatus } from '@/utils/storeStatus'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
+import MenuLocationNotice from '@/components/MenuLocationNotice'
 
 export const revalidate = 60
 
@@ -165,6 +166,8 @@ export default async function RestaurantLayout({
         <StoreHeaderBanner restaurant={restaurant} />
         {children}
       </main>
+
+      <MenuLocationNotice restaurant={restaurant} />
 
       {restaurant.enable_whatsapp_orders === false ? null : restaurant.has_delivery === false ? (
         <div className="fixed bottom-4 left-0 right-0 z-40 px-4 max-w-md sm:max-w-lg mx-auto">
