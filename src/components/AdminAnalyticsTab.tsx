@@ -152,14 +152,26 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     }
   })()
 
-  // Duration & Session Time Calculations
+  // Duration & Session Time Calculations (Accurate MAX duration per unique session)
   const durationStats = (() => {
-    const eventsWithDuration = filteredEvents.filter(e => Number(e.session_duration_seconds) > 0)
-    const totalDurationSeconds = eventsWithDuration.reduce((acc, e) => acc + Number(e.session_duration_seconds), 0)
+    const sessionMaxDurationMap: Record<string, { duration: number; store_id?: string }> = {}
+
+    filteredEvents.forEach(e => {
+      const dur = Number(e.session_duration_seconds) || 0
+      if (dur > 0 && e.session_id) {
+        const current = sessionMaxDurationMap[e.session_id]?.duration || 0
+        if (dur > current) {
+          sessionMaxDurationMap[e.session_id] = { duration: dur, store_id: e.store_id }
+        }
+      }
+    })
+
+    const uniqueSessionsWithDuration = Object.values(sessionMaxDurationMap)
+    const totalDurationSeconds = uniqueSessionsWithDuration.reduce((acc, s) => acc + s.duration, 0)
     
     // Average session duration in seconds
-    const avgDurationSeconds = eventsWithDuration.length > 0
-      ? Math.round(totalDurationSeconds / eventsWithDuration.length)
+    const avgDurationSeconds = uniqueSessionsWithDuration.length > 0
+      ? Math.round(totalDurationSeconds / uniqueSessionsWithDuration.length)
       : 0
 
     const formatTime = (secs: number) => {
@@ -168,16 +180,16 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
       const remainSecs = secs % 60
       if (mins === 0) return `${remainSecs} ثانية`
       if (remainSecs === 0) return `${mins} دقيقة`
-      return `${mins} د ور ${remainSecs} ث`
+      return `${mins} د و ${remainSecs} ث`
     }
 
     // Average duration per store
-    const storeDurations: Record<string, { totalSecs: number; count: number }> = {}
-    eventsWithDuration.forEach(e => {
-      if (e.store_id) {
-        if (!storeDurations[e.store_id]) storeDurations[e.store_id] = { totalSecs: 0, count: 0 }
-        storeDurations[e.store_id].totalSecs += Number(e.session_duration_seconds)
-        storeDurations[e.store_id].count += 1
+    const storeDurations: Record<string, { totalSecs: number; sessionCount: number }> = {}
+    uniqueSessionsWithDuration.forEach(s => {
+      if (s.store_id) {
+        if (!storeDurations[s.store_id]) storeDurations[s.store_id] = { totalSecs: 0, sessionCount: 0 }
+        storeDurations[s.store_id].totalSecs += s.duration
+        storeDurations[s.store_id].sessionCount += 1
       }
     })
 
@@ -193,18 +205,22 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
   // Stores lookup map
   const storeMap = new Map(restaurants.map(r => [r.id, r]))
 
-  // Aggregate menu views and time per store
-  const storeMetricsMap: Record<string, { views: number; totalSecs: number; durationCount: number }> = {}
+  // Aggregate menu views and time per store accurately
+  const storeMetricsMap: Record<string, { views: number; totalSecs: number; sessionCount: number }> = {}
   filteredEvents.filter(e => e.store_id).forEach(e => {
     if (!storeMetricsMap[e.store_id]) {
-      storeMetricsMap[e.store_id] = { views: 0, totalSecs: 0, durationCount: 0 }
+      storeMetricsMap[e.store_id] = { views: 0, totalSecs: 0, sessionCount: 0 }
     }
     if (e.event_type === 'menu_view') {
       storeMetricsMap[e.store_id].views += 1
     }
-    if (Number(e.session_duration_seconds) > 0) {
-      storeMetricsMap[e.store_id].totalSecs += Number(e.session_duration_seconds)
-      storeMetricsMap[e.store_id].durationCount += 1
+  })
+
+  // Add accurate store durations from unique sessions
+  Object.entries(durationStats.storeDurations).forEach(([storeId, d]) => {
+    if (storeMetricsMap[storeId]) {
+      storeMetricsMap[storeId].totalSecs = d.totalSecs
+      storeMetricsMap[storeId].sessionCount = d.sessionCount
     }
   })
 
@@ -212,7 +228,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     .map(([id, m]) => ({
       store: storeMap.get(id),
       views: m.views,
-      avgDurationSecs: m.durationCount > 0 ? Math.round(m.totalSecs / m.durationCount) : 0
+      avgDurationSecs: m.sessionCount > 0 ? Math.round(m.totalSecs / m.sessionCount) : 0
     }))
     .filter(x => x.store)
     .sort((a, b) => b.views - a.views)

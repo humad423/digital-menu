@@ -47,6 +47,19 @@ export function getOrCreateSessionId(): string {
 export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_seconds }: TrackEventParams) {
   if (typeof window === 'undefined') return
 
+  // Deduplicate rapid menu_view events for the same store in the same session (within 2 minutes)
+  if (event_type === 'menu_view' && store_id) {
+    try {
+      const sessionKey = `alfsouq_last_view_${store_id}`
+      const lastViewTime = sessionStorage.getItem(sessionKey)
+      const now = Date.now()
+      if (lastViewTime && now - parseInt(lastViewTime, 10) < 120000) {
+        return
+      }
+      sessionStorage.setItem(sessionKey, now.toString())
+    } catch (e) {}
+  }
+
   const executeTrack = async () => {
     try {
       const userAgent = window.navigator.userAgent || ''
