@@ -43,6 +43,11 @@ export default class TabErrorBoundary extends Component<Props, State> {
             <p className="text-xs text-slate-500 font-medium mt-1">
               تعذر استعراض بعض الأجزاء بشكل صحيح. يمكنك المحاولة مجدداً دون تأثير على باقي النظام.
             </p>
+            {this.state.error && (
+              <p className="text-[11px] font-mono text-red-600 bg-red-50 p-2.5 rounded-xl mt-3 dir-ltr text-center font-bold">
+                {this.state.error.toString()}
+              </p>
+            )}
           </div>
           <button
             onClick={this.handleReset}

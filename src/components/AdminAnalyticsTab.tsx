@@ -546,12 +546,12 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
               {topStores.map(({ store, views, avgDurationSecs }, index) => {
                 const percentage = Math.round((views / (menuViews || 1)) * 100)
                 return (
-                  <div key={store.id} className="flex items-center justify-between gap-3 text-xs">
+                  <div key={store?.id || index} className="flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className="w-5 h-5 rounded-full bg-slate-100 font-black text-slate-600 flex items-center justify-center shrink-0 text-[10px]">
                         {index + 1}
                       </span>
-                      {store.logo_url ? (
+                      {store?.logo_url ? (
                         <img src={store.logo_url} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" />
                       ) : (
                         <div className="w-7 h-7 rounded-lg bg-orange-100 text-orange-600 font-black flex items-center justify-center shrink-0 text-[10px]">
@@ -559,7 +559,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
                         </div>
                       )}
                       <div className="min-w-0">
-                        <span className="font-bold text-slate-800 block truncate">{store.name}</span>
+                        <span className="font-bold text-slate-800 block truncate">{store?.name || 'متجر'}</span>
                         {avgDurationSecs > 0 && (
                           <span className="text-[10px] text-amber-600 font-bold block">
                             ⏱️ متوسط البقاء: {durationStats.formatTime(avgDurationSecs)}
@@ -666,13 +666,24 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
               ) : (
                 primaryEvents.slice(0, 20).map(e => {
                   const store = storeMap.get(e.store_id)
-                  const visitorInfo = e.visitor_id ? visitorStats.visitorMap[e.visitor_id] : null
-                  const isRepeat = visitorInfo ? visitorInfo.isRepeat : false
-                  const sessionDur = e.session_id ? (durationStats.sessionMaxDurationMap[e.session_id]?.duration || 0) : 0
+                  const visitorInfo = (e.visitor_id && visitorStats?.visitorMap) ? visitorStats.visitorMap[e.visitor_id] : null
+                  const isRepeat = visitorInfo ? Boolean(visitorInfo.isRepeat) : false
+                  const sessionDur = (e.session_id && durationStats?.sessionMaxDurationMap) ? (durationStats.sessionMaxDurationMap[e.session_id]?.duration || 0) : 0
+                  
+                  let formattedTime = '-'
+                  if (e.created_at) {
+                    try {
+                      const d = new Date(e.created_at)
+                      if (!isNaN(d.getTime())) {
+                        formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                      }
+                    } catch (err) {}
+                  }
+
                   return (
-                    <tr key={e.id}>
+                    <tr key={e.id || Math.random()}>
                       <td className="text-slate-400 font-mono">
-                        {new Date(e.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                        {formattedTime}
                       </td>
                       <td>
                         <span className={`px-2 py-0.5 rounded-lg font-black text-[10px] ${
