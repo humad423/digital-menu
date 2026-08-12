@@ -609,15 +609,15 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
           <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-around text-xs font-bold text-slate-600">
             <div className="text-center">
               <span className="block text-[11px] text-slate-400">📱 الهواتف</span>
-              <span className="font-black text-slate-900">{Math.round((deviceCounts.mobile / totalPrimaryVisits) * 100)}%</span>
+              <span className="font-black text-slate-900">{Math.round(((deviceCounts?.mobile || 0) / totalPrimaryVisits) * 100)}%</span>
             </div>
             <div className="text-center">
               <span className="block text-[11px] text-slate-400">💻 الكمبيوتر</span>
-              <span className="font-black text-slate-900">{Math.round((deviceCounts.desktop / totalPrimaryVisits) * 100)}%</span>
+              <span className="font-black text-slate-900">{Math.round(((deviceCounts?.desktop || 0) / totalPrimaryVisits) * 100)}%</span>
             </div>
             <div className="text-center">
               <span className="block text-[11px] text-slate-400">الأجهزة اللوحية</span>
-              <span className="font-black text-slate-900">{Math.round((deviceCounts.tablet / totalPrimaryVisits) * 100)}%</span>
+              <span className="font-black text-slate-900">{Math.round(((deviceCounts?.tablet || 0) / totalPrimaryVisits) * 100)}%</span>
             </div>
           </div>
         </div>

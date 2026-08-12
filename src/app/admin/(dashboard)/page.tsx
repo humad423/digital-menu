@@ -9,6 +9,7 @@ import StoreSettingsModal from '@/components/StoreSettingsModal'
 import AdminAnalyticsTab from '@/components/AdminAnalyticsTab'
 import AdminBusinessTypesTab, { BusinessType } from '@/components/AdminBusinessTypesTab'
 import AdminLegalPagesTab from '@/components/AdminLegalPagesTab'
+import TabErrorBoundary from '@/components/TabErrorBoundary'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
 import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, BarChart3, Tag, ShieldCheck } from 'lucide-react'
@@ -441,7 +442,9 @@ export default function AdminDashboard() {
             ANALYTICS TAB
         ══════════════════════════════════════ */}
         {!loading && activeTab === 'analytics' && (
-          <AdminAnalyticsTab restaurants={restaurants} />
+          <TabErrorBoundary tabName="التحليلات والنمو">
+            <AdminAnalyticsTab restaurants={restaurants} />
+          </TabErrorBoundary>
         )}
 
         {/* ══════════════════════════════════════
