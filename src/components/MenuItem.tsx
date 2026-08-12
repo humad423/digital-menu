@@ -122,6 +122,7 @@ export default function MenuItem({
     }
 
     addItem(cartObj, restaurantId)
+    trackGAAddToCart(cartObj.name, finalPrice)
     setShowKiloModal(false)
     setPopped(true)
     setTimeout(() => setPopped(false), 250)

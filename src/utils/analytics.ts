@@ -38,12 +38,20 @@ export function sendGAEvent(eventName: string, params?: Record<string, any>) {
 
 // Helper to track Add to Cart in GA4
 export function trackGAAddToCart(itemName: string, price?: number, currency = 'TRY') {
+  const itemPrice = Number(price) || 0
   const payload = {
     currency,
-    value: price || 0,
-    items: [{ item_name: itemName, price: price || 0 }],
-    اسم_الوجبة: itemName,
-    السعر_بالليرة: price || 0
+    value: itemPrice,
+    items: [
+      {
+        item_id: itemName || 'item',
+        item_name: itemName || 'item',
+        price: itemPrice,
+        quantity: 1
+      }
+    ],
+    item_name: itemName,
+    price: itemPrice
   }
   sendGAEvent('add_to_cart', payload)
 }
