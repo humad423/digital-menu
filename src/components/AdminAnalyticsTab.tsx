@@ -35,15 +35,20 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
   const supabase = createClient()
 
   const fetchAnalytics = async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('analytics_events')
-      .select('id, event_type, store_id, store_slug, ad_id, referrer, utm_source, device_type, visitor_id, session_id, session_duration_seconds, created_at')
-      .order('created_at', { ascending: false })
-      .limit(5000)
+    try {
+      setLoading(true)
+      const { data } = await supabase
+        .from('analytics_events')
+        .select('id, event_type, store_id, store_slug, ad_id, referrer, utm_source, device_type, visitor_id, session_id, session_duration_seconds, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5000)
 
-    if (data) setEvents(data)
-    setLoading(false)
+      if (data) setEvents(data)
+    } catch (err) {
+      console.error('Fetch analytics failed:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -220,7 +225,8 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
   }, [primaryEvents])
 
   // 4. Stores lookup map
-  const storeMap = new Map(restaurants.map(r => [r.id, r]))
+  const safeRestaurants = Array.isArray(restaurants) ? restaurants : []
+  const storeMap = new Map(safeRestaurants.map(r => [r?.id, r]))
 
   // Aggregate menu views and time per store accurately
   const storeMetricsMap: Record<string, { views: number; totalSecs: number; sessionCount: number }> = {}
@@ -347,8 +353,8 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
               onChange={e => setSelectedStoreId(e.target.value)}
               className="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-black px-3 py-1.5 rounded-xl outline-none cursor-pointer hover:border-slate-300"
             >
-              <option value="all">جميع المتاجر ({restaurants.length})</option>
-              {restaurants.map(r => (
+              <option value="all">جميع المتاجر ({safeRestaurants.length})</option>
+              {safeRestaurants.map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
             </select>
