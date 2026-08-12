@@ -46,7 +46,6 @@ export function trackGAAddToCart(itemName: string, price?: number, currency = 'T
     السعر_بالليرة: price || 0
   }
   sendGAEvent('add_to_cart', payload)
-  sendGAEvent('إضافة_وجبة_للسلة', payload)
 }
 
 // Helper to track WhatsApp Order Lead in GA4
@@ -59,7 +58,6 @@ export function trackGAWhatsAppOrder(storeName: string, totalValue?: number) {
     إجمالي_الطلب_بالليرة: totalValue || 0
   }
   sendGAEvent('generate_lead', payload)
-  sendGAEvent('إرسال_طلب_واتساب', payload)
 }
 
 // Helper to track User Logins in GA4
@@ -69,7 +67,6 @@ export function trackGALogin(method = 'phone_sms') {
     طريقة_تسجيل_الدخول: 'رسالة_نصية_SMS'
   }
   sendGAEvent('login', payload)
-  sendGAEvent('تسجيل_دخول_زبون', payload)
 }
 
 export function getOrCreateVisitorId(): string {
@@ -130,10 +127,6 @@ export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_s
   }
 
   sendGAEvent(event_type, params)
-  const arabicName = GA_ARABIC_EVENTS[event_type]
-  if (arabicName) {
-    sendGAEvent(arabicName, params)
-  }
 }
 
 export function usePageDurationTracker({ store_id, store_slug, event_type = 'menu_view' }: { store_id?: string; store_slug?: string; event_type?: AnalyticsEventType }) {
