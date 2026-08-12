@@ -102,15 +102,6 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     })
   }, [events, datePreset, customStartDate, customEndDate, selectedStoreId])
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
-        <Loader2 size={32} className="animate-spin text-orange-500" />
-        <span className="font-bold text-sm">جاري تحميل وتمرير البيانات الإحصائية...</span>
-      </div>
-    )
-  }
-
   // ── Metrics Calculation ──────────────────────────────────────
   // 1. Separate primary activity events from background heartbeat duration pings
   const primaryEvents = useMemo(() => {
@@ -286,6 +277,15 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     })
     return counts
   }, [primaryEvents])
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+        <Loader2 size={32} className="animate-spin text-orange-500" />
+        <span className="font-bold text-sm">جاري تحميل وتمرير البيانات الإحصائية...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 dir-rtl animate-fade-in">
