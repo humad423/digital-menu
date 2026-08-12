@@ -41,7 +41,9 @@ export function trackGAAddToCart(itemName: string, price?: number, currency = 'T
   const payload = {
     currency,
     value: price || 0,
-    items: [{ item_name: itemName, price: price || 0 }]
+    items: [{ item_name: itemName, price: price || 0 }],
+    اسم_الوجبة: itemName,
+    السعر_بالليرة: price || 0
   }
   sendGAEvent('add_to_cart', payload)
   sendGAEvent('إضافة_وجبة_للسلة', payload)
@@ -52,7 +54,9 @@ export function trackGAWhatsAppOrder(storeName: string, totalValue?: number) {
   const payload = {
     currency: 'TRY',
     value: totalValue || 0,
-    store_name: storeName
+    store_name: storeName,
+    اسم_المتجر: storeName,
+    إجمالي_الطلب_بالليرة: totalValue || 0
   }
   sendGAEvent('generate_lead', payload)
   sendGAEvent('إرسال_طلب_واتساب', payload)
@@ -60,8 +64,12 @@ export function trackGAWhatsAppOrder(storeName: string, totalValue?: number) {
 
 // Helper to track User Logins in GA4
 export function trackGALogin(method = 'phone_sms') {
-  sendGAEvent('login', { method })
-  sendGAEvent('تسجيل_دخول_زبون', { method })
+  const payload = {
+    method,
+    طريقة_تسجيل_الدخول: 'رسالة_نصية_SMS'
+  }
+  sendGAEvent('login', payload)
+  sendGAEvent('تسجيل_دخول_زبون', payload)
 }
 
 export function getOrCreateVisitorId(): string {
@@ -114,7 +122,11 @@ export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_s
     store_id: store_id || undefined,
     store_slug: store_slug || undefined,
     ad_id: ad_id || undefined,
-    duration_seconds: duration_seconds || undefined
+    duration_seconds: duration_seconds || undefined,
+    رابط_المتجر: store_slug || undefined,
+    معرف_المتجر: store_id || undefined,
+    معرف_الإعلان: ad_id || undefined,
+    مدة_البقاء_بالثواني: duration_seconds || undefined
   }
 
   sendGAEvent(event_type, params)
