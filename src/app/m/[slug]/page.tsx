@@ -2,7 +2,7 @@ import { createPublicClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function RestaurantMenuPage({
   params,

@@ -40,7 +40,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
       .from('analytics_events')
       .select('id, event_type, store_id, store_slug, ad_id, referrer, utm_source, device_type, visitor_id, session_id, session_duration_seconds, created_at')
       .order('created_at', { ascending: false })
-      .limit(2000)
+      .limit(5000)
 
     if (data) setEvents(data)
     setLoading(false)
@@ -107,53 +107,20 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
   }
 
   // ── Metrics Calculation ──────────────────────────────────────
-  const pwaInstalls = filteredEvents.filter(e => e.event_type === 'pwa_install').length
-  const menuViews   = filteredEvents.filter(e => e.event_type === 'menu_view').length
-  const adClicks    = filteredEvents.filter(e => e.event_type === 'ad_click').length
-  const pageViews   = filteredEvents.filter(e => e.event_type === 'page_view').length
+  // 1. Separate primary activity events from background heartbeat duration pings
+  const primaryEvents = useMemo(() => {
+    return filteredEvents.filter(e => e.event_type !== 'session_heartbeat')
+  }, [filteredEvents])
 
-  // Visitor Repeat & Loyalty Analysis (Using visitor_id or user_agent fallback)
-  const visitorStats = (() => {
-    const visitorMap: Record<string, { count: number; events: any[] }> = {}
+  const pwaInstalls = primaryEvents.filter(e => e.event_type === 'pwa_install').length
+  const menuViews   = primaryEvents.filter(e => e.event_type === 'menu_view').length
+  const adClicks    = primaryEvents.filter(e => e.event_type === 'ad_click').length
+  const pageViews   = primaryEvents.filter(e => e.event_type === 'page_view').length
 
-    filteredEvents.forEach(e => {
-      // Key: visitor_id if present, else user_agent
-      const key = e.visitor_id || (e.user_agent ? `ua_${e.user_agent.slice(0, 40)}` : 'anon')
-      if (!visitorMap[key]) {
-        visitorMap[key] = { count: 0, events: [] }
-      }
-      visitorMap[key].count += 1
-      visitorMap[key].events.push(e)
-    })
+  const totalPrimaryVisits = primaryEvents.length || 1
 
-    const totalUniqueVisitors = Object.keys(visitorMap).length
-    let repeatVisitorsCount = 0
-    let newVisitorsCount = 0
-
-    Object.values(visitorMap).forEach(v => {
-      // Classified as repeat if they have multiple events or visits
-      if (v.count > 1) {
-        repeatVisitorsCount += 1
-      } else {
-        newVisitorsCount += 1
-      }
-    })
-
-    const repeatRate = totalUniqueVisitors > 0
-      ? Math.round((repeatVisitorsCount / totalUniqueVisitors) * 100)
-      : 0
-
-    return {
-      totalUniqueVisitors,
-      repeatVisitorsCount,
-      newVisitorsCount,
-      repeatRate,
-      visitorMap
-    }
-  })()
-
-  // Duration & Session Time Calculations (Accurate MAX duration per unique session)
-  const durationStats = (() => {
+  // 2. Duration & Session Time Calculations (Accurate MAX duration per unique session)
+  const durationStats = useMemo(() => {
     const sessionMaxDurationMap: Record<string, { duration: number; store_id?: string }> = {}
 
     filteredEvents.forEach(e => {
@@ -175,7 +142,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
       : 0
 
     const formatTime = (secs: number) => {
-      if (secs <= 0) return '0 ثانية'
+      if (secs <= 0) return '-'
       const mins = Math.floor(secs / 60)
       const remainSecs = secs % 60
       if (mins === 0) return `${remainSecs} ثانية`
@@ -194,20 +161,70 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     })
 
     return {
+      sessionMaxDurationMap,
       avgDurationSeconds,
       avgDurationFormatted: formatTime(avgDurationSeconds),
       totalDurationFormatted: formatTime(totalDurationSeconds),
       storeDurations,
       formatTime
     }
-  })()
+  }, [filteredEvents])
 
-  // Stores lookup map
+  // 3. Visitor Repeat & Loyalty Analysis (Accurate classification by distinct sessions)
+  const visitorStats = useMemo(() => {
+    const visitorMap: Record<string, { 
+      sessions: Set<string>; 
+      eventsCount: number; 
+      isRepeat: boolean;
+      lastStoreId?: string;
+    }> = {}
+
+    // Group primary visit events by visitor_id
+    primaryEvents.forEach(e => {
+      const key = e.visitor_id || (e.user_agent ? `ua_${e.user_agent.slice(0, 40)}` : 'anon')
+      if (!visitorMap[key]) {
+        visitorMap[key] = { sessions: new Set(), eventsCount: 0, isRepeat: false, lastStoreId: e.store_id }
+      }
+      visitorMap[key].eventsCount += 1
+      if (e.session_id) {
+        visitorMap[key].sessions.add(e.session_id)
+      }
+    })
+
+    const totalUniqueVisitors = Object.keys(visitorMap).length
+    let repeatVisitorsCount = 0
+    let newVisitorsCount = 0
+
+    Object.values(visitorMap).forEach(v => {
+      // Classified as repeat ONLY if visitor has opened >1 distinct session
+      if (v.sessions.size > 1) {
+        v.isRepeat = true
+        repeatVisitorsCount += 1
+      } else {
+        v.isRepeat = false
+        newVisitorsCount += 1
+      }
+    })
+
+    const repeatRate = totalUniqueVisitors > 0
+      ? Math.round((repeatVisitorsCount / totalUniqueVisitors) * 100)
+      : 0
+
+    return {
+      totalUniqueVisitors,
+      repeatVisitorsCount,
+      newVisitorsCount,
+      repeatRate,
+      visitorMap
+    }
+  }, [primaryEvents])
+
+  // 4. Stores lookup map
   const storeMap = new Map(restaurants.map(r => [r.id, r]))
 
   // Aggregate menu views and time per store accurately
   const storeMetricsMap: Record<string, { views: number; totalSecs: number; sessionCount: number }> = {}
-  filteredEvents.filter(e => e.store_id).forEach(e => {
+  primaryEvents.filter(e => e.store_id).forEach(e => {
     if (!storeMetricsMap[e.store_id]) {
       storeMetricsMap[e.store_id] = { views: 0, totalSecs: 0, sessionCount: 0 }
     }
@@ -234,12 +251,15 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     .sort((a, b) => b.views - a.views)
     .slice(0, 10)
 
-  // Traffic sources breakdown
-  const sourcesCount: Record<string, number> = {}
-  filteredEvents.forEach(e => {
-    const src = e.utm_source || 'direct'
-    sourcesCount[src] = (sourcesCount[src] || 0) + 1
-  })
+  // 5. Traffic sources breakdown (based on primary visit events)
+  const sourcesCount = useMemo(() => {
+    const counts: Record<string, number> = {}
+    primaryEvents.forEach(e => {
+      const src = e.utm_source || 'direct'
+      counts[src] = (counts[src] || 0) + 1
+    })
+    return counts
+  }, [primaryEvents])
 
   const sourceLabels: Record<string, string> = {
     whatsapp: 'واتساب WhatsApp 💬',
@@ -251,14 +271,15 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
     referral: 'مواقع أخرى Referral 🌐'
   }
 
-  // Device breakdown
-  const deviceCounts: Record<string, number> = { mobile: 0, desktop: 0, tablet: 0 }
-  filteredEvents.forEach(e => {
-    const dev = e.device_type || 'mobile'
-    deviceCounts[dev] = (deviceCounts[dev] || 0) + 1
-  })
-
-  const totalFilteredCount = filteredEvents.length || 1
+  // 6. Device breakdown (based on primary visit events)
+  const deviceCounts = useMemo(() => {
+    const counts: Record<string, number> = { mobile: 0, desktop: 0, tablet: 0 }
+    primaryEvents.forEach(e => {
+      const dev = (e.device_type as 'mobile' | 'desktop' | 'tablet') || 'mobile'
+      counts[dev] = (counts[dev] || 0) + 1
+    })
+    return counts
+  }, [primaryEvents])
 
   return (
     <div className="space-y-6 dir-rtl animate-fade-in">
@@ -271,7 +292,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
             <span>مركز تحليل النمو وسلوك الزوار 📊</span>
           </h2>
           <p className="text-xs text-slate-300 font-medium mt-1">
-            متابعة دقيقة للزوار المكررين، مدد البقاء في الصفحة، ومصادر الحركات التفاعلية مع خيارات الفلترة الزمنية.
+            متابعة دقيقة ونظيفة للزيارات الحقيقية، الزوار المكررين، مدد البقاء، ومصادر الدخول بدون تكرار أو تضخيم.
           </p>
         </div>
 
@@ -352,7 +373,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
               onChange={e => setCustomEndDate(e.target.value)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none"
             />
-            <span className="text-[11px] text-slate-400 font-medium">({filteredEvents.length} سجل مطابق)</span>
+            <span className="text-[11px] text-slate-400 font-medium">({primaryEvents.length} زيارات فعلية مطابقة)</span>
           </div>
         )}
       </div>
@@ -496,7 +517,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
           </div>
 
           <p className="text-[11px] text-slate-400 font-medium leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            ℹ️ يتم احتساب وقت البقاء تلقائياً في الخلفية أثناء قيام الزبائن باستعراض الوجبات والأقسام في المنيو.
+            ℹ️ يتم تجميع وقت البقاء تلقائياً لكل جلسة زيارة مستقلة أثناء قيام الزبائن باستعراض المنيو.
           </p>
         </div>
 
@@ -565,7 +586,7 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
             {Object.entries(sourcesCount)
               .sort((a, b) => b[1] - a[1])
               .map(([src, count]) => {
-                const pct = Math.round((count / totalFilteredCount) * 100)
+                const pct = Math.round((count / totalPrimaryVisits) * 100)
                 return (
                   <div key={src} className="flex items-center justify-between text-xs font-bold">
                     <span className="text-slate-700">{sourceLabels[src] || src}</span>
@@ -582,19 +603,33 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
           <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-around text-xs font-bold text-slate-600">
             <div className="text-center">
               <span className="block text-[11px] text-slate-400">📱 الهواتف</span>
-              <span className="font-black text-slate-900">{Math.round((deviceCounts.mobile / totalFilteredCount) * 100)}%</span>
+              <span className="font-black text-slate-900">{Math.round((deviceCounts.mobile / totalPrimaryVisits) * 100)}%</span>
             </div>
             <div className="text-center">
               <span className="block text-[11px] text-slate-400">💻 الكمبيوتر</span>
-              <span className="font-black text-slate-900">{Math.round((deviceCounts.desktop / totalFilteredCount) * 100)}%</span>
+              <span className="font-black text-slate-900">{Math.round((deviceCounts.desktop / totalPrimaryVisits) * 100)}%</span>
             </div>
             <div className="text-center">
               <span className="block text-[11px] text-slate-400">الأجهزة اللوحية</span>
-              <span className="font-black text-slate-900">{Math.round((deviceCounts.tablet / totalFilteredCount) * 100)}%</span>
+              <span className="font-black text-slate-900">{Math.round((deviceCounts.tablet / totalPrimaryVisits) * 100)}%</span>
             </div>
           </div>
         </div>
 
+      </div>
+
+      {/* ── ACCURACY & INTEGRITY TRANSPARENCY CARD ── */}
+      <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-3xl p-5 text-emerald-950 space-y-2">
+        <h4 className="font-black text-xs flex items-center gap-2 text-emerald-900">
+          <UserCheck size={16} className="text-emerald-600" />
+          <span>ضمان دقة ونزاهة احتساب الزيارات والبيانات الإحصائية ✅</span>
+        </h4>
+        <ul className="text-[11px] font-bold text-emerald-800 space-y-1 list-disc list-inside leading-relaxed">
+          <li><strong>منع التكرار اللحظي:</strong> يتم تجاهل النقرات المتكررة المزدوجة لنفس المنيو خلال أقل من دقيقتين في الجلسة الواحدة.</li>
+          <li><strong>تصنيف دقيق للزائر المكرر:</strong> يُصنف الزائر كـ "مكرر 🔄" فقط إذا زار الموقع في <strong>جلسات زيارة مستقلة متعددة</strong>، وليس لمجرد بقائه يتصفح المنيو.</li>
+          <li><strong>مطابقة المصادر والأجهزة:</strong> أرقام مصادر الدخول والأجهزة تمثل عدد الزيارات الحقيقية فقط دون أي مضاعفة.</li>
+          <li><strong>تجميع مدة البقاء:</strong> يتم احتساب مدة تصفح المنيو تلقائياً وربطها بنفس سطر الزيارة لمنع تشتيت سجل النشاط.</li>
+        </ul>
       </div>
 
       {/* ── RECENT LIVE ACTIVITY STREAM ── */}
@@ -618,41 +653,49 @@ export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: 
               </tr>
             </thead>
             <tbody>
-              {filteredEvents.slice(0, 15).map(e => {
-                const store = storeMap.get(e.store_id)
-                const isRepeat = e.visitor_id && visitorStats.visitorMap[e.visitor_id]?.count > 1
-                return (
-                  <tr key={e.id}>
-                    <td className="text-slate-400 font-mono">
-                      {new Date(e.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td>
-                      <span className={`px-2 py-0.5 rounded-lg font-black text-[10px] ${
-                        e.event_type === 'pwa_install' ? 'bg-orange-100 text-orange-700' :
-                        e.event_type === 'menu_view' ? 'bg-emerald-100 text-emerald-700' :
-                        e.event_type === 'ad_click' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {e.event_type === 'pwa_install' ? 'تثبيت تطبيق 📲' :
-                         e.event_type === 'menu_view' ? 'زيارة منيو 🍔' :
-                         e.event_type === 'ad_click' ? 'نقر إعلان 🎯' : 'تصفح 🌐'}
-                      </span>
-                    </td>
-                    <td className="font-bold text-slate-800">{store?.name || e.store_slug || '-'}</td>
-                    <td>
-                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
-                        isRepeat ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      }`}>
-                        {isRepeat ? 'زائر مكرر 🔄' : 'زائر جديد ✨'}
-                      </span>
-                    </td>
-                    <td className="text-slate-600 font-bold">{sourceLabels[e.utm_source] || e.utm_source || 'direct'}</td>
-                    <td className="text-slate-500 font-medium">{e.device_type || 'mobile'}</td>
-                    <td className="font-mono text-slate-700 font-bold">
-                      {e.session_duration_seconds > 0 ? durationStats.formatTime(e.session_duration_seconds) : '-'}
-                    </td>
-                  </tr>
-                )
-              })}
+              {primaryEvents.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-6 text-slate-400 font-bold">لا توجد أحداث زيارة مطابقة للفلتر المحدد.</td>
+                </tr>
+              ) : (
+                primaryEvents.slice(0, 20).map(e => {
+                  const store = storeMap.get(e.store_id)
+                  const visitorInfo = e.visitor_id ? visitorStats.visitorMap[e.visitor_id] : null
+                  const isRepeat = visitorInfo ? visitorInfo.isRepeat : false
+                  const sessionDur = e.session_id ? (durationStats.sessionMaxDurationMap[e.session_id]?.duration || 0) : 0
+                  return (
+                    <tr key={e.id}>
+                      <td className="text-slate-400 font-mono">
+                        {new Date(e.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded-lg font-black text-[10px] ${
+                          e.event_type === 'pwa_install' ? 'bg-orange-100 text-orange-700' :
+                          e.event_type === 'menu_view' ? 'bg-emerald-100 text-emerald-700' :
+                          e.event_type === 'ad_click' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {e.event_type === 'pwa_install' ? 'تثبيت تطبيق 📲' :
+                           e.event_type === 'menu_view' ? 'زيارة منيو 🍔' :
+                           e.event_type === 'ad_click' ? 'نقر إعلان 🎯' : 'تصفح المنصة 🌐'}
+                        </span>
+                      </td>
+                      <td className="font-bold text-slate-800">{store?.name || e.store_slug || '-'}</td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
+                          isRepeat ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}>
+                          {isRepeat ? 'زائر مكرر 🔄' : 'زائر جديد ✨'}
+                        </span>
+                      </td>
+                      <td className="text-slate-600 font-bold">{sourceLabels[e.utm_source] || e.utm_source || 'direct'}</td>
+                      <td className="text-slate-500 font-medium">{e.device_type || 'mobile'}</td>
+                      <td className="font-mono text-slate-700 font-bold">
+                        {sessionDur > 0 ? durationStats.formatTime(sessionDur) : '-'}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

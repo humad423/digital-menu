@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { calculateDistance } from '@/utils/distance'
 import { useAuth } from '@/context/AuthContext'
 import { getStoreStatus } from '@/utils/storeStatus'
+import { trackGAWhatsAppOrder } from '@/utils/analytics'
 
 type Restaurant = Pick<Database['public']['Tables']['restaurants']['Row'], 'id' | 'name' | 'whatsapp_number' | 'latitude' | 'longitude' | 'delivery_radius_km'> & {
   enable_whatsapp_orders?: boolean | null
@@ -110,6 +111,7 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
         msg += `\n\n📍 موقعي:\n${locationUrl}`
       }
 
+      trackGAWhatsAppOrder(restaurant.name, totalPrice)
       window.open(`https://api.whatsapp.com/send?phone=${restaurant.whatsapp_number.replace(/\D/g, '')}&text=${encodeURIComponent(msg)}`, '_blank')
       cartStore.clearCart()
       setIsOpen(false)

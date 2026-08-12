@@ -6,6 +6,7 @@ import { Plus, Minus, ChevronLeft, ChevronRight, X, Layers, Scale, DollarSign, S
 import { Database } from '@/types/database.types'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
+import { trackGAAddToCart } from '@/utils/analytics'
 
 type Item = Database['public']['Tables']['menu_items']['Row'] & {
   primary_image_url?: string
@@ -85,6 +86,7 @@ export default function MenuItem({
       return
     }
     addItem(item, restaurantId)
+    trackGAAddToCart(item.name, Number(item.price))
     setPopped(true)
     setTimeout(() => setPopped(false), 250)
   }

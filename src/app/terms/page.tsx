@@ -5,7 +5,7 @@ import Link from 'next/link'
 import BrandLogo from '@/components/BrandLogo'
 import Footer from '@/components/Footer'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 async function getTermsContent() {
   try {

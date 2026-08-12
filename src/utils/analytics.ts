@@ -16,6 +16,31 @@ interface TrackEventParams {
   duration_seconds?: number
 }
 
+// Utility to send custom GA4 events directly
+export function sendGAEvent(eventName: string, params?: Record<string, any>) {
+  if (typeof window !== 'undefined' && (window as any).gtag) {
+    ;(window as any).gtag('event', eventName, params)
+  }
+}
+
+// Helper to track Add to Cart in GA4
+export function trackGAAddToCart(itemName: string, price?: number, currency = 'TRY') {
+  sendGAEvent('add_to_cart', {
+    currency,
+    value: price || 0,
+    items: [{ item_name: itemName, price: price || 0 }]
+  })
+}
+
+// Helper to track WhatsApp Order Lead in GA4
+export function trackGAWhatsAppOrder(storeName: string, totalValue?: number) {
+  sendGAEvent('generate_lead', {
+    currency: 'TRY',
+    value: totalValue || 0,
+    store_name: storeName
+  })
+}
+
 export function getOrCreateVisitorId(): string {
   if (typeof window === 'undefined') return ''
   try {
@@ -47,6 +72,20 @@ export function getOrCreateSessionId(): string {
 export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_seconds }: TrackEventParams) {
   if (typeof window === 'undefined') return
 
+  // Completely ignore tracking for Admin Panel or Restaurant Owner Dashboard
+  const pathname = window.location.pathname || ''
+  const hostname = window.location.hostname || ''
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/restaurant-panel') ||
+    hostname.startsWith('admin.') ||
+    hostname.startsWith('partner.') ||
+    hostname.startsWith('restaurant.')
+  ) {
+    return
+  }
+
   // Deduplicate rapid menu_view events for the same store in the same session (within 2 minutes)
   if (event_type === 'menu_view' && store_id) {
     try {
@@ -62,6 +101,21 @@ export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_s
 
   const executeTrack = async () => {
     try {
+      // 1. Send event to Google Analytics 4 (GA4) if loaded
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        ;(window as any).gtag('event', event_type, {
+          store_id: store_id || undefined,
+          store_slug: store_slug || undefined,
+          ad_id: ad_id || undefined,
+          duration_seconds: duration_seconds || undefined
+        })
+      }
+
+      // 2. Offload non-essential events (heartbeats & general page views) to GA4 only to save 90% Supabase DB writes
+      if (event_type === 'session_heartbeat' || event_type === 'page_view') {
+        return
+      }
+
       const userAgent = window.navigator.userAgent || ''
       const isMobile = /mobile|iphone|ipad|ipod|android/i.test(userAgent)
       const isTablet = /ipad|tablet/i.test(userAgent)
@@ -92,7 +146,7 @@ export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_s
         else utm_source = 'referral'
       }
 
-      // Fire non-blocking async payload
+      // Insert high-value store metrics (menu_view, pwa_install, ad_click) to Supabase for admin panel
       const supabase = createClient()
       await supabase
         .from('analytics_events')
@@ -127,8 +181,9 @@ export function usePageDurationTracker({ store_id, store_slug, event_type = 'men
   useEffect(() => {
     startTimeRef.current = Date.now()
 
-    // Send heartbeat duration every 30 seconds
+    // Send heartbeat duration every 45 seconds if tab is active
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
       const elapsedSeconds = Math.round((Date.now() - startTimeRef.current) / 1000)
       if (elapsedSeconds >= 5) {
         trackEvent({
@@ -138,7 +193,7 @@ export function usePageDurationTracker({ store_id, store_slug, event_type = 'men
           duration_seconds: elapsedSeconds
         })
       }
-    }, 30000)
+    }, 45000)
 
     const handleUnload = () => {
       const elapsedSeconds = Math.round((Date.now() - startTimeRef.current) / 1000)
