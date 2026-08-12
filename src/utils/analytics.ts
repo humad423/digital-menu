@@ -41,6 +41,11 @@ export function trackGAWhatsAppOrder(storeName: string, totalValue?: number) {
   })
 }
 
+// Helper to track User Logins in GA4
+export function trackGALogin(method = 'phone_sms') {
+  sendGAEvent('login', { method })
+}
+
 export function getOrCreateVisitorId(): string {
   if (typeof window === 'undefined') return ''
   try {

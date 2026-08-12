@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { Phone, Lock, X, CheckCircle, AlertCircle, MessageSquare, Smartphone } from 'lucide-react'
 import { auth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from '@/lib/firebase'
+import { trackGALogin } from '@/utils/analytics'
 
 export default function PhoneAuthModal() {
   const { isAuthModalOpen, closeAuthModal, onSuccessCallback, loginWithTestPhone } = useAuth()
@@ -105,6 +106,7 @@ export default function PhoneAuthModal() {
       }
 
       await loginWithTestPhone(formattedPhoneState || phoneNumber)
+      trackGALogin('phone_sms')
       closeAuthModal()
       if (onSuccessCallback) {
         onSuccessCallback()
