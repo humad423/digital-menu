@@ -14,6 +14,20 @@ export default function InstallPwaPrompt() {
   const [isStandalone, setIsStandalone] = useState(false)
   const [installing, setInstalling] = useState(false)
 
+  const hasTrackedRef = useRef(false)
+
+  const trackSinglePwaInstall = () => {
+    if (hasTrackedRef.current) return
+    if (typeof window !== 'undefined' && sessionStorage.getItem('alfsouq_pwa_install_tracked')) return
+
+    hasTrackedRef.current = true
+    try {
+      sessionStorage.setItem('alfsouq_pwa_install_tracked', 'true')
+    } catch {}
+
+    trackEvent({ event_type: 'pwa_install' })
+  }
+
   const isPartnerPage = pathname.startsWith('/dashboard') || pathname.startsWith('/restaurant-panel') || pathname.startsWith('/admin')
   const isEligiblePage = pathname === '/' || isPartnerPage
 
@@ -70,7 +84,7 @@ export default function InstallPwaPrompt() {
       if (timer) clearTimeout(timer)
       setShowPrompt(false)
       setIsStandalone(true)
-      trackEvent({ event_type: 'pwa_install' })
+      trackSinglePwaInstall()
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -106,7 +120,7 @@ export default function InstallPwaPrompt() {
         if (outcome === 'accepted') {
           setShowPrompt(false)
           setIsStandalone(true)
-          trackEvent({ event_type: 'pwa_install' })
+          trackSinglePwaInstall()
         }
       } catch (err) {
         console.log('PWA Prompt execution:', err)
