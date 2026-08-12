@@ -16,6 +16,15 @@ interface TrackEventParams {
   duration_seconds?: number
 }
 
+// Map internal event names to clear Arabic labels in Google Analytics
+const GA_ARABIC_EVENTS: Record<string, string> = {
+  pwa_install: 'تثبيت_التطبيق_PWA',
+  menu_view: 'زيارة_المنيو',
+  ad_click: 'نقر_إعلان_ترويجي',
+  page_view: 'تصفح_المنصة',
+  session_heartbeat: 'مدة_تصفح_المنيو'
+}
+
 // Utility to send custom GA4 events directly
 export function sendGAEvent(eventName: string, params?: Record<string, any>) {
   if (typeof window !== 'undefined') {
@@ -29,25 +38,30 @@ export function sendGAEvent(eventName: string, params?: Record<string, any>) {
 
 // Helper to track Add to Cart in GA4
 export function trackGAAddToCart(itemName: string, price?: number, currency = 'TRY') {
-  sendGAEvent('add_to_cart', {
+  const payload = {
     currency,
     value: price || 0,
     items: [{ item_name: itemName, price: price || 0 }]
-  })
+  }
+  sendGAEvent('add_to_cart', payload)
+  sendGAEvent('إضافة_وجبة_للسلة', payload)
 }
 
 // Helper to track WhatsApp Order Lead in GA4
 export function trackGAWhatsAppOrder(storeName: string, totalValue?: number) {
-  sendGAEvent('generate_lead', {
+  const payload = {
     currency: 'TRY',
     value: totalValue || 0,
     store_name: storeName
-  })
+  }
+  sendGAEvent('generate_lead', payload)
+  sendGAEvent('إرسال_طلب_واتساب', payload)
 }
 
 // Helper to track User Logins in GA4
 export function trackGALogin(method = 'phone_sms') {
   sendGAEvent('login', { method })
+  sendGAEvent('تسجيل_دخول_زبون', { method })
 }
 
 export function getOrCreateVisitorId(): string {
@@ -96,13 +110,17 @@ export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_s
   }
 
   // Forward 100% of events to Google Analytics 4 (GA4) with zero database load on Supabase/Vercel
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    ;(window as any).gtag('event', event_type, {
-      store_id: store_id || undefined,
-      store_slug: store_slug || undefined,
-      ad_id: ad_id || undefined,
-      duration_seconds: duration_seconds || undefined
-    })
+  const params = {
+    store_id: store_id || undefined,
+    store_slug: store_slug || undefined,
+    ad_id: ad_id || undefined,
+    duration_seconds: duration_seconds || undefined
+  }
+
+  sendGAEvent(event_type, params)
+  const arabicName = GA_ARABIC_EVENTS[event_type]
+  if (arabicName) {
+    sendGAEvent(arabicName, params)
   }
 }
 
