@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 
 export default function AdminAnalyticsTab({ restaurants = [] }: { restaurants?: any[] }) {
-  const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-24MTPCGDE7'
+  const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-6QKRPVXYRJ'
 
   return (
     <div className="space-y-6 dir-rtl animate-fade-in">
