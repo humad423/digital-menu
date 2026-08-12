@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 
 export default function GoogleAnalytics({ gaId }: { gaId?: string }) {
   const pathname = usePathname()
-  const measurementId = gaId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-6QKRPVXYRJ'
+  const measurementId = gaId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-24MTPCGDE7'
 
   // Exclude GA on Admin Panel, Partner Dashboard, or Restaurant Panel
   if (
