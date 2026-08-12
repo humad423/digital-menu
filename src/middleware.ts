@@ -34,6 +34,11 @@ export function middleware(request: NextRequest) {
       return NextResponse.next()
     }
 
+    if (pathname === '/admin/login' || pathname === '/login') {
+      url.pathname = '/admin/login'
+      return NextResponse.rewrite(url)
+    }
+
     if (!pathname.startsWith('/admin')) {
       url.pathname = `/admin${pathname === '/' ? '' : pathname}`
       return NextResponse.rewrite(url)
