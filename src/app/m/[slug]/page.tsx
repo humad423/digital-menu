@@ -27,16 +27,7 @@ export default async function RestaurantMenuPage({
   ] = await Promise.all([
     supabase
       .from('categories')
-      .select(`
-        id, name, sort_order, restaurant_id,
-        menu_items(
-          id, name, description, price, original_price,
-          is_available, category_id, image_url, images,
-          primary_image_url, bonus_image_url, item3_image_url, item4_image_url,
-          item_images, is_offer, offer_title, has_custom_image,
-          min_quantity, bonus_quantity, is_kilo_item
-        )
-      `)
+      .select('*, menu_items(*)')
       .eq('restaurant_id', restaurant.id)
       .order('sort_order', { ascending: true }),
 
