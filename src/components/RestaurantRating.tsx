@@ -1,34 +1,15 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import React from 'react'
 import Link from 'next/link'
 
 interface RestaurantRatingProps {
-  restaurantId: string
   restaurantSlug: string
+  avgRating: string | number
+  ratingsCount: number
 }
 
-export default function RestaurantRating({ restaurantId, restaurantSlug }: RestaurantRatingProps) {
-  const [ratings, setRatings] = useState<any[]>([])
-
-  useEffect(() => {
-    const fetchRatings = async () => {
-      const { data } = await supabase
-        .from('ratings')
-        .select('rating')
-        .eq('restaurant_id', restaurantId)
-
-      if (data) setRatings(data)
-    }
-
-    fetchRatings()
-  }, [restaurantId])
-
-  const avgRating = ratings.length > 0
-    ? (ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length).toFixed(1)
-    : 'جديد'
-
+export default function RestaurantRating({ restaurantSlug, avgRating, ratingsCount }: RestaurantRatingProps) {
   return (
     <Link
       href={`/m/${restaurantSlug}/reviews`}
@@ -37,7 +18,7 @@ export default function RestaurantRating({ restaurantId, restaurantSlug }: Resta
     >
       <span className="text-amber-500">⭐</span>
       <span>{avgRating}</span>
-      {ratings.length > 0 && <span className="text-[10px] text-amber-600 font-bold">({ratings.length})</span>}
+      {ratingsCount > 0 && <span className="text-[10px] text-amber-600 font-bold">({ratingsCount})</span>}
     </Link>
   )
 }

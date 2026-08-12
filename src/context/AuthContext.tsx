@@ -54,26 +54,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const phone = firebaseUser.phoneNumber || ''
       if (!phone) return
 
-      // 1. Query by ID first
-      const { data: byId } = await supabase
+      // Single query: find by firebase UID or phone (saves one round-trip vs two separate queries)
+      const { data: rows } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', firebaseUser.uid)
-        .limit(1)
+        .or(`id.eq.${firebaseUser.uid},phone.eq.${phone}`)
+        .limit(2)
 
-      let existingProfile = byId && byId.length > 0 ? byId[0] : null
-
-      // 2. If not found by ID, query by Phone
-      if (!existingProfile) {
-        const { data: byPhone } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('phone', phone)
-          .limit(1)
-        if (byPhone && byPhone.length > 0) {
-          existingProfile = byPhone[0]
-        }
-      }
+      const existingProfile = rows && rows.length > 0 ? rows[0] : null
 
       if (existingProfile) {
         setProfile(existingProfile as UserProfile)

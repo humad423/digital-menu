@@ -11,7 +11,7 @@ import { getStoreStatus } from '@/utils/storeStatus'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import MenuLocationNotice from '@/components/MenuLocationNotice'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -31,7 +31,7 @@ export default async function RestaurantLayout({
   const supabase = createPublicClient()
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off')
+    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, ratings(rating)')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -54,6 +54,13 @@ export default async function RestaurantLayout({
       </div>
     )
   }
+
+  // Compute avg rating server-side (no separate DB call needed)
+  const ratingsList: { rating: number }[] = (restaurant as any).ratings || []
+  const avgRating = ratingsList.length > 0
+    ? (ratingsList.reduce((acc, curr) => acc + curr.rating, 0) / ratingsList.length).toFixed(1)
+    : 'جديد'
+  const ratingsCount = ratingsList.length
 
   const primary = restaurant.primary_color || '#F97316'
 
@@ -133,7 +140,7 @@ export default async function RestaurantLayout({
                     </div>
                   )
                 })()}
-                <RestaurantRating restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
+                <RestaurantRating restaurantSlug={restaurant.slug} avgRating={avgRating} ratingsCount={ratingsCount} />
                 <StoreDeliveryBadge restaurant={restaurant} />
               </div>
             </div>

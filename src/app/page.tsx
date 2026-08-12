@@ -1,7 +1,8 @@
 import { createPublicClient } from '@/utils/supabase/server'
 import PlatformClient from '@/components/PlatformClient'
 
-export const dynamic = 'force-dynamic'
+// Revalidate every 60 seconds (ISR) — eliminates per-request DB queries for all visitors
+export const revalidate = 60
 
 export default async function Home() {
   const supabase = createPublicClient()
@@ -11,7 +12,8 @@ export default async function Home() {
     { data: categories },
     { data: ads },
     { data: offers },
-    { data: serviceZones }
+    { data: serviceZones },
+    { data: businessTypes }
   ] = await Promise.all([
     supabase
       .from('restaurants')
@@ -41,7 +43,13 @@ export default async function Home() {
       .from('service_zones')
       .select('*')
       .eq('is_active', true)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: true }),
+
+    supabase
+      .from('business_types')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
   ])
 
   // Flatten: add platform_category_ids array and average rating to each restaurant
@@ -66,6 +74,7 @@ export default async function Home() {
         ads={ads || []}
         offers={offers || []}
         serviceZones={serviceZones || []}
+        businessTypes={businessTypes || []}
       />
     </main>
   )

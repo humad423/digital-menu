@@ -152,18 +152,20 @@ export default function PlatformClient({
   categories,
   ads,
   offers = [],
-  serviceZones = []
+  serviceZones = [],
+  businessTypes: initialBusinessTypes = []
 }: {
   restaurants: any[]
   categories: any[]
   ads: any[]
   offers?: any[]
   serviceZones?: any[]
+  businessTypes?: any[]
 }) {
   const [activeCat, setActiveCat]         = useState<string | null>(null)
   const [searchQuery, setSearchQuery]     = useState('')
   const [activeStoreType, setActiveStoreType] = useState<string>('all')
-  const [businessTypes, setBusinessTypes] = useState<any[]>([])
+  const [businessTypes, setBusinessTypes] = useState<any[]>(initialBusinessTypes)
   const [sortBy, setSortBy]               = useState<'distance' | 'rating' | 'delivery_fee' | 'newest'>('distance')
   const [showAllRanked, setShowAllRanked] = useState(false)
   const [showAllLatest, setShowAllLatest] = useState(false)
@@ -171,15 +173,9 @@ export default function PlatformClient({
   const offersRef   = useRef<HTMLDivElement>(null)
   const searchRef   = useRef<HTMLInputElement>(null)
 
-  const supabase = createClient()
 
-  useEffect(() => {
-    async function fetchBTypes() {
-      const { data } = await supabase.from('business_types').select('*').eq('is_active', true).order('sort_order', { ascending: true })
-      if (data && data.length > 0) setBusinessTypes(data)
-    }
-    fetchBTypes()
-  }, [])
+
+
 
   const [isDragOffer, setIsDragOffer]   = useState(false)
   const [offerStartX, setOfferStartX]   = useState(0)
