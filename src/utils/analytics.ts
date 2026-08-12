@@ -1,7 +1,12 @@
-import { createClient } from '@/utils/supabase/client'
+'use client'
+
+// NOTE: Do NOT import createClient here - analytics must never touch Supabase
 import { useEffect, useRef } from 'react'
 
-export type AnalyticsEventType = 
+// ─────────────────────────────────────────────────────────────
+//  Types
+// ─────────────────────────────────────────────────────────────
+export type AnalyticsEventType =
   | 'pwa_install'
   | 'menu_view'
   | 'ad_click'
@@ -16,67 +21,116 @@ interface TrackEventParams {
   duration_seconds?: number
 }
 
-// Map internal event names to clear Arabic labels in Google Analytics
-const GA_ARABIC_EVENTS: Record<string, string> = {
-  pwa_install: 'تثبيت_التطبيق_PWA',
-  menu_view: 'زيارة_المنيو',
-  ad_click: 'نقر_إعلان_ترويجي',
-  page_view: 'تصفح_المنصة',
-  session_heartbeat: 'مدة_تصفح_المنيو'
+// ─────────────────────────────────────────────────────────────
+//  Arabic event name map  (internal key → GA4 Arabic label)
+//  We send ONLY the Arabic label so GA4 reports are 100% Arabic.
+// ─────────────────────────────────────────────────────────────
+const GA_ARABIC_EVENTS: Record<AnalyticsEventType, string> = {
+  pwa_install:       'تثبيت_التطبيق',
+  menu_view:         'زيارة_المنيو',
+  ad_click:          'نقر_إعلان',
+  page_view:         'تصفح_المنصة',
+  session_heartbeat: 'مدة_التصفح',
 }
 
-// Utility to send custom GA4 events directly
+// ─────────────────────────────────────────────────────────────
+//  Core GA4 sender  (single call – never duplicated)
+// ─────────────────────────────────────────────────────────────
 export function sendGAEvent(eventName: string, params?: Record<string, any>) {
-  if (typeof window !== 'undefined') {
-    if (typeof (window as any).gtag === 'function') {
-      ;(window as any).gtag('event', eventName, params)
-    } else if (Array.isArray((window as any).dataLayer)) {
-      ;(window as any).dataLayer.push({ event: eventName, ...params })
-    }
+  if (typeof window === 'undefined') return
+  if (typeof (window as any).gtag === 'function') {
+    ;(window as any).gtag('event', eventName, params ?? {})
+  } else if (Array.isArray((window as any).dataLayer)) {
+    ;(window as any).dataLayer.push({ event: eventName, ...(params ?? {}) })
   }
 }
 
-// Helper to track Add to Cart in GA4
-export function trackGAAddToCart(itemName: string, price?: number, currency = 'TRY') {
+// ─────────────────────────────────────────────────────────────
+//  Route guard – exclude all admin / partner routes
+// ─────────────────────────────────────────────────────────────
+function isAdminRoute(): boolean {
+  if (typeof window === 'undefined') return true
+  const pathname = window.location.pathname
+  const hostname = window.location.hostname
+  return (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/restaurant-panel') ||
+    hostname.startsWith('admin.') ||
+    hostname.startsWith('partner.') ||
+    hostname.startsWith('restaurant.')
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+//  trackEvent  — fires ONE Arabic-named event per call
+// ─────────────────────────────────────────────────────────────
+export function trackEvent({
+  event_type,
+  store_id,
+  store_slug,
+  ad_id,
+  duration_seconds,
+}: TrackEventParams) {
+  if (isAdminRoute()) return
+
+  const arabicName = GA_ARABIC_EVENTS[event_type]
+  if (!arabicName) return
+
+  const params: Record<string, any> = {}
+  if (store_id)         params['معرف_المتجر']        = store_id
+  if (store_slug)       params['رابط_المتجر']         = store_slug
+  if (ad_id)            params['معرف_الإعلان']        = ad_id
+  if (duration_seconds) params['مدة_البقاء_بالثواني'] = duration_seconds
+
+  sendGAEvent(arabicName, params)
+}
+
+// ─────────────────────────────────────────────────────────────
+//  trackGAAddToCart  — GA4 e-commerce standard payload
+// ─────────────────────────────────────────────────────────────
+export function trackGAAddToCart(
+  itemName: string,
+  price?: number,
+  currency = 'TRY',
+) {
+  if (isAdminRoute()) return
   const itemPrice = Number(price) || 0
-  const payload = {
+  sendGAEvent('إضافة_للسلة', {
     currency,
     value: itemPrice,
-    items: [
-      {
-        item_id: itemName || 'item',
-        item_name: itemName || 'item',
-        price: itemPrice,
-        quantity: 1
-      }
-    ],
-    item_name: itemName,
-    price: itemPrice
-  }
-  sendGAEvent('add_to_cart', payload)
+    items: [{ item_id: itemName, item_name: itemName, price: itemPrice, quantity: 1 }],
+    اسم_الوجبة:  itemName,
+    السعر:        itemPrice,
+  })
 }
 
-// Helper to track WhatsApp Order Lead in GA4
+// ─────────────────────────────────────────────────────────────
+//  trackGAWhatsAppOrder  — fires when user sends WhatsApp order
+// ─────────────────────────────────────────────────────────────
 export function trackGAWhatsAppOrder(storeName: string, totalValue?: number) {
-  const payload = {
-    currency: 'TRY',
-    value: totalValue || 0,
-    store_name: storeName,
-    اسم_المتجر: storeName,
-    إجمالي_الطلب_بالليرة: totalValue || 0
-  }
-  sendGAEvent('generate_lead', payload)
+  if (isAdminRoute()) return
+  sendGAEvent('إرسال_طلب_واتساب', {
+    اسم_المتجر:            storeName,
+    إجمالي_الطلب_بالليرة: totalValue || 0,
+    currency:              'TRY',
+    value:                 totalValue || 0,
+  })
 }
 
-// Helper to track User Logins in GA4
+// ─────────────────────────────────────────────────────────────
+//  trackGALogin  — fires once after successful OTP verification
+// ─────────────────────────────────────────────────────────────
 export function trackGALogin(method = 'phone_sms') {
-  const payload = {
-    method,
-    طريقة_تسجيل_الدخول: 'رسالة_نصية_SMS'
-  }
-  sendGAEvent('login', payload)
+  if (isAdminRoute()) return
+  sendGAEvent('تسجيل_دخول', {
+    طريقة_الدخول: method === 'phone_sms' ? 'رسالة_SMS' : method,
+  })
 }
 
+// ─────────────────────────────────────────────────────────────
+//  Visitor / Session ID helpers  (localStorage-based, unchanged)
+// ─────────────────────────────────────────────────────────────
 export function getOrCreateVisitorId(): string {
   if (typeof window === 'undefined') return ''
   try {
@@ -86,7 +140,7 @@ export function getOrCreateVisitorId(): string {
       localStorage.setItem('alfsouq_vid', vid)
     }
     return vid
-  } catch (e) {
+  } catch {
     return 'v_unknown'
   }
 }
@@ -100,75 +154,46 @@ export function getOrCreateSessionId(): string {
       sessionStorage.setItem('alfsouq_sid', sid)
     }
     return sid
-  } catch (e) {
+  } catch {
     return 's_unknown'
   }
 }
 
-export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_seconds }: TrackEventParams) {
-  if (typeof window === 'undefined') return
-
-  // Completely ignore tracking for Admin Panel or Restaurant Owner Dashboard
-  const pathname = window.location.pathname || ''
-  const hostname = window.location.hostname || ''
-  if (
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/restaurant-panel') ||
-    hostname.startsWith('admin.') ||
-    hostname.startsWith('partner.') ||
-    hostname.startsWith('restaurant.')
-  ) {
-    return
-  }
-
-  // Forward 100% of events to Google Analytics 4 (GA4) with zero database load on Supabase/Vercel
-  const params = {
-    store_id: store_id || undefined,
-    store_slug: store_slug || undefined,
-    ad_id: ad_id || undefined,
-    duration_seconds: duration_seconds || undefined,
-    رابط_المتجر: store_slug || undefined,
-    معرف_المتجر: store_id || undefined,
-    معرف_الإعلان: ad_id || undefined,
-    مدة_البقاء_بالثواني: duration_seconds || undefined
-  }
-
-  sendGAEvent(event_type, params)
-}
-
-export function usePageDurationTracker({ store_id, store_slug, event_type = 'menu_view' }: { store_id?: string; store_slug?: string; event_type?: AnalyticsEventType }) {
+// ─────────────────────────────────────────────────────────────
+//  usePageDurationTracker  — heartbeat every 45 s + on unload
+//  Sends ONE مدة_التصفح event per interval / page-close
+// ─────────────────────────────────────────────────────────────
+export function usePageDurationTracker({
+  store_id,
+  store_slug,
+  event_type = 'menu_view',
+}: {
+  store_id?: string
+  store_slug?: string
+  event_type?: AnalyticsEventType
+}) {
   const startTimeRef = useRef<number>(Date.now())
 
   useEffect(() => {
     startTimeRef.current = Date.now()
 
-    // Send heartbeat duration every 45 seconds if tab is active
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return
-      const elapsedSeconds = Math.round((Date.now() - startTimeRef.current) / 1000)
-      if (elapsedSeconds >= 5) {
-        trackEvent({
-          event_type: 'session_heartbeat',
-          store_id,
-          store_slug,
-          duration_seconds: elapsedSeconds
-        })
-      }
-    }, 45000)
-
-    const handleUnload = () => {
-      const elapsedSeconds = Math.round((Date.now() - startTimeRef.current) / 1000)
-      if (elapsedSeconds >= 3) {
-        trackEvent({
-          event_type: 'session_heartbeat',
-          store_id,
-          store_slug,
-          duration_seconds: elapsedSeconds
-        })
-      }
+    const sendHeartbeat = (minSeconds = 5) => {
+      const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000)
+      if (elapsed < minSeconds) return
+      trackEvent({
+        event_type: 'session_heartbeat',
+        store_id,
+        store_slug,
+        duration_seconds: elapsed,
+      })
     }
 
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      sendHeartbeat(5)
+    }, 45_000)
+
+    const handleUnload = () => sendHeartbeat(3)
     window.addEventListener('beforeunload', handleUnload)
     window.addEventListener('pagehide', handleUnload)
 
@@ -178,5 +203,6 @@ export function usePageDurationTracker({ store_id, store_slug, event_type = 'men
       window.removeEventListener('pagehide', handleUnload)
       handleUnload()
     }
-  }, [store_id, store_slug, event_type])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store_id, store_slug])
 }
