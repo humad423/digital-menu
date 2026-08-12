@@ -86,92 +86,14 @@ export function trackEvent({ event_type, store_id, store_slug, ad_id, duration_s
     return
   }
 
-  // Deduplicate rapid menu_view events for the same store in the same session (within 2 minutes)
-  if (event_type === 'menu_view' && store_id) {
-    try {
-      const sessionKey = `alfsouq_last_view_${store_id}`
-      const lastViewTime = sessionStorage.getItem(sessionKey)
-      const now = Date.now()
-      if (lastViewTime && now - parseInt(lastViewTime, 10) < 120000) {
-        return
-      }
-      sessionStorage.setItem(sessionKey, now.toString())
-    } catch (e) {}
-  }
-
-  const executeTrack = async () => {
-    try {
-      // 1. Send event to Google Analytics 4 (GA4) if loaded
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        ;(window as any).gtag('event', event_type, {
-          store_id: store_id || undefined,
-          store_slug: store_slug || undefined,
-          ad_id: ad_id || undefined,
-          duration_seconds: duration_seconds || undefined
-        })
-      }
-
-      // 2. Offload non-essential events (heartbeats & general page views) to GA4 only to save 90% Supabase DB writes
-      if (event_type === 'session_heartbeat' || event_type === 'page_view') {
-        return
-      }
-
-      const userAgent = window.navigator.userAgent || ''
-      const isMobile = /mobile|iphone|ipad|ipod|android/i.test(userAgent)
-      const isTablet = /ipad|tablet/i.test(userAgent)
-      const device_type = isTablet ? 'tablet' : isMobile ? 'mobile' : 'desktop'
-
-      const visitor_id = getOrCreateVisitorId()
-      const session_id = getOrCreateSessionId()
-
-      // Detect referrer / UTM source
-      const urlParams = new URLSearchParams(window.location.search)
-      let utm_source = urlParams.get('utm_source') || urlParams.get('ref') || urlParams.get('source') || ''
-      
-      let referrer = document.referrer || ''
-      if (referrer) {
-        try {
-          const refUrl = new URL(referrer)
-          if (refUrl.hostname.includes('whatsapp')) utm_source = utm_source || 'whatsapp'
-          else if (refUrl.hostname.includes('instagram')) utm_source = utm_source || 'instagram'
-          else if (refUrl.hostname.includes('facebook')) utm_source = utm_source || 'facebook'
-          else if (refUrl.hostname.includes('google')) utm_source = utm_source || 'google'
-          else if (refUrl.hostname.includes('telegram')) utm_source = utm_source || 'telegram'
-          else if (refUrl.hostname.includes('tiktok')) utm_source = utm_source || 'tiktok'
-        } catch {}
-      }
-
-      if (!utm_source) {
-        if (!referrer) utm_source = 'direct'
-        else utm_source = 'referral'
-      }
-
-      // Insert high-value store metrics (menu_view, pwa_install, ad_click) to Supabase for admin panel
-      const supabase = createClient()
-      await supabase
-        .from('analytics_events')
-        .insert({
-          event_type,
-          store_id: store_id || null,
-          store_slug: store_slug || null,
-          ad_id: ad_id || null,
-          referrer: referrer.substring(0, 500),
-          utm_source: utm_source.substring(0, 100),
-          user_agent: userAgent.substring(0, 500),
-          device_type,
-          visitor_id,
-          session_id,
-          session_duration_seconds: duration_seconds || 0
-        })
-    } catch (err) {
-      // Fail silently so user experience is never affected
-    }
-  }
-
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(() => executeTrack())
-  } else {
-    setTimeout(executeTrack, 1000)
+  // Forward 100% of events to Google Analytics 4 (GA4) with zero database load on Supabase/Vercel
+  if (typeof window !== 'undefined' && (window as any).gtag) {
+    ;(window as any).gtag('event', event_type, {
+      store_id: store_id || undefined,
+      store_slug: store_slug || undefined,
+      ad_id: ad_id || undefined,
+      duration_seconds: duration_seconds || undefined
+    })
   }
 }
 
