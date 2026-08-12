@@ -18,8 +18,12 @@ interface TrackEventParams {
 
 // Utility to send custom GA4 events directly
 export function sendGAEvent(eventName: string, params?: Record<string, any>) {
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    ;(window as any).gtag('event', eventName, params)
+  if (typeof window !== 'undefined') {
+    if (typeof (window as any).gtag === 'function') {
+      ;(window as any).gtag('event', eventName, params)
+    } else if (Array.isArray((window as any).dataLayer)) {
+      ;(window as any).dataLayer.push({ event: eventName, ...params })
+    }
   }
 }
 
