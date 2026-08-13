@@ -1,0 +1,31 @@
+{
+  "name": "لوحة الشريك | ألف سوق",
+  "short_name": "لوحة الشريك",
+  "id": "/dashboard",
+  "description": "لوحة تحكم إدارة المتجر والمطعم الشريك في منصة ألف سوق لتلقي الطلبات وإدارة المنيو والعروض",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#052e16",
+  "theme_color": "#16a34a",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar",
+  "categories": ["business", "shopping"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/partner-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/partner-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
