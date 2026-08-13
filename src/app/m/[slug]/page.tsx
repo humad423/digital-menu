@@ -4,6 +4,7 @@ import MenuClient from '@/components/MenuClient'
 
 // No time-based revalidation — on-demand only via /api/revalidate
 export const revalidate = false
+export const dynamic = 'force-static'
 
 export default async function RestaurantMenuPage({
   params,
