@@ -10,6 +10,7 @@ import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utens
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
+import { triggerRevalidate } from '@/utils/revalidate'
 
 
 export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
@@ -253,6 +254,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       }
     }
     fetchData(false)
+    // Invalidate the public ISR cache so visitors see the new category immediately
+    triggerRevalidate(restaurant?.slug, 'menu')
   }
 
   const deleteCategory = async (catId: string, name: string) => {
@@ -260,6 +263,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       setCategories(prev => prev.filter(c => c.id !== catId))
       await supabase.from('categories').delete().eq('id', catId)
       fetchData(false)
+      // Invalidate the public ISR cache
+      triggerRevalidate(restaurant?.slug, 'menu')
     }
   }
 
@@ -367,6 +372,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setEditItemId(null)
     setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false })
     fetchData(false)
+    // Invalidate the public ISR cache so menu reflects the new/updated item immediately
+    triggerRevalidate(restaurant?.slug, 'menu')
   }
 
   const handleEditItem = (item: any) => {
@@ -412,6 +419,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, is_available: newStatus } : i))
     await supabase.from('menu_items').update({ is_available: newStatus }).eq('id', item.id)
     fetchData(false)
+    triggerRevalidate(restaurant?.slug, 'menu')
   }
 
   const deleteItem = async (id: string, name: string) => {
@@ -419,6 +427,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       setMenuItems(prev => prev.filter(i => i.id !== id))
       await supabase.from('menu_items').delete().eq('id', id)
       fetchData(false)
+      triggerRevalidate(restaurant?.slug, 'menu')
     }
   }
 
@@ -532,6 +541,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true
     })
     fetchData(false)
+    // Invalidate both menu (offers appear in menu) and offers page
+    triggerRevalidate(restaurant?.slug, 'menu')
+    triggerRevalidate(restaurant?.slug, 'offers')
   }
 
   const handleEditOffer = (offer: any) => {
@@ -572,12 +584,16 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setOffers(prev => prev.map(o => o.id === offer.id ? { ...o, is_active: newStatus } : o))
     await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id)
     fetchData(false)
+    triggerRevalidate(restaurant?.slug, 'menu')
+    triggerRevalidate(restaurant?.slug, 'offers')
   }
 
   const deleteOffer = async (offerId: string) => {
     if (confirm('حذف هذا العرض؟')) {
       await supabase.from('offers').delete().eq('id', offerId)
       fetchData()
+      triggerRevalidate(restaurant?.slug, 'menu')
+      triggerRevalidate(restaurant?.slug, 'offers')
     }
   }
 

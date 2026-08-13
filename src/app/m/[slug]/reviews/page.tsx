@@ -1,18 +1,16 @@
+import { getRestaurantBySlug } from '@/utils/menuCache'
 import { createPublicClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import ReviewsClient from './ReviewsClient'
 
-export const dynamic = 'force-dynamic'
+// Reviews can be added by any visitor so we use time-based ISR (5 min)
+// rather than on-demand, since we don't control when new reviews arrive.
+export const revalidate = 300
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = createPublicClient()
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('name')
-    .eq('slug', slug)
-    .maybeSingle()
-
+  // Reuses the same restaurant cache — no extra Supabase query
+  const restaurant = await getRestaurantBySlug(slug)
   return {
     title: restaurant ? `تقييمات وآراء الزبائن | ${restaurant.name}` : 'التقييمات',
   }
@@ -20,18 +18,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function RestaurantReviewsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = createPublicClient()
 
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id, name, slug, primary_color, logo_url')
-    .eq('slug', slug)
-    .maybeSingle()
+  // Reuses cached restaurant data — no extra Supabase query
+  const restaurant = await getRestaurantBySlug(slug)
 
   if (!restaurant) {
     notFound()
   }
 
+  // Ratings still need a fresh query (time-based ISR handles freshness)
+  const supabase = createPublicClient()
   const { data: ratings } = await supabase
     .from('ratings')
     .select('*')
@@ -45,3 +41,4 @@ export default async function RestaurantReviewsPage({ params }: { params: Promis
     />
   )
 }
+

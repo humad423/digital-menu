@@ -1,8 +1,9 @@
-import { createPublicClient } from '@/utils/supabase/server'
+import { getRestaurantBySlug, getMenuByRestaurantId } from '@/utils/menuCache'
 import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
 
-export const revalidate = 60
+// No time-based revalidation — on-demand only via /api/revalidate
+export const revalidate = false
 
 export default async function RestaurantMenuPage({
   params,
@@ -10,39 +11,16 @@ export default async function RestaurantMenuPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const supabase = createPublicClient()
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id, name, store_type, has_delivery, primary_color, cover_url, logo_url')
-    .eq('slug', slug)
-    .maybeSingle()
+
+  // Reuses cached query from layout — zero extra Supabase calls
+  const restaurant = await getRestaurantBySlug(slug)
 
   if (!restaurant) {
     return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر أو المطعم غير موجود أو قد يكون الرابط غير صحيح.</div>
   }
 
-  const [
-    { data: rawCategories },
-    { data: offers }
-  ] = await Promise.all([
-    supabase
-      .from('categories')
-      .select('*, menu_items(*)')
-      .eq('restaurant_id', restaurant.id)
-      .order('sort_order', { ascending: true }),
-
-    supabase
-      .from('offers')
-      .select('*, primary_item:menu_items!primary_item_id(image_url, images, name), bonus_item:menu_items!bonus_item_id(image_url, images, name), item3:menu_items!item3_id(image_url, images, name), item4:menu_items!item4_id(image_url, images, name)')
-      .eq('restaurant_id', restaurant.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-  ])
-
-  const categories = rawCategories?.map(({ menu_items, ...cat }) => cat) || []
-  const menuItems = rawCategories
-    ?.flatMap(cat => (cat.menu_items || []) as any[])
-    .filter(item => item.is_available !== false) || []
+  // Cached menu data — shared across all render passes for this restaurant
+  const { categories, menuItems, offers } = await getMenuByRestaurantId(restaurant.id)
 
   if (!categories || categories.length === 0) {
     return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر قيد التجهيز حالياً...</div>
@@ -52,12 +30,12 @@ export default async function RestaurantMenuPage({
     <MenuClient
       restaurantId={restaurant.id}
       restaurantName={restaurant.name}
-      storeType={restaurant.store_type || 'restaurant'}
+      storeType={(restaurant as any).store_type || 'restaurant'}
       restaurant={restaurant}
-      categories={categories || []}
-      menuItems={menuItems || []}
+      categories={categories}
+      menuItems={menuItems}
       ads={[]}
-      offers={offers || []}
+      offers={offers}
     />
   )
 }

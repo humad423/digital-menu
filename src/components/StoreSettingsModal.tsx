@@ -5,19 +5,22 @@ import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
 import { Settings, X, Clock, Calendar, Phone, Image, Store, Save, AlertCircle, Bike, Plus, Trash2, CheckCircle2 } from 'lucide-react'
 import { DAYS_OF_WEEK } from '@/utils/storeStatus'
+import { triggerRevalidate } from '@/utils/revalidate'
 
 interface StoreSettingsModalProps {
   restaurant: any
   isOpen: boolean
   onClose: () => void
   onSaveSuccess: () => void
+  restaurantSlug?: string
 }
 
 export default function StoreSettingsModal({
   restaurant,
   isOpen,
   onClose,
-  onSaveSuccess
+  onSaveSuccess,
+  restaurantSlug,
 }: StoreSettingsModalProps) {
 
   const [name, setName] = useState(restaurant?.name || '')
@@ -136,6 +139,8 @@ export default function StoreSettingsModal({
       if (error) {
         setErrorMsg('حدث خطأ أثناء حفظ الإعدادات: ' + error.message)
       } else {
+        // Invalidate the public ISR cache so visitors see updated settings immediately
+        triggerRevalidate(restaurantSlug ?? restaurant?.slug, 'menu')
         onSaveSuccess()
         onClose()
       }

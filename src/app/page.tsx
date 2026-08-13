@@ -1,8 +1,9 @@
 import { createPublicClient } from '@/utils/supabase/server'
 import PlatformClient from '@/components/PlatformClient'
 
-// Revalidate every 60 seconds (ISR) — eliminates per-request DB queries for all visitors
-export const revalidate = 60
+// On-demand revalidation — home data changes only when admin edits restaurants or offers
+// Triggered automatically via /api/revalidate from the admin dashboard
+export const revalidate = false
 
 export default async function Home() {
   const supabase = createPublicClient()

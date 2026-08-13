@@ -1,4 +1,4 @@
-import { createPublicClient } from '@/utils/supabase/server'
+import { getRestaurantBySlug } from '@/utils/menuCache'
 import CartButton from '@/components/CartButton'
 import UserAuthButton from '@/components/UserAuthButton'
 import RestaurantRating from '@/components/RestaurantRating'
@@ -11,12 +11,14 @@ import { getStoreStatus } from '@/utils/storeStatus'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import MenuLocationNotice from '@/components/MenuLocationNotice'
 
-export const revalidate = 60
+// No time-based revalidation — cache is invalidated on-demand via /api/revalidate
+// when the restaurant owner saves any change in the dashboard.
+export const revalidate = false
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const supabase = createPublicClient()
-  const { data: r } = await supabase.from('restaurants').select('name').eq('slug', slug).maybeSingle()
+  // Reuses the same cache as RestaurantLayout — no extra Supabase query
+  const r = await getRestaurantBySlug(slug)
   return { title: r ? `${r.name} | مِنيو` : 'مطعم غير موجود' }
 }
 
@@ -28,12 +30,8 @@ export default async function RestaurantLayout({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const supabase = createPublicClient()
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, ratings(rating)')
-    .eq('slug', slug)
-    .maybeSingle()
+  // Single cached Supabase query shared with generateMetadata above
+  const restaurant = await getRestaurantBySlug(slug)
 
   if (!restaurant) {
     return (

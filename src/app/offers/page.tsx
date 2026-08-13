@@ -1,5 +1,5 @@
 // Server Component — data fetching only (no 'use client')
-// ISR: revalidate every 60 seconds so DB is NOT hit on every visitor request
+// On-demand revalidation via /api/revalidate — offers only change when admin edits them
 import { createPublicClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
@@ -7,7 +7,7 @@ import BrandLogo from '@/components/BrandLogo'
 import UserAuthButton from '@/components/UserAuthButton'
 import OffersClient from './OffersClient'
 
-export const revalidate = 60
+export const revalidate = false
 
 export default async function AllOffersPage() {
   const supabase = createPublicClient()

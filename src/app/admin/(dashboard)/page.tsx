@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { triggerRevalidate } from '@/utils/revalidate'
 import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
@@ -112,6 +113,8 @@ export default function AdminDashboard() {
         supabase.from('offers').update({ sort_order: off.sort_order }).eq('id', off.id)
       )
     )
+    // Offers reordered: refresh offers page and home
+    triggerRevalidate(null, 'offers')
   }
 
   const togglePlatformOfferActive = async (offer: any) => {
@@ -194,6 +197,9 @@ export default function AdminDashboard() {
     }
     setSavingRes(false); setShowResForm(false); setEditResId(null); setResForm(emptyRes); setSelectedCatIds([])
     fetchData()
+    // Invalidate public pages: restaurant edit affects menu + home listing
+    triggerRevalidate(resForm.slug, 'menu')
+    triggerRevalidate(null, 'home')
   }
 
   const handleEditRes = (r: any) => {
@@ -222,6 +228,8 @@ export default function AdminDashboard() {
     if (confirm(`هل أنت متأكد من حذف مطعم "${name}"؟`)) {
       await supabase.from('restaurants').delete().eq('id', id)
       fetchData()
+      // Restaurant deleted: revalidate home page
+      triggerRevalidate(null, 'home')
     }
   }
 
