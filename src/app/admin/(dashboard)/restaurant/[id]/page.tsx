@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { getMainDomainMenuUrl } from '@/utils/url'
+import { triggerRevalidate } from '@/utils/revalidate'
 
 
 export default function AdminRestaurantPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
@@ -119,12 +120,14 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       await supabase.from('categories').insert([{ restaurant_id: id, name: newCatName, sort_order: maxSort }])
       setNewCatName('')
     }
+    triggerRevalidate(restaurant?.slug, 'menu')
     fetchData()
   }
 
   const deleteCategory = async (catId: string, name: string) => {
     if (confirm(`حذف القسم "${name}" مع كافة منتجاته؟`)) {
       await supabase.from('categories').delete().eq('id', catId)
+      triggerRevalidate(restaurant?.slug, 'menu')
       fetchData()
     }
   }

@@ -11,10 +11,8 @@ import { getStoreStatus } from '@/utils/storeStatus'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import MenuLocationNotice from '@/components/MenuLocationNotice'
 
-// No time-based revalidation — cache is invalidated on-demand via /api/revalidate
-// when the restaurant owner saves any change in the dashboard.
-export const revalidate = false
-export const dynamic = 'force-static'
+// CDN caching for 60s — avoids Vercel ISR writes while keeping menu load super fast
+export const revalidate = 60
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

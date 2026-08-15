@@ -2,9 +2,8 @@ import { getRestaurantBySlug, getMenuByRestaurantId } from '@/utils/menuCache'
 import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
 
-// No time-based revalidation — on-demand only via /api/revalidate
-export const revalidate = false
-export const dynamic = 'force-static'
+// CDN edge caching for 60s
+export const revalidate = 60
 
 export default async function RestaurantMenuPage({
   params,

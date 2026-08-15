@@ -7,7 +7,7 @@ import BrandLogo from '@/components/BrandLogo'
 import UserAuthButton from '@/components/UserAuthButton'
 import OffersClient from './OffersClient'
 
-export const revalidate = false
+export const revalidate = 120
 
 export default async function AllOffersPage() {
   const supabase = createPublicClient()

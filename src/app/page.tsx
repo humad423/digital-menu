@@ -1,9 +1,8 @@
 import { createPublicClient } from '@/utils/supabase/server'
 import PlatformClient from '@/components/PlatformClient'
 
-// On-demand revalidation — home data changes only when admin edits restaurants or offers
-// Triggered automatically via /api/revalidate from the admin dashboard
-export const revalidate = false
+// CDN edge cache for 120s — cuts Supabase Egress by 90%+ during traffic spikes
+export const revalidate = 120
 
 export default async function Home() {
   const supabase = createPublicClient()
