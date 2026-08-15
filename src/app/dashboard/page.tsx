@@ -128,7 +128,7 @@ export default function CompletelyStandaloneDashboardPage() {
       // 1. Check in profiles table for a profile linked to a restaurant
       const { data: profs } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, restaurant_id, phone, role')
         .eq('phone', verifiedPhone)
         .limit(1)
 
@@ -151,6 +151,7 @@ export default function CompletelyStandaloneDashboardPage() {
           resId = matchedRes.id
         }
       }
+
 
       if (!resId) {
         setError(`رقم الهاتف (${verifiedPhone}) غير مرتبط بأي مطعم مسجل. يرجى تزويد مدير المنصة برقمك لربطه بملف مطعمك.`)

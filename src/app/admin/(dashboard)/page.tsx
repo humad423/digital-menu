@@ -52,15 +52,23 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true)
     const [resRes, catRes, adsRes, relRes, ordRes, zonesRes, profRes, offersRes, bTypesRes] = await Promise.all([
-      supabase.from('restaurants').select('*').order('created_at', { ascending: false }),
-      supabase.from('platform_categories').select('*').order('created_at', { ascending: true }),
-      supabase.from('platform_ads').select('*').order('sort_order', { ascending: true }),
-      supabase.from('restaurant_platform_categories').select('*'),
-      supabase.from('orders').select('*, restaurants(name)').order('created_at', { ascending: false }),
-      supabase.from('service_zones').select('*').order('created_at', { ascending: true }),
+      supabase
+        .from('restaurants')
+        .select(
+          'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, store_type, ' +
+          'has_delivery, is_on_holiday, opening_time, closing_time, days_off, ' +
+          'latitude, longitude, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
+          'enable_whatsapp_orders, created_at'
+        )
+        .order('created_at', { ascending: false }),
+      supabase.from('platform_categories').select('id, name, icon, sort_order, created_at').order('created_at', { ascending: true }),
+      supabase.from('platform_ads').select('id, title, image_url, link_url, sort_order, is_active, created_at').order('sort_order', { ascending: true }),
+      supabase.from('restaurant_platform_categories').select('restaurant_id, platform_category_id'),
+      supabase.from('orders').select('id, restaurant_id, total_price, status, created_at, items, location_url, restaurants(name)').order('created_at', { ascending: false }),
+      supabase.from('service_zones').select('id, name, polygon, is_active, created_at').order('created_at', { ascending: true }),
       supabase.from('profiles').select('restaurant_id, phone').eq('role', 'restaurant_owner'),
-      supabase.from('offers').select('*, restaurants(id, name, slug), primary_item:menu_items!primary_item_id(name, image_url), bonus_item:menu_items!bonus_item_id(name, image_url), item3:menu_items!item3_id(name, image_url), item4:menu_items!item4_id(name, image_url)').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
-      supabase.from('business_types').select('*').order('sort_order', { ascending: true })
+      supabase.from('offers').select('id, title, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, restaurants(id, name, slug), primary_item:menu_items!primary_item_id(name, image_url), bonus_item:menu_items!bonus_item_id(name, image_url), item3:menu_items!item3_id(name, image_url), item4:menu_items!item4_id(name, image_url)').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
+      supabase.from('business_types').select('id, name, slug, icon, sort_order, is_active').order('sort_order', { ascending: true })
     ])
     if (resRes.data) setRestaurants(resRes.data)
     if (catRes.data) setPlatformCategories(catRes.data)
