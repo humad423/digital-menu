@@ -99,3 +99,133 @@ export const getMenuByRestaurantId = cache(
   }
 )
 
+/**
+ * TTL-cached fetcher for home page data (6 tables).
+ * Serves thousands of concurrent visitors from memory — one Supabase query per 5 minutes.
+ */
+export const getHomePageData = cache(async (): Promise<{
+  restaurants: any[]
+  categories: any[]
+  ads: any[]
+  offers: any[]
+  serviceZones: any[]
+  businessTypes: any[]
+}> => {
+  const cacheKey = 'home:all'
+  const cached = memoryCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < DEFAULT_TTL_MS) {
+    return cached.data
+  }
+
+  const supabase = createPublicClient()
+  const [
+    { data: restaurants },
+    { data: categories },
+    { data: ads },
+    { data: offers },
+    { data: serviceZones },
+    { data: businessTypes },
+  ] = await Promise.all([
+    supabase
+      .from('restaurants')
+      .select(
+        'id, name, slug, logo_url, cover_url, store_type, primary_color, ' +
+        'has_delivery, is_on_holiday, opening_time, closing_time, days_off, ' +
+        'latitude, longitude, delivery_radius_km, delivery_tiers, ' +
+        'restaurant_platform_categories(platform_category_id), ratings(rating)'
+      )
+      .order('created_at', { ascending: false }),
+
+    supabase
+      .from('platform_categories')
+      .select('id, name, icon, sort_order')
+      .order('created_at', { ascending: true }),
+
+    supabase
+      .from('platform_ads')
+      .select('id, title, image_url, link_url, sort_order, is_active')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+
+    supabase
+      .from('offers')
+      .select(
+        'id, title, is_active, sort_order, created_at, restaurant_id, ' +
+        'primary_item_id, bonus_item_id, item3_id, item4_id, ' +
+        'restaurants(id, name, slug, latitude, longitude, delivery_radius_km), ' +
+        'primary_item:menu_items!primary_item_id(image_url), ' +
+        'bonus_item:menu_items!bonus_item_id(image_url), ' +
+        'item3:menu_items!item3_id(image_url), ' +
+        'item4:menu_items!item4_id(image_url)'
+      )
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(50),
+
+    supabase
+      .from('service_zones')
+      .select('id, name, polygon, is_active')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true }),
+
+    supabase
+      .from('business_types')
+      .select('id, name, icon, sort_order, is_active')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+  ])
+
+  const result = {
+    restaurants: restaurants || [],
+    categories: categories || [],
+    ads: ads || [],
+    offers: offers || [],
+    serviceZones: serviceZones || [],
+    businessTypes: businessTypes || [],
+  }
+  memoryCache.set(cacheKey, { data: result, timestamp: Date.now() })
+  return result
+})
+
+/**
+ * TTL-cached fetcher for the offers page.
+ */
+export const getOffersPageData = cache(async (): Promise<{
+  offers: any[]
+  businessTypes: any[]
+}> => {
+  const cacheKey = 'offers:page'
+  const cached = memoryCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < DEFAULT_TTL_MS) {
+    return cached.data
+  }
+
+  const supabase = createPublicClient()
+  const [{ data: offers }, { data: businessTypes }] = await Promise.all([
+    supabase
+      .from('offers')
+      .select(
+        'id, title, is_active, sort_order, created_at, restaurant_id, ' +
+        'primary_item_id, bonus_item_id, item3_id, item4_id, ' +
+        'restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery), ' +
+        'primary_item:menu_items!primary_item_id(image_url), ' +
+        'bonus_item:menu_items!bonus_item_id(image_url), ' +
+        'item3:menu_items!item3_id(image_url), ' +
+        'item4:menu_items!item4_id(image_url)'
+      )
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false }),
+
+    supabase
+      .from('business_types')
+      .select('id, name, icon, sort_order, is_active')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+  ])
+
+  const result = { offers: offers || [], businessTypes: businessTypes || [] }
+  memoryCache.set(cacheKey, { data: result, timestamp: Date.now() })
+  return result
+})

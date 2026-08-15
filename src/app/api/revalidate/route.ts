@@ -10,8 +10,21 @@ export async function POST(request: NextRequest) {
       type?: 'menu' | 'offers' | 'home' | 'all'
     }
 
-    // Instantly clear memoryCache for instant data updates without Supabase egress spam
-    clearMemoryCache(slug)
+    // Clear specific slug cache for menu/restaurant updates
+    if (slug) {
+      clearMemoryCache(slug)
+    }
+
+    // Clear home + offers caches when relevant data changes
+    if (type === 'offers' || type === 'home' || type === 'all') {
+      clearMemoryCache('home:all')
+      clearMemoryCache('offers:page')
+    }
+
+    // Nuclear option: clear everything
+    if (type === 'all') {
+      clearMemoryCache()
+    }
 
     if (type === 'menu' && slug) {
       revalidatePath(`/m/${slug}`, 'layout')
@@ -19,7 +32,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (type === 'offers' || type === 'all') {
-      // Revalidate offers page and home (offers appear on both)
       revalidatePath('/offers', 'page')
       revalidatePath('/', 'page')
     }
@@ -29,7 +41,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (type === 'all') {
-      // Nuclear option: revalidate everything (used by admin for restaurant CRUD)
       revalidatePath('/m/[slug]', 'layout')
       revalidatePath('/m/[slug]', 'page')
       revalidatePath('/offers', 'page')
@@ -49,3 +60,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

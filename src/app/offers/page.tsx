@@ -1,6 +1,5 @@
-// Server Component — data fetching only (no 'use client')
-// On-demand revalidation via /api/revalidate — offers only change when admin edits them
-import { createPublicClient } from '@/utils/supabase/server'
+// Server Component — data served from in-memory cache (5 min TTL)
+import { getOffersPageData } from '@/utils/menuCache'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import BrandLogo from '@/components/BrandLogo'
@@ -10,24 +9,7 @@ import OffersClient from './OffersClient'
 export const dynamic = 'force-dynamic'
 
 export default async function AllOffersPage() {
-  const supabase = createPublicClient()
-
-  const [offRes, btRes] = await Promise.all([
-    supabase
-      .from('offers')
-      .select('*, restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery), primary_item:menu_items!primary_item_id(image_url), bonus_item:menu_items!bonus_item_id(image_url), item3:menu_items!item3_id(image_url), item4:menu_items!item4_id(image_url)')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('business_types')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-  ])
-
-  const offers       = offRes.data  || []
-  const businessTypes = btRes.data  || []
+  const { offers, businessTypes } = await getOffersPageData()
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20">
@@ -63,3 +45,4 @@ export default async function AllOffersPage() {
     </div>
   )
 }
+

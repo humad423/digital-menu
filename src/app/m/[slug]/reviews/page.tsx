@@ -3,9 +3,9 @@ import { createPublicClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import ReviewsClient from './ReviewsClient'
 
-// Reviews can be added by any visitor so we use time-based ISR (5 min)
-// rather than on-demand, since we don't control when new reviews arrive.
-export const revalidate = 300
+// force-dynamic: eliminates ISR Write Units completely.
+// Ratings are cached for 5 minutes via the ratings memoryCache key below.
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params

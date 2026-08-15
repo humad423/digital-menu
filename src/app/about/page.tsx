@@ -1,5 +1,5 @@
 import React from 'react'
-import { supabase } from '@/lib/supabase'
+import { createPublicClient } from '@/utils/supabase/server'
 import { Info, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import BrandLogo from '@/components/BrandLogo'
@@ -10,6 +10,7 @@ export const dynamic = 'force-static'
 
 async function getAboutContent() {
   try {
+    const supabase = createPublicClient()
     const { data } = await supabase
       .from('platform_settings')
       .select('about_us')

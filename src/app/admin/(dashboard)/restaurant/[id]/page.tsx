@@ -76,7 +76,16 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (!id) return
     try {
       setLoading(true)
-      const { data: resData } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle()
+      const { data: resData } = await supabase
+        .from('restaurants')
+        .select(
+          'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
+          'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
+          'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, ' +
+          'store_type, max_offers_limit'
+        )
+        .eq('id', id)
+        .maybeSingle() as any
       if (resData) {
         setRestaurant(resData)
         setMaxOffersLimitInput(resData.max_offers_limit || 5)
@@ -87,16 +96,25 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
         ])
       }
 
-      const { data: catData } = await supabase.from('categories').select('*').eq('restaurant_id', id).order('sort_order', { ascending: true })
+      const { data: catData } = await supabase
+        .from('categories')
+        .select('id, name, sort_order, restaurant_id')
+        .eq('restaurant_id', id)
+        .order('sort_order', { ascending: true })
       if (catData) setCategories(catData)
 
       const { data: itemData } = await supabase
-        .from('menu_items').select('*')
+        .from('menu_items')
+        .select('id, name, description, price, original_price, image_url, images, is_available, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id, created_at')
         .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true })
       if (itemData) setMenuItems(itemData)
 
-      const { data: offerData } = await supabase.from('offers').select('*').eq('restaurant_id', id).order('created_at', { ascending: false })
+      const { data: offerData } = await supabase
+        .from('offers')
+        .select('id, title, discount_percent, new_price, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity')
+        .eq('restaurant_id', id)
+        .order('created_at', { ascending: false })
       if (offerData) setOffers(offerData)
     } catch (err) {
       console.error('Error fetching admin restaurant data:', err)
