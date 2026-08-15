@@ -105,7 +105,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [itemForm, setItemForm] = useState({
     category_id: '', name: '', description: '', price: '', image_url: '', is_available: true,
     is_offer: false, original_price: '', offer_title: '', images: [] as string[], sizesText: '',
-    unit: 'piece', allow_custom_amount: false
+    unit: 'piece', allow_custom_amount: false, is_hidden: false
   })
   const [savingItem, setSavingItem] = useState(false)
 
@@ -220,7 +220,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
       const { data: itemData } = await supabase
         .from('menu_items')
-        .select('id, name, description, price, original_price, image_url, images, is_available, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id, created_at')
+        .select('id, name, description, price, original_price, image_url, images, is_available, is_hidden, out_of_stock_until, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id, created_at')
         .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true })
       if (itemData) setMenuItems(itemData)
@@ -386,7 +386,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       unit: itemForm.unit || (itemForm.allow_custom_amount ? 'kg' : 'piece'),
       allow_custom_amount: !!itemForm.allow_custom_amount,
       is_available: itemForm.is_available,
-      is_hidden: (itemForm as any).is_hidden || false,
+      is_hidden: !!itemForm.is_hidden,
       is_offer: itemForm.is_offer,
       original_price: itemForm.original_price ? parseFloat(itemForm.original_price) : null,
       offer_title: itemForm.offer_title || null
@@ -448,11 +448,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       unit: item.unit || (item.allow_custom_amount ? 'kg' : 'piece'),
       allow_custom_amount: item.allow_custom_amount ?? item.unit === 'kg',
       is_available: item.is_available,
-      is_hidden: item.is_hidden || false,
+      is_hidden: !!item.is_hidden,
       is_offer: item.is_offer || false,
       original_price: item.original_price ? item.original_price.toString() : '',
       offer_title: item.offer_title || ''
-    } as any)
+    })
     setShowItemForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -1164,7 +1164,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                       if (!checkSubscriptionGuard()) return
                       setShowItemForm(!showItemForm)
                       setEditItemId(null)
-                      setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false })
+                      setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false, is_hidden: false })
                     }}
                     disabled={categories.length === 0}
                     className="btn btn-dark btn-sm disabled:opacity-40"
@@ -1288,8 +1288,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 bg-white border border-slate-200 p-2.5 rounded-xl">
                           <input
                             type="checkbox"
-                            checked={(itemForm as any).is_hidden || false}
-                            onChange={e => setItemForm({ ...itemForm, is_hidden: e.target.checked } as any)}
+                            checked={!!itemForm.is_hidden}
+                            onChange={e => setItemForm({ ...itemForm, is_hidden: e.target.checked })}
                             className="w-4 h-4 accent-amber-500 rounded"
                           />
                           <span>تعطيل وإخفاء من المنيو مؤقتاً 🙈</span>

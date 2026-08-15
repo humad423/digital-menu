@@ -228,7 +228,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       images: itemForm.images || (primaryImg ? [primaryImg] : []),
       sizes: sizesArray,
       is_available: itemForm.is_available,
-      is_hidden: (itemForm as any).is_hidden || false,
+      is_hidden: !!(itemForm as any).is_hidden,
       is_offer: itemForm.is_offer,
       original_price: itemForm.original_price ? parseFloat(itemForm.original_price) : null,
       offer_title: itemForm.offer_title || null
@@ -286,7 +286,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       images: parsedImages,
       sizesText: parsedSizes.join(', '),
       is_available: item.is_available,
-      is_hidden: item.is_hidden || false,
+      is_hidden: !!item.is_hidden,
       is_offer: item.is_offer || false,
       original_price: item.original_price ? item.original_price.toString() : '',
       offer_title: item.offer_title || ''
@@ -753,7 +753,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                       <label className="flex items-center gap-2 cursor-pointer bg-slate-900 border border-slate-700 p-2.5 rounded-xl select-none">
                         <input
                           type="checkbox"
-                          checked={(itemForm as any).is_hidden || false}
+                          checked={!!(itemForm as any).is_hidden}
                           onChange={e => setItemForm({ ...itemForm, is_hidden: e.target.checked } as any)}
                           className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
                         />
