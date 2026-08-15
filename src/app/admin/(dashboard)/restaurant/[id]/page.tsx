@@ -82,7 +82,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
           'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
           'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, ' +
-          'store_type, max_offers_limit'
+          'store_type, max_offers_limit, is_subscription_active, is_menu_active, subscription_notes'
         )
         .eq('id', id)
         .maybeSingle() as any
@@ -121,6 +121,22 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     } finally {
       setLoading(false)
     }
+  }
+
+  const toggleSubscription = async () => {
+    if (!restaurant) return
+    const newVal = restaurant.is_subscription_active === false ? true : false
+    setRestaurant((prev: any) => ({ ...prev, is_subscription_active: newVal }))
+    await supabase.from('restaurants').update({ is_subscription_active: newVal }).eq('id', id)
+    triggerRevalidate(restaurant.slug, 'all')
+  }
+
+  const toggleMenu = async () => {
+    if (!restaurant) return
+    const newVal = restaurant.is_menu_active === false ? true : false
+    setRestaurant((prev: any) => ({ ...prev, is_menu_active: newVal }))
+    await supabase.from('restaurants').update({ is_menu_active: newVal }).eq('id', id)
+    triggerRevalidate(restaurant.slug, 'all')
   }
 
   useEffect(() => {
@@ -519,7 +535,58 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       </header>
 
       {/* ── MAIN CONTENT ── */}
-      <main className="max-w-7xl mx-auto px-4 mt-6">
+      <main className="max-w-7xl mx-auto px-4 mt-6 space-y-6">
+
+        {/* ── Subscription & Menu Status Admin Control Banner ── */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-slate-800 text-orange-400 flex items-center justify-center text-xl shrink-0 border border-slate-700">
+              🛡️
+            </div>
+            <div>
+              <h3 className="font-black text-sm text-white flex items-center gap-2">
+                <span>حالة الاشتراك ونشر المنيو للزبائن</span>
+                {restaurant.subscription_notes && (
+                  <span className="text-[10px] text-slate-400 font-normal">({restaurant.subscription_notes})</span>
+                )}
+              </h3>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                يمكنك بنقرة واحدة تعليق اشتراك المتجر لمنع التعديل، أو تعليق المنيو لمنع الزبائن من تصفحه.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap self-end sm:self-center">
+            {/* Subscription Toggle */}
+            <button
+              type="button"
+              onClick={toggleSubscription}
+              className={`px-3 py-2 rounded-2xl text-xs font-black border transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-sm ${
+                restaurant.is_subscription_active !== false
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                  : 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
+              }`}
+            >
+              <span>اشتراك المتجر:</span>
+              <span className="underline">{restaurant.is_subscription_active !== false ? 'نشط (تعديل متاح) ✅' : 'معلق (تعديل مقفل) ⛔'}</span>
+            </button>
+
+            {/* Menu Toggle */}
+            <button
+              type="button"
+              onClick={toggleMenu}
+              className={`px-3 py-2 rounded-2xl text-xs font-black border transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-sm ${
+                restaurant.is_menu_active !== false
+                  ? 'bg-blue-500/15 text-blue-300 border-blue-500/30 hover:bg-blue-500/25'
+                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25'
+              }`}
+            >
+              <span>منيو الزبائن:</span>
+              <span className="underline">{restaurant.is_menu_active !== false ? 'منشور متاح 🟢' : 'معلق مخفي 🔴'}</span>
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── LEFT COLUMN (2 Cols): Item Form + Offers + Items ── */}

@@ -66,6 +66,18 @@ export function getStoreStatus(restaurant: any, targetTimeZone?: string): StoreS
     }
   }
 
+  // 0. Check if customer menu is suspended by admin
+  if (restaurant.is_menu_active === false) {
+    return {
+      isOpen: false,
+      isHoliday: false,
+      statusText: 'المنيو معلق ⚠️',
+      badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+      dotClass: 'bg-rose-500',
+      subText: 'المنيو غير متاح حالياً',
+    }
+  }
+
   // 1. Check manual holiday override (Emergency holiday)
   if (restaurant.is_on_holiday) {
     return {

@@ -39,7 +39,7 @@ export const getRestaurantBySlug = cache(async (slug: string): Promise<any> => {
       'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
       'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
       'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, ' +
-      'store_type, ratings(rating)'
+      'store_type, is_subscription_active, is_menu_active, subscription_notes, ratings(rating)'
     )
     .eq('slug', slug)
     .maybeSingle()
@@ -131,7 +131,7 @@ export const getHomePageData = cache(async (): Promise<{
       .select(
         'id, name, slug, logo_url, cover_url, store_type, primary_color, ' +
         'has_delivery, is_on_holiday, opening_time, closing_time, days_off, ' +
-        'latitude, longitude, delivery_radius_km, delivery_tiers, ' +
+        'latitude, longitude, delivery_radius_km, delivery_tiers, is_subscription_active, is_menu_active, ' +
         'restaurant_platform_categories(platform_category_id), ratings(rating)'
       )
       .order('created_at', { ascending: false }),

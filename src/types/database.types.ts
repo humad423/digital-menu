@@ -26,6 +26,9 @@ export interface Database {
           store_type: string | null
           has_delivery: boolean | null
           enable_whatsapp_orders: boolean | null
+          is_subscription_active?: boolean | null
+          is_menu_active?: boolean | null
+          subscription_notes?: string | null
         }
         Insert: {
           id?: string
@@ -43,6 +46,9 @@ export interface Database {
           store_type?: string | null
           has_delivery?: boolean | null
           enable_whatsapp_orders?: boolean | null
+          is_subscription_active?: boolean | null
+          is_menu_active?: boolean | null
+          subscription_notes?: string | null
         }
         Update: {
           id?: string
@@ -60,6 +66,9 @@ export interface Database {
           store_type?: string | null
           has_delivery?: boolean | null
           enable_whatsapp_orders?: boolean | null
+          is_subscription_active?: boolean | null
+          is_menu_active?: boolean | null
+          subscription_notes?: string | null
         }
       }
       categories: {

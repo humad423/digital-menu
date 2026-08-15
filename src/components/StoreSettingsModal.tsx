@@ -112,6 +112,10 @@ export default function StoreSettingsModal({
       return setErrorMsg('اسم المتجر مطلوب')
     }
 
+    if (restaurant?.is_subscription_active === false) {
+      return setErrorMsg('⚠️ عذراً، اشتراك المتجر معلق حالياً. يرجى تجديد الاشتراك لتتمكن من تعديل الإعدادات.')
+    }
+
     setSaving(true)
     setErrorMsg('')
 
@@ -181,6 +185,15 @@ export default function StoreSettingsModal({
 
         {/* Form Body */}
         <form onSubmit={handleSave} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+          {restaurant?.is_subscription_active === false && (
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2 text-xs font-black text-amber-800">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚠️</span>
+                <span>اشتراك المتجر معلق حالياً — لا يمكنك حفظ التعديلات حتى يتم تجديد الاشتراك.</span>
+              </div>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2 text-xs font-black text-red-700">
               <AlertCircle size={16} className="shrink-0" />

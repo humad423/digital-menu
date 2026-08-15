@@ -52,6 +52,53 @@ export default async function RestaurantLayout({
     )
   }
 
+  // Check if customer menu has been suspended by admin
+  if (restaurant.is_menu_active === false) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-5 text-center" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl p-7 sm:p-8 shadow-xl border border-slate-200/90 flex flex-col items-center">
+          {restaurant.logo_url ? (
+            <img
+              src={getOptimizedImageUrl(restaurant.logo_url, 160)}
+              alt={restaurant.name}
+              className="w-20 h-20 rounded-2xl object-contain p-1 border-2 border-slate-100 shadow-xs mb-4"
+            />
+          ) : (
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-xs">
+              ⚠️
+            </div>
+          )}
+          <h1 className="text-lg sm:text-xl font-black text-slate-900 mb-1.5">{restaurant.name}</h1>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 mb-4">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span>تم تعليق هذا المنيو مؤقتاً</span>
+          </div>
+          <p className="text-xs text-slate-500 font-bold max-w-xs mb-6 leading-relaxed">
+            عذراً، تم تعليق خدمة المنيو الرقمي لهذا المتجر مؤقتاً. يمكنك التواصل مباشرة مع إدارة المتجر أو العودة لتصفح باقي المتاجر على المنصة.
+          </p>
+          <div className="w-full flex flex-col gap-2.5">
+            {restaurant.whatsapp_number && (
+              <a
+                href={`https://wa.me/${restaurant.whatsapp_number.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span>💬 تواصل مع المتجر عبر الواتساب</span>
+              </a>
+            )}
+            <Link
+              href="/"
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-2xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
+            >
+              العودة للرئيسية وتصفح المتاجر 🏠
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Compute avg rating server-side (no separate DB call needed)
   const ratingsList: { rating: number }[] = (restaurant as any).ratings || []
   const avgRating = ratingsList.length > 0

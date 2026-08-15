@@ -201,7 +201,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         .select(
           'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
-          'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, store_type'
+          'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, store_type, ' +
+          'is_subscription_active, is_menu_active, subscription_notes'
         )
         .eq('id', id)
         .maybeSingle() as any
@@ -243,6 +244,16 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     }
   }, [authenticatedOwner])
 
+  const isSubscriptionSuspended = restaurant?.is_subscription_active === false && authenticatedOwner?.role !== 'admin'
+
+  const checkSubscriptionGuard = () => {
+    if (isSubscriptionSuspended) {
+      alert('⚠️ اشتراكك غير نشط حالياً. يرجى التواصل مع إدارة المنصة لتجديد الاشتراك والتمكن من حفظ أو تعديل أي بيانات.')
+      return false
+    }
+    return true
+  }
+
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('restaurant_owner_session')
@@ -253,6 +264,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   // ── Sub-categories CRUD ────────────────────────────────────────
   const saveCategory = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!checkSubscriptionGuard()) return
     if (editCatId) {
       setCategories(prev => prev.map(c => c.id === editCatId ? { ...c, name: editCatName, sort_order: editCatSort } : c))
       const targetEditId = editCatId
@@ -276,6 +288,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const deleteCategory = async (catId: string, name: string) => {
+    if (!checkSubscriptionGuard()) return
     if (confirm(`حذف القسم "${name}" مع كافة منتجاته؟`)) {
       setCategories(prev => prev.filter(c => c.id !== catId))
       await supabase.from('categories').delete().eq('id', catId)
@@ -288,6 +301,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   // ── Delivery Tiers Handlers ─────────────────────────────────────
   const handleAddTier = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!checkSubscriptionGuard()) return
     if (!newTier.min_km || !newTier.max_km || !newTier.fee) return alert('يرجى ملء كافة حقول الشريحة')
     
     const updated = [
@@ -306,6 +320,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const toggleTierActive = async (index: number) => {
+    if (!checkSubscriptionGuard()) return
     const updated = [...deliveryTiers]
     updated[index].is_active = !updated[index].is_active
     setDeliveryTiers(updated)
@@ -313,6 +328,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const deleteTier = async (index: number) => {
+    if (!checkSubscriptionGuard()) return
     if (confirm('حذف شريحة التوصيل هذه؟')) {
       const updated = deliveryTiers.filter((_, i) => i !== index)
       setDeliveryTiers(updated)
@@ -321,12 +337,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const saveTiersToDb = async (tiers: any[]) => {
+    if (!checkSubscriptionGuard()) return
     setSavingTiers(true)
     await supabase.from('restaurants').update({ delivery_tiers: tiers }).eq('id', id)
     setSavingTiers(false)
   }
 
   const toggleDelivery = async () => {
+    if (!checkSubscriptionGuard()) return
     const newVal = restaurant?.has_delivery === false ? true : false
     setSavingDelivery(true)
     setRestaurant((prev: any) => ({ ...prev, has_delivery: newVal }))
@@ -336,6 +354,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
   const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false)
   const toggleWhatsappOrders = async () => {
+    if (!checkSubscriptionGuard()) return
     const newVal = restaurant?.enable_whatsapp_orders === false ? true : false
     setSavingWhatsappToggle(true)
     setRestaurant((prev: any) => ({ ...prev, enable_whatsapp_orders: newVal }))
@@ -346,6 +365,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   // ── Items CRUD ──────────────────────────────────────────────────
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!checkSubscriptionGuard()) return
     if (!itemForm.category_id || !itemForm.name || !itemForm.price) return alert('يرجى ملء الحقول المطلوبة')
     setSavingItem(true)
 
@@ -432,6 +452,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const toggleItemAvailability = async (item: any) => {
+    if (!checkSubscriptionGuard()) return
     const newStatus = !item.is_available
     setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, is_available: newStatus } : i))
     await supabase.from('menu_items').update({ is_available: newStatus }).eq('id', item.id)
@@ -440,6 +461,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const deleteItem = async (id: string, name: string) => {
+    if (!checkSubscriptionGuard()) return
     if (confirm(`حذف المنتج "${name}"؟`)) {
       setMenuItems(prev => prev.filter(i => i.id !== id))
       await supabase.from('menu_items').delete().eq('id', id)
@@ -500,6 +522,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
   const handleSaveOffer = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!checkSubscriptionGuard()) return
     if (!offerForm.primary_item_id || !offerForm.offer_price || !offerForm.title) {
       return alert('يرجى اختيار المنتج الأساسي وتحديد سعر العرض وعنوانه')
     }
@@ -597,6 +620,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const toggleOfferActive = async (offer: any) => {
+    if (!checkSubscriptionGuard()) return
     const newStatus = !offer.is_active
     setOffers(prev => prev.map(o => o.id === offer.id ? { ...o, is_active: newStatus } : o))
     await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id)
@@ -606,6 +630,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   const deleteOffer = async (offerId: string) => {
+    if (!checkSubscriptionGuard()) return
     if (confirm('حذف هذا العرض؟')) {
       await supabase.from('offers').delete().eq('id', offerId)
       fetchData()
@@ -772,7 +797,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
             )}
 
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => {
+                if (!checkSubscriptionGuard()) return
+                setShowSettingsModal(true)
+              }}
               className="px-2.5 py-1.5 bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 border border-orange-500/30 rounded-xl text-xs font-bold flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer"
             >
               <Settings size={13} />
@@ -797,6 +825,31 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       <main className="flex-1 w-full max-w-full">
         <div className="dash-content">
           
+          {/* Subscription Suspended Notice */}
+          {isSubscriptionSuspended && (
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 p-4 sm:p-5 rounded-3xl mb-6 shadow-lg border-2 border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-slate-950 text-amber-400 flex items-center justify-center text-xl shrink-0 shadow-md">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base text-slate-950">اشتراكك غير نشط حالياً</h3>
+                  <p className="text-xs font-bold text-slate-900 mt-0.5 leading-relaxed">
+                    تم تعليق إمكانية تعديل البيانات والمنيو. لا يمكنك إضافة أو تعديل أو حذف أي عناصر حتى يتم تجديد الاشتراك.
+                  </p>
+                </div>
+              </div>
+              <a
+                href="https://wa.me/905352574134?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D8%8C%20%D8%A3%D9%88%D8%AF%20%D8%AA%D8%AC%D8%AF%D9%8A%D8%AF%20%D8%A7%D8%B4%D8%AA%D8%B1%D8%A7%D9%83%20%D9%85%D8%AA%D8%AC%D8%B1%D9%8A"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 bg-slate-950 hover:bg-slate-900 text-white font-black text-xs rounded-2xl shadow-md transition active:scale-95 flex items-center gap-1.5 shrink-0 self-end sm:self-center"
+              >
+                <span>💬 تواصل لتجديد الاشتراك</span>
+              </a>
+            </div>
+          )}
+
           {/* Panel Stats */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5 animate-fade-in-up">
             {[
@@ -833,7 +886,12 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     <p className="text-xs text-slate-400 font-medium mt-0.5">{terms.offersDesc}</p>
                   </div>
                   <button
-                    onClick={() => { setEditOfferId(null); setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true }); setShowOfferForm(!showOfferForm) }}
+                    onClick={() => {
+                      if (!checkSubscriptionGuard()) return
+                      setEditOfferId(null)
+                      setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true })
+                      setShowOfferForm(!showOfferForm)
+                    }}
                     disabled={offers.length >= (restaurant?.max_offers_limit || 5) && !editOfferId}
                     className="btn btn-primary btn-sm disabled:opacity-40"
                   >
@@ -1044,7 +1102,12 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     <p className="text-xs text-slate-400 font-medium mt-0.5">{menuItems.length} عنصر في {categories.length} قسم</p>
                   </div>
                   <button
-                    onClick={() => { setShowItemForm(!showItemForm); setEditItemId(null); setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false }) }}
+                    onClick={() => {
+                      if (!checkSubscriptionGuard()) return
+                      setShowItemForm(!showItemForm)
+                      setEditItemId(null)
+                      setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false })
+                    }}
                     disabled={categories.length === 0}
                     className="btn btn-dark btn-sm disabled:opacity-40"
                   >
@@ -1355,7 +1418,12 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                           <span className="text-xs text-slate-400 mr-2">{menuItems.filter(m => m.category_id === cat.id).length} {terms.countUnit}</span>
                         </div>
                         <div className="flex gap-1">
-                          <button onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setEditCatSort(cat.sort_order || 0) }}
+                          <button onClick={() => {
+                            if (!checkSubscriptionGuard()) return
+                            setEditCatId(cat.id)
+                            setEditCatName(cat.name)
+                            setEditCatSort(cat.sort_order || 0)
+                          }}
                             className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100 p-1.5">
                             <Edit size={13} />
                           </button>

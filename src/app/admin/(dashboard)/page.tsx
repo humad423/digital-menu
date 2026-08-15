@@ -58,7 +58,7 @@ export default function AdminDashboard() {
           'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, store_type, ' +
           'has_delivery, is_on_holiday, opening_time, closing_time, days_off, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
-          'enable_whatsapp_orders, created_at'
+          'enable_whatsapp_orders, is_subscription_active, is_menu_active, subscription_notes, created_at'
         )
         .order('created_at', { ascending: false }),
       supabase.from('platform_categories').select('id, name, icon, sort_order, created_at').order('created_at', { ascending: true }),
@@ -138,6 +138,20 @@ export default function AdminDashboard() {
     }
   }
 
+  const toggleRestaurantSubscription = async (r: any) => {
+    const newVal = r.is_subscription_active === false ? true : false
+    setRestaurants(prev => prev.map(item => item.id === r.id ? { ...item, is_subscription_active: newVal } : item))
+    await supabase.from('restaurants').update({ is_subscription_active: newVal }).eq('id', r.id)
+    triggerRevalidate(r.slug, 'all')
+  }
+
+  const toggleRestaurantMenu = async (r: any) => {
+    const newVal = r.is_menu_active === false ? true : false
+    setRestaurants(prev => prev.map(item => item.id === r.id ? { ...item, is_menu_active: newVal } : item))
+    await supabase.from('restaurants').update({ is_menu_active: newVal }).eq('id', r.id)
+    triggerRevalidate(r.slug, 'all')
+  }
+
   useEffect(() => { fetchData() }, [])
 
   // ── Restaurants ─────────────────────────────────────────────────
@@ -147,7 +161,8 @@ export default function AdminDashboard() {
     name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '',
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true,
-    opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false
+    opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false,
+    is_subscription_active: true, is_menu_active: true, subscription_notes: ''
   }
   const [resForm, setResForm] = useState(emptyRes)
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([])
@@ -173,6 +188,9 @@ export default function AdminDashboard() {
       closing_time: resForm.closing_time || '23:00',
       days_off: resForm.days_off || [],
       is_on_holiday: resForm.is_on_holiday || false,
+      is_subscription_active: resForm.is_subscription_active !== false,
+      is_menu_active: resForm.is_menu_active !== false,
+      subscription_notes: resForm.subscription_notes || null,
     }
     let restaurantId = editResId
     if (editResId) {
@@ -225,7 +243,10 @@ export default function AdminDashboard() {
       opening_time: r.opening_time || '09:00',
       closing_time: r.closing_time || '23:00',
       days_off: Array.isArray(r.days_off) ? r.days_off : [],
-      is_on_holiday: !!r.is_on_holiday
+      is_on_holiday: !!r.is_on_holiday,
+      is_subscription_active: r.is_subscription_active !== false,
+      is_menu_active: r.is_menu_active !== false,
+      subscription_notes: r.subscription_notes || '',
     })
     setSelectedCatIds(restaurantCategoryMap[r.id] || [])
     setShowResForm(true)
@@ -582,6 +603,65 @@ export default function AdminDashboard() {
                       </label>
                     </div>
 
+                    {/* Subscription & Menu Status Controls */}
+                    <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 space-y-3 border border-slate-700 shadow-sm">
+                      <h4 className="font-black text-xs sm:text-sm text-white flex items-center gap-2">
+                        <span>🛡️</span> حالة الاشتراك وإتاحة المنيو للزبائن
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* 1. Subscription Active Toggle */}
+                        <div className={`p-3 rounded-xl border transition flex items-center justify-between gap-2 ${
+                          resForm.is_subscription_active !== false
+                            ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                            : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                        }`}>
+                          <div className="min-w-0">
+                            <h5 className="font-black text-xs">اشتراك لوحة التحكم</h5>
+                            <p className="text-[10px] opacity-75">
+                              {resForm.is_subscription_active !== false ? '✅ نشط (يسمح بالتعديل)' : '⛔ معلق (يمنع التعديل)'}
+                            </p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={resForm.is_subscription_active !== false}
+                            onChange={e => setResForm({ ...resForm, is_subscription_active: e.target.checked })}
+                            className="w-5 h-5 accent-emerald-500 rounded cursor-pointer"
+                          />
+                        </div>
+
+                        {/* 2. Menu Active Toggle */}
+                        <div className={`p-3 rounded-xl border transition flex items-center justify-between gap-2 ${
+                          resForm.is_menu_active !== false
+                            ? 'bg-blue-950/40 border-blue-500/40 text-blue-300'
+                            : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+                        }`}>
+                          <div className="min-w-0">
+                            <h5 className="font-black text-xs">منيو الزبائن العام</h5>
+                            <p className="text-[10px] opacity-75">
+                              {resForm.is_menu_active !== false ? '🟢 منشور ومتاح' : '🔴 معلق ومخفي'}
+                            </p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={resForm.is_menu_active !== false}
+                            onChange={e => setResForm({ ...resForm, is_menu_active: e.target.checked })}
+                            className="w-5 h-5 accent-blue-500 rounded cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-300 mb-1 block">ملاحظات الاشتراك (اختياري)</label>
+                        <input
+                          type="text"
+                          value={resForm.subscription_notes || ''}
+                          onChange={e => setResForm({ ...resForm, subscription_notes: e.target.value })}
+                          placeholder="مثال: اشتراك شهري مدفوع حتى تاريخ..."
+                          className="f-input bg-slate-950 text-white border-slate-700 text-xs placeholder:text-slate-500"
+                        />
+                      </div>
+                    </div>
+
                     {/* Working Hours & Days Off */}
                     <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
@@ -795,6 +875,50 @@ export default function AdminDashboard() {
                             </div>
                           )}
                         </div>
+
+                        {/* Subscription & Menu Status Quick Controls */}
+                        <div className="grid grid-cols-2 gap-1.5 mb-3 bg-slate-50 border border-slate-200/80 p-2 rounded-2xl">
+                          {/* Subscription Status Toggle */}
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                              <span>💳</span> اشتراك اللوحة:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleRestaurantSubscription(r)}
+                              className={`px-2 py-1 rounded-xl text-[11px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
+                                r.is_subscription_active !== false
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                              }`}
+                              title="اضغط للتبديل الفوري لحالة الاشتراك"
+                            >
+                              <span>{r.is_subscription_active !== false ? 'نشط ✅' : 'معلق ⛔'}</span>
+                              <span className="text-[9px] opacity-60">تبديل</span>
+                            </button>
+                          </div>
+
+                          {/* Menu Status Toggle */}
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                              <span>🍽️</span> منيو الزبائن:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleRestaurantMenu(r)}
+                              className={`px-2 py-1 rounded-xl text-[11px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
+                                r.is_menu_active !== false
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                              }`}
+                              title="اضغط للتبديل الفوري لإتاحة المنيو للزبائن"
+                            >
+                              <span>{r.is_menu_active !== false ? 'منشور 🟢' : 'معلق 🔴'}</span>
+                              <span className="text-[9px] opacity-60">تبديل</span>
+                            </button>
+                          </div>
+                        </div>
+
                         <div className="mt-auto flex flex-col gap-2">
                           <div className="grid grid-cols-2 gap-1.5">
                             <button onClick={() => handleEditRes(r)} className="btn btn-ghost btn-sm text-slate-700 bg-slate-100 hover:bg-slate-200 font-bold">
