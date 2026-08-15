@@ -16,7 +16,7 @@ export default async function RestaurantMenuPage({
   const restaurant = await getRestaurantBySlug(slug)
 
   if (!restaurant) {
-    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر أو المطعم غير موجود أو قد يكون الرابط غير صحيح.</div>
+    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر غير موجود أو قد يكون الرابط غير صحيح.</div>
   }
 
   // Cached menu data — shared across all render passes for this restaurant

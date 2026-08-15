@@ -518,8 +518,8 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center" dir="rtl">
         <div className="text-5xl mb-4">🏪</div>
-        <h1 className="text-xl font-black text-slate-200 mb-2">المطعم غير موجود</h1>
-        <p className="text-slate-400 text-sm mb-6">لم نتمكن من العثور على المطعم المطلوب.</p>
+        <h1 className="text-xl font-black text-slate-200 mb-2">المتجر غير موجود</h1>
+        <p className="text-slate-400 text-sm mb-6">لم نتمكن من العثور على المتجر المطلوب.</p>
         <Link href="/admin" className="c-btn c-btn-primary">
           العودة للوحة الإدارة الرئيسية
         </Link>

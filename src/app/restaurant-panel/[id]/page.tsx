@@ -718,7 +718,34 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   }
 
   if (!restaurant) {
-    return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500" dir="rtl">المطعم غير موجود</div>
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl p-7 sm:p-8 shadow-xl border border-slate-200/90 flex flex-col items-center">
+          <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-xs">
+            🏪
+          </div>
+          <h1 className="text-xl font-black text-slate-900 mb-2">المتجر غير موجود</h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mb-6 leading-relaxed">
+            عذراً، هذا المتجر غير موجود أو قد تم حذفه من المنصة.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+            <button
+              onClick={handleLogout}
+              className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-2xl shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <LogOut size={15} />
+              <span>تسجيل الدخول لمتجر آخر</span>
+            </button>
+            <Link
+              href="/"
+              className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-2xl transition active:scale-95 flex items-center justify-center"
+            >
+              الرئيسية 🏠
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const terms = (() => {
