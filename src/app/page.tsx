@@ -1,8 +1,8 @@
 import { createPublicClient } from '@/utils/supabase/server'
 import PlatformClient from '@/components/PlatformClient'
 
-// CDN edge cache for 120s — cuts Supabase Egress by 90%+ during traffic spikes
-export const revalidate = 120
+// Dynamic SSR — 0 ISR Write Units
+export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   const supabase = createPublicClient()

@@ -11,8 +11,8 @@ import { getStoreStatus } from '@/utils/storeStatus'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import MenuLocationNotice from '@/components/MenuLocationNotice'
 
-// CDN caching for 60s — avoids Vercel ISR writes while keeping menu load super fast
-export const revalidate = 60
+// Fully dynamic SSR — eliminates Vercel ISR Write Units completely (0 ISR Writes)
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

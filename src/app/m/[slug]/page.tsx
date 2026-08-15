@@ -2,8 +2,8 @@ import { getRestaurantBySlug, getMenuByRestaurantId } from '@/utils/menuCache'
 import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
 
-// CDN edge caching for 60s
-export const revalidate = 60
+// Fully dynamic SSR — 0 ISR Write Units
+export const dynamic = 'force-dynamic'
 
 export default async function RestaurantMenuPage({
   params,
