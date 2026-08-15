@@ -1,24 +1,7 @@
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
+import { clearMemoryCache } from '@/utils/menuCache'
 
-/**
- * On-Demand Revalidation API
- * Called after any data mutation (save menu item, update offer, edit settings, etc.)
- * to invalidate only the affected ISR cached pages.
- *
- * Usage:
- *   fetch('/api/revalidate', {
- *     method: 'POST',
- *     headers: { 'Content-Type': 'application/json' },
- *     body: JSON.stringify({ slug: 'burger-king', type: 'menu' })
- *   })
- *
- * Types:
- *   'menu'     → revalidates /m/[slug] layout + page
- *   'offers'   → revalidates /offers and / home page
- *   'home'     → revalidates / home page
- *   'all'      → revalidates everything (admin use)
- */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -27,8 +10,10 @@ export async function POST(request: NextRequest) {
       type?: 'menu' | 'offers' | 'home' | 'all'
     }
 
+    // Instantly clear memoryCache for instant data updates without Supabase egress spam
+    clearMemoryCache(slug)
+
     if (type === 'menu' && slug) {
-      // Revalidate the specific restaurant menu pages only
       revalidatePath(`/m/${slug}`, 'layout')
       revalidatePath(`/m/${slug}`, 'page')
     }

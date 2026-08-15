@@ -1,13 +1,37 @@
 import { cache } from 'react'
 import { createPublicClient } from '@/utils/supabase/server'
 
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+}
+
+// In-memory cache store (shared across requests in warm serverless lambdas)
+const memoryCache = new Map<string, CacheEntry<any>>()
+const DEFAULT_TTL_MS = 5 * 60 * 1000 // 5 minutes TTL
+
+export function clearMemoryCache(pattern?: string) {
+  if (!pattern) {
+    memoryCache.clear()
+    return
+  }
+  for (const key of memoryCache.keys()) {
+    if (key.includes(pattern)) {
+      memoryCache.delete(key)
+    }
+  }
+}
+
 /**
- * Shared in-memory request-deduplicated fetcher for restaurant data by slug.
- *
- * Deduplicates calls across generateMetadata(), Layout, and Page in a single request,
- * eliminating extra Supabase queries while avoiding Vercel ISR Data Cache Writes.
+ * Shared in-memory request-deduplicated and TTL-cached fetcher for restaurant data by slug.
  */
 export const getRestaurantBySlug = cache(async (slug: string): Promise<any> => {
+  const cacheKey = `restaurant:${slug}`
+  const cached = memoryCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < DEFAULT_TTL_MS) {
+    return cached.data
+  }
+
   const supabase = createPublicClient()
   const { data } = await supabase
     .from('restaurants')
@@ -19,14 +43,24 @@ export const getRestaurantBySlug = cache(async (slug: string): Promise<any> => {
     )
     .eq('slug', slug)
     .maybeSingle()
+
+  if (data) {
+    memoryCache.set(cacheKey, { data, timestamp: Date.now() })
+  }
   return data
 })
 
 /**
- * Shared in-memory request-deduplicated fetcher for menu data by restaurant ID.
+ * Shared in-memory request-deduplicated and TTL-cached fetcher for menu data by restaurant ID.
  */
 export const getMenuByRestaurantId = cache(
   async (restaurantId: string): Promise<{ categories: any[]; menuItems: any[]; offers: any[] }> => {
+    const cacheKey = `menu:${restaurantId}`
+    const cached = memoryCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < DEFAULT_TTL_MS) {
+      return cached.data
+    }
+
     const supabase = createPublicClient()
     const [{ data: rawCategories }, { data: offers }] = await Promise.all([
       supabase
@@ -59,7 +93,9 @@ export const getMenuByRestaurantId = cache(
       .flatMap(cat => (cat.menu_items || []) as any[])
       .filter(item => item.is_available !== false)
 
-    return { categories, menuItems, offers: offers || [] }
+    const result = { categories, menuItems, offers: offers || [] }
+    memoryCache.set(cacheKey, { data: result, timestamp: Date.now() })
+    return result
   }
 )
 
