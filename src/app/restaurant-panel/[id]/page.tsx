@@ -1364,20 +1364,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                                             </span>
                                           )}
                                         </button>
-
-                                        {/* Visibility Toggle Button (معروض / مخفي) */}
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleItemHidden(item)}
-                                          className={`px-2 py-0.5 rounded-lg text-[11px] font-black border transition flex items-center gap-1 cursor-pointer active:scale-95 ${
-                                            item.is_hidden === true
-                                              ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                                          }`}
-                                          title="تعطيل أو تفعيل ظهور المنتج في المنيو بدون حذفه"
-                                        >
-                                          <span>{item.is_hidden === true ? 'مخفي من المنيو 🙈' : 'معروض 👁️'}</span>
-                                        </button>
                                       </div>
                                     </div>
                                     <div className="flex flex-col gap-1 shrink-0">

@@ -1222,18 +1222,6 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                               </button>
 
                               <button
-                                onClick={() => toggleItemHidden(item)}
-                                className={`px-2 py-1 rounded-lg text-[10px] font-black transition flex items-center gap-1 cursor-pointer active:scale-95 ${
-                                  item.is_hidden === true
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                    : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-white'
-                                }`}
-                                title="إخفاء أو إظهار المنتج في المنيو بدون حذفه"
-                              >
-                                <span>{item.is_hidden === true ? 'مخفي 🙈' : 'معروض 👁️'}</span>
-                              </button>
-
-                              <button
                                 onClick={() => handleEditItem(item)}
                                 className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center transition"
                                 title="تعديل المنتج"
