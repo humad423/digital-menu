@@ -105,7 +105,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
 
       const { data: itemData } = await supabase
         .from('menu_items')
-        .select('id, name, description, price, original_price, image_url, images, is_available, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id, created_at')
+        .select('id, name, description, price, original_price, image_url, images, is_available, is_hidden, out_of_stock_until, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id, created_at')
         .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true })
       if (itemData) setMenuItems(itemData)
@@ -208,6 +208,10 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
   }
 
   // ── Items CRUD ──────────────────────────────────────────────────
+  const [outOfStockTargetItem, setOutOfStockTargetItem] = useState<any | null>(null)
+  const [outOfStockOption, setOutOfStockOption] = useState<'manual' | '2h' | '4h' | 'tomorrow_morning' | 'custom'>('manual')
+  const [customOutOfStockTime, setCustomOutOfStockTime] = useState<string>('')
+
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!itemForm.category_id || !itemForm.name || !itemForm.price) return alert('يرجى ملء الحقول المطلوبة')
@@ -224,6 +228,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       images: itemForm.images || (primaryImg ? [primaryImg] : []),
       sizes: sizesArray,
       is_available: itemForm.is_available,
+      is_hidden: (itemForm as any).is_hidden || false,
       is_offer: itemForm.is_offer,
       original_price: itemForm.original_price ? parseFloat(itemForm.original_price) : null,
       offer_title: itemForm.offer_title || null
@@ -248,8 +253,9 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     setSavingItem(false)
     setShowItemForm(false)
     setEditItemId(null)
-    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '', images: [], sizesText: '' })
+    setItemForm({ category_id: categories[0]?.id || '', name: '', description: '', price: '', image_url: '', is_available: true, is_offer: false, original_price: '', offer_title: '', images: [], sizesText: '', is_hidden: false } as any)
     fetchData()
+    triggerRevalidate(restaurant?.slug, 'menu')
   }
 
   const handleEditItem = (item: any) => {
@@ -280,23 +286,76 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       images: parsedImages,
       sizesText: parsedSizes.join(', '),
       is_available: item.is_available,
+      is_hidden: item.is_hidden || false,
       is_offer: item.is_offer || false,
       original_price: item.original_price ? item.original_price.toString() : '',
       offer_title: item.offer_title || ''
-    })
+    } as any)
     setShowItemForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const toggleItemAvailability = async (item: any) => {
-    await supabase.from('menu_items').update({ is_available: !item.is_available }).eq('id', item.id)
+  const handleItemAvailabilityClick = (item: any) => {
+    if (item.is_available === false) {
+      setItemAvailability(item.id, true, null)
+    } else {
+      setOutOfStockTargetItem(item)
+      setOutOfStockOption('manual')
+      setCustomOutOfStockTime('')
+    }
+  }
+
+  const confirmOutOfStock = async () => {
+    if (!outOfStockTargetItem) return
+
+    let targetDate: string | null = null
+    const now = new Date()
+
+    if (outOfStockOption === '2h') {
+      targetDate = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString()
+    } else if (outOfStockOption === '4h') {
+      targetDate = new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString()
+    } else if (outOfStockOption === 'tomorrow_morning') {
+      const tomorrow = new Date(now)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(9, 0, 0, 0)
+      targetDate = tomorrow.toISOString()
+    } else if (outOfStockOption === 'custom') {
+      if (!customOutOfStockTime) {
+        alert('يرجى تحديد الوقت المخصص')
+        return
+      }
+      targetDate = new Date(customOutOfStockTime).toISOString()
+    }
+
+    const itemId = outOfStockTargetItem.id
+    setOutOfStockTargetItem(null)
+    await setItemAvailability(itemId, false, targetDate)
+  }
+
+  const setItemAvailability = async (itemId: string, isAvailable: boolean, outOfStockUntil: string | null) => {
+    setMenuItems(prev => prev.map(i => i.id === itemId ? { ...i, is_available: isAvailable, out_of_stock_until: outOfStockUntil } : i))
+    await supabase.from('menu_items').update({
+      is_available: isAvailable,
+      out_of_stock_until: outOfStockUntil
+    }).eq('id', itemId)
     fetchData()
+    triggerRevalidate(restaurant?.slug, 'menu')
+  }
+
+  const toggleItemHidden = async (item: any) => {
+    const newHidden = item.is_hidden !== true
+    setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, is_hidden: newHidden } : i))
+    await supabase.from('menu_items').update({ is_hidden: newHidden }).eq('id', item.id)
+    fetchData()
+    triggerRevalidate(restaurant?.slug, 'menu')
   }
 
   const deleteItem = async (itemId: string, name: string) => {
     if (confirm(`حذف المنتج "${name}"؟`)) {
       await supabase.from('menu_items').delete().eq('id', itemId)
       fetchData()
+      triggerRevalidate(restaurant?.slug, 'menu')
     }
   }
 
@@ -649,50 +708,60 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1.5">السعر (₺) *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="150"
-                        value={itemForm.price}
-                        onChange={e => setItemForm({ ...itemForm, price: e.target.value })}
-                        required
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-orange-500"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">السعر (₺) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="150"
+                          value={itemForm.price}
+                          onChange={e => setItemForm({ ...itemForm, price: e.target.value })}
+                          required
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-orange-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                          📸 صور المنتج (يمكنك رفع واحدة أو عدة صور - صور حصراً حد أقصى 5MB للواحدة)
+                        </label>
+                        <MultiImageUpload
+                          images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
+                          onChange={urls => {
+                            setItemForm({
+                              ...itemForm,
+                              images: urls,
+                              image_url: urls[0] || ''
+                            })
+                          }}
+                        />
+                      </div>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                        📸 صور المنتج (يمكنك رفع واحدة أو عدة صور - صور حصراً حد أقصى 5MB للواحدة)
-                      </label>
-                      <MultiImageUpload
-                        images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
-                        onChange={urls => {
-                          setItemForm({
-                            ...itemForm,
-                            images: urls,
-                            image_url: urls[0] || ''
-                          })
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex items-center pt-6">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-900 border border-slate-700 p-2.5 rounded-xl select-none">
                         <input
                           type="checkbox"
                           checked={itemForm.is_available}
                           onChange={e => setItemForm({ ...itemForm, is_available: e.target.checked })}
-                          className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+                          className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
                         />
-                        <span className="text-xs font-bold text-slate-200">المنتج متوفر للطلب الآن</span>
+                        <span className="text-xs font-bold text-slate-200">المنتج متوفر للطلب (إذا ألغي يظهر كـ نفد)</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-900 border border-slate-700 p-2.5 rounded-xl select-none">
+                        <input
+                          type="checkbox"
+                          checked={(itemForm as any).is_hidden || false}
+                          onChange={e => setItemForm({ ...itemForm, is_hidden: e.target.checked } as any)}
+                          className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-slate-200">تعطيل وإخفاء من المنيو مؤقتاً 🙈</span>
                       </label>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-700/60">
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-700/60">
                     <button
                       type="button"
                       onClick={() => { setShowItemForm(false); setEditItemId(null); }}
@@ -1133,17 +1202,35 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {/* Availability Switch */}
+                            {/* Actions & Toggles */}
+                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
                               <button
-                                onClick={() => toggleItemAvailability(item)}
-                                className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${item.is_available
-                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                  }`}
-                                title="تغيير التوفر"
+                                onClick={() => handleItemAvailabilityClick(item)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-black transition flex items-center gap-1 cursor-pointer active:scale-95 ${
+                                  item.is_available !== false
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                }`}
+                                title="تغيير التوفر وتحديد المدة"
                               >
-                                {item.is_available ? 'متوفر' : 'غير متوفر'}
+                                <span>{item.is_available !== false ? 'متوفر ✅' : 'نفد 🚫'}</span>
+                                {item.is_available === false && item.out_of_stock_until && (
+                                  <span className="text-[9px] opacity-75" dir="ltr">
+                                    ({new Date(item.out_of_stock_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                  </span>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={() => toggleItemHidden(item)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-black transition flex items-center gap-1 cursor-pointer active:scale-95 ${
+                                  item.is_hidden === true
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-white'
+                                }`}
+                                title="إخفاء أو إظهار المنتج في المنيو بدون حذفه"
+                              >
+                                <span>{item.is_hidden === true ? 'مخفي 🙈' : 'معروض 👁️'}</span>
                               </button>
 
                               <button
@@ -1360,6 +1447,98 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
         </div>
       </main>
 
+      {/* ── Quick Out-of-Stock Duration Selector Modal (Admin) ── */}
+      {outOfStockTargetItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 dir-rtl animate-fade-in">
+          <div className="bg-slate-900 text-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-slate-700 animate-slide-up space-y-4 p-5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-base font-bold">
+                  🚫
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-white">تحديد مدة نفاد الكمية</h4>
+                  <p className="text-[11px] text-slate-400 font-bold truncate max-w-[200px]">
+                    {outOfStockTargetItem.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOutOfStockTargetItem(null)}
+                className="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 font-medium">
+              اختر متى سيعود المنتج متوفراً تلقائياً للزبائن في المنيو:
+            </p>
+
+            <div className="space-y-2">
+              {[
+                { key: 'manual', label: '🛑 يدوياً (حتى يتم إعادة تفعيله)', desc: 'لن يتفعل تلقائياً، يتطلب تفعيله يدوياً' },
+                { key: '2h', label: '⏱️ لمدة ساعتين (2 ساعة)', desc: 'سيتفعل تلقائياً بعد ساعتين' },
+                { key: '4h', label: '⏱️ لمدة 4 ساعات', desc: 'سيتفعل تلقائياً بعد 4 ساعات' },
+                { key: 'tomorrow_morning', label: '🌙 حتى صباح الغد (09:00 ص)', desc: 'سيتفعل مع بداية دوام الغد' },
+                { key: 'custom', label: '📅 تحديد وقت وتاريخ مخصص', desc: 'حدد الوقت والتاريخ الذي تريده' },
+              ].map(opt => (
+                <label
+                  key={opt.key}
+                  className={`flex flex-col p-3 rounded-2xl border cursor-pointer transition ${
+                    outOfStockOption === opt.key
+                      ? 'bg-rose-950/40 border-rose-500/50 shadow-xs text-white'
+                      : 'bg-slate-850 bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black">{opt.label}</span>
+                    <input
+                      type="radio"
+                      name="adminOutOfStockOpt"
+                      value={opt.key}
+                      checked={outOfStockOption === opt.key}
+                      onChange={() => setOutOfStockOption(opt.key as any)}
+                      className="w-4 h-4 accent-rose-500"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-medium mt-0.5">{opt.desc}</span>
+                </label>
+              ))}
+            </div>
+
+            {outOfStockOption === 'custom' && (
+              <div className="pt-1">
+                <label className="text-[11px] font-bold text-slate-300 block mb-1">حدد الوقت والتاريخ للعودة:</label>
+                <input
+                  type="datetime-local"
+                  value={customOutOfStockTime}
+                  onChange={e => setCustomOutOfStockTime(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-xs font-bold text-white outline-none focus:border-orange-500"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setOutOfStockTargetItem(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex-1 transition"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={confirmOutOfStock}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black flex-1 shadow-md transition"
+              >
+                تأكيد النفاد 🚫
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

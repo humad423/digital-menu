@@ -67,7 +67,7 @@ export const getMenuByRestaurantId = cache(
         .from('categories')
         .select(
           'id, name, sort_order, restaurant_id, ' +
-          'menu_items(id, name, description, price, original_price, image_url, images, is_available, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id)'
+          'menu_items(id, name, description, price, original_price, image_url, images, is_available, is_hidden, out_of_stock_until, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id)'
         )
         .eq('restaurant_id', restaurantId)
         .order('sort_order', { ascending: true }),
@@ -89,9 +89,20 @@ export const getMenuByRestaurantId = cache(
 
     const typedCategories = (rawCategories || []) as any[]
     const categories = typedCategories.map(({ menu_items, ...cat }) => cat)
+    const now = Date.now()
     const menuItems = typedCategories
       .flatMap(cat => (cat.menu_items || []) as any[])
-      .filter(item => item.is_available !== false)
+      .filter(item => item.is_hidden !== true) // Only filter out explicitly hidden/disabled items
+      .map(item => {
+        // Auto-restock check: if out_of_stock_until has passed, treat as available
+        if (item.is_available === false && item.out_of_stock_until) {
+          const expirationTime = new Date(item.out_of_stock_until).getTime()
+          if (!isNaN(expirationTime) && expirationTime <= now) {
+            return { ...item, is_available: true, out_of_stock_until: null }
+          }
+        }
+        return item
+      })
 
     const result = { categories, menuItems, offers: offers || [] }
     memoryCache.set(cacheKey, { data: result, timestamp: Date.now() })

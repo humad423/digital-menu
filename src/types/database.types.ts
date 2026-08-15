@@ -111,6 +111,8 @@ export interface Database {
           images: any
           sizes: any
           colors: any
+          is_hidden?: boolean | null
+          out_of_stock_until?: string | null
         }
         Insert: {
           id?: string
@@ -128,6 +130,8 @@ export interface Database {
           images?: any
           sizes?: any
           colors?: any
+          is_hidden?: boolean | null
+          out_of_stock_until?: string | null
         }
         Update: {
           id?: string
@@ -145,6 +149,8 @@ export interface Database {
           images?: any
           sizes?: any
           colors?: any
+          is_hidden?: boolean | null
+          out_of_stock_until?: string | null
         }
       }
       ads: {

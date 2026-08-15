@@ -79,8 +79,12 @@ export default function MenuItem({
   const discountPercent = item.original_price && item.original_price > item.price
     ? Math.round(((item.original_price - item.price) / item.original_price) * 100)
     : null
+  
+  const isAutoRestocked = item.out_of_stock_until && new Date(item.out_of_stock_until).getTime() <= Date.now()
+  const isOutOfStock = item.is_available === false && !isAutoRestocked
 
   const handleAdd = () => {
+    if (isOutOfStock) return
     if (isKiloItem) {
       setShowKiloModal(true)
       return
@@ -100,23 +104,17 @@ export default function MenuItem({
   const calculatedPriceFromWeight = numWeightInput > 0 ? Math.round(numWeightInput * pricePerKg) : 0
 
   const handleAddKiloItem = () => {
+    if (isOutOfStock) return
     const isAmountMode = kiloMode === 'amount'
     if (isAmountMode && numPriceInput <= 0) return alert('يرجى إدخال مبلغ صحيح بالليرة')
     if (!isAmountMode && numWeightInput <= 0) return alert('يرجى إدخال وزن صحيح بالكيلو')
 
     const finalPrice = isAmountMode ? numPriceInput : calculatedPriceFromWeight
     const calculatedW = isAmountMode ? calculatedWeightFromPrice : numWeightInput
-    const weightStr = calculatedW < 1
-      ? `${Math.round(calculatedW * 1000)} جرام`
-      : `${calculatedW.toFixed(2)} كغ`
-
-    const variantText = isAmountMode
-      ? `بمبلغ ${numPriceInput} ₺ - حوالي ${weightStr}`
-      : `وزن ${numWeightInput} كغ - ${finalPrice} ₺`
-
+    
     const cartObj = {
       id: `${item.id}-${isAmountMode ? 'p' + numPriceInput : 'w' + numWeightInput}`,
-      name: `${item.name} (${variantText})`,
+      name: `${item.name} (${isAmountMode ? `بمبلغ ${numPriceInput} ₺ - حوالي ${calculatedW < 1 ? Math.round(calculatedW * 1000) + ' جرام' : calculatedW.toFixed(2) + ' كغ'}` : `وزن ${numWeightInput} كغ - ${finalPrice} ₺`})`,
       price: finalPrice,
       image_url: imageList[0] || item.image_url || null
     }
@@ -131,7 +129,9 @@ export default function MenuItem({
   return (
     <>
       <div className={`rounded-3xl border p-3.5 flex gap-3.5 shadow-2xs hover:shadow-md transition-all duration-200 active:scale-[0.99] relative overflow-hidden select-none ${
-        isOffer
+        isOutOfStock
+          ? 'bg-slate-50/80 border-slate-200 opacity-85'
+          : isOffer
           ? 'bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-white border-orange-400/70 shadow-orange-500/10'
           : 'bg-white border-slate-200/90'
       }`}>
@@ -157,11 +157,18 @@ export default function MenuItem({
                 className="w-full h-full"
               />
             ) : (
-              <img src={getOptimizedImageUrl(imageList[0] || item.image_url, 600)} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
+              <img src={getOptimizedImageUrl(imageList[0] || item.image_url, 600)} alt={item.name} loading="lazy" className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale-40' : ''}`} />
             )}
 
-            {/* Discount Badge for Supermarket */}
-            {discountPercent ? (
+            {/* Out of Stock Overlay Badge on Image */}
+            {isOutOfStock ? (
+              <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[1px] flex flex-col items-center justify-center p-1 text-center z-10">
+                <span className="bg-rose-600 text-white text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                  <span>🚫</span>
+                  <span>نفد</span>
+                </span>
+              </div>
+            ) : discountPercent ? (
               <div className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
                 خصم %{discountPercent}
               </div>
@@ -178,7 +185,7 @@ export default function MenuItem({
             ) : null}
 
             {/* Multi-Image Badge */}
-            {imageList.length > 1 && !(isOffer && !(item as any).has_custom_image) && (
+            {imageList.length > 1 && !(isOffer && !(item as any).has_custom_image) && !isOutOfStock && (
               <div className="absolute bottom-1.5 right-1.5 bg-slate-900/85 backdrop-blur-md text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                 <Layers size={10} className="text-orange-400" />
                 <span>{imageList.length} صور</span>
@@ -192,7 +199,7 @@ export default function MenuItem({
           <div>
             <div className="flex items-center justify-between gap-1">
               <h3 className="font-black text-sm sm:text-base text-slate-900 truncate tracking-tight">{item.name}</h3>
-              {imageList.length > 1 && (
+              {imageList.length > 1 && !isOutOfStock && (
                 <button
                   type="button"
                   onClick={() => setShowGallery(true)}
@@ -235,8 +242,12 @@ export default function MenuItem({
               )}
             </div>
 
-            {/* Add / Qty Buttons OR Kilo Button */}
-            {enableWhatsappOrders === false ? null : hasDelivery === false ? (
+            {/* Add / Qty Buttons OR Kilo Button OR Out of Stock Badge */}
+            {isOutOfStock ? (
+              <span className="text-[11px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-xl select-none">
+                نفد مؤقتاً
+              </span>
+            ) : enableWhatsappOrders === false ? null : hasDelivery === false ? (
               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-xl border border-slate-200/60">
                 🏪 استلام فقط
               </span>
