@@ -45,7 +45,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       qrTargetUrl,
       {
         width: size,
-        margin: 2,
+        margin: 1,
         color: {
           dark: qrColor,
           light: '#ffffff',
@@ -107,14 +107,18 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
   }
 
   // Render high-resolution export canvas (for download/print)
-  const generateExportCanvas = async (scale = 3): Promise<HTMLCanvasElement> => {
+  const generateExportCanvas = async (scale = 2): Promise<HTMLCanvasElement> => {
     const exportCanvas = document.createElement('canvas')
     const ctx = exportCanvas.getContext('2d')!
 
     if (template === 'clean') {
-      const baseSize = 800 * scale
+      const baseSize = 900 * scale
       exportCanvas.width = baseSize
       exportCanvas.height = baseSize
+
+      // White background with rounded frame
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, baseSize, baseSize)
 
       await QRCode.toCanvas(exportCanvas, qrTargetUrl, {
         width: baseSize,
@@ -160,56 +164,37 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
         })
       }
     } else {
-      // Table Stand Poster layout (1200 x 1600 px)
+      // Modern Squarish Table Stand Card (1200 x 1320 px)
       const width = 1200
-      const height = 1600
+      const height = 1320
       exportCanvas.width = width
       exportCanvas.height = height
 
-      // Background
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, height)
-      bgGrad.addColorStop(0, '#0f172a')
-      bgGrad.addColorStop(1, '#1e293b')
-      ctx.fillStyle = bgGrad
-      ctx.fillRect(0, 0, width, height)
-
-      // Top Decorative Banner with primary color
-      ctx.fillStyle = brandColor
-      ctx.fillRect(0, 0, width, 16)
-
-      // Inner Card Frame
-      const cardMargin = 60
-      const cardWidth = width - (cardMargin * 2)
-      const cardHeight = height - (cardMargin * 2)
-      
-      ctx.save()
+      // White Card Background
       ctx.fillStyle = '#ffffff'
-      ctx.shadowColor = 'rgba(0,0,0,0.25)'
-      ctx.shadowBlur = 35
-      ctx.shadowOffsetY = 15
-      roundRect(ctx, cardMargin, cardMargin, cardWidth, cardHeight, 36)
+      roundRect(ctx, 0, 0, width, height, 48)
       ctx.fill()
-      ctx.restore()
 
-      // Inner Border
+      // Card Border
       ctx.save()
-      ctx.strokeStyle = '#f1f5f9'
-      ctx.lineWidth = 3
-      roundRect(ctx, cardMargin + 18, cardMargin + 18, cardWidth - 36, cardHeight - 36, 28)
+      ctx.strokeStyle = '#e2e8f0'
+      ctx.lineWidth = 6
+      roundRect(ctx, 16, 16, width - 32, height - 32, 40)
       ctx.stroke()
       ctx.restore()
 
       // Header: Store Logo + Name
-      let currentY = 125
+      let currentY = 70
       if (restaurant.logo_url) {
         await new Promise<void>((resolve) => {
           const logoImg = new Image()
           logoImg.crossOrigin = 'anonymous'
           logoImg.onload = () => {
-            const logoSize = 130
+            const logoSize = 120
             const logoX = (width - logoSize) / 2
-            const logoY = 125
+            const logoY = 70
             
+            // White circular background for logo with shadow
             ctx.save()
             ctx.beginPath()
             ctx.arc(width / 2, logoY + (logoSize / 2), (logoSize / 2) + 6, 0, Math.PI * 2)
@@ -219,6 +204,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
             ctx.fill()
             ctx.restore()
 
+            // Clipped circular logo
             ctx.save()
             ctx.beginPath()
             ctx.arc(width / 2, logoY + (logoSize / 2), logoSize / 2, 0, Math.PI * 2)
@@ -226,7 +212,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
             ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
             ctx.restore()
 
-            // Outer ring with brand color
+            // Outer ring matching primary color
             ctx.beginPath()
             ctx.arc(width / 2, logoY + (logoSize / 2), (logoSize / 2) + 4, 0, Math.PI * 2)
             ctx.strokeStyle = brandColor
@@ -238,38 +224,38 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           logoImg.onerror = () => resolve()
           logoImg.src = restaurant.logo_url!
         })
-        currentY = 280
+        currentY = 210
       } else {
-        currentY = 160
+        currentY = 100
       }
 
       // Store Name
       ctx.save()
       ctx.fillStyle = '#0f172a'
-      ctx.font = 'bold 46px Tajawal, sans-serif'
+      ctx.font = 'bold 44px Tajawal, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
       ctx.fillText(restaurant.name, width / 2, currentY)
       ctx.restore()
-      currentY += 65
+      currentY += 58
 
-      // Call to action badge
+      // Call to action pill badge
       ctx.save()
-      ctx.fillStyle = `${brandColor}18`
-      const badgeWidth = 460
-      const badgeHeight = 52
-      roundRect(ctx, (width - badgeWidth) / 2, currentY, badgeWidth, badgeHeight, 26)
+      ctx.fillStyle = `${brandColor}15`
+      const badgeWidth = 440
+      const badgeHeight = 48
+      roundRect(ctx, (width - badgeWidth) / 2, currentY, badgeWidth, badgeHeight, 24)
       ctx.fill()
       ctx.fillStyle = brandColor
-      ctx.font = 'bold 24px Tajawal, sans-serif'
+      ctx.font = 'bold 22px Tajawal, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText('📱 امسح لعرض قائمة المنيو والطلب', width / 2, currentY + (badgeHeight / 2))
       ctx.restore()
-      currentY += badgeHeight + 42
+      currentY += badgeHeight + 32
 
-      // QR Code Area (Classic crisp black)
-      const qrBoxSize = 640
+      // QR Code Area (Large & Clear)
+      const qrBoxSize = 680
       const qrCanvas = document.createElement('canvas')
       await QRCode.toCanvas(qrCanvas, qrTargetUrl, {
         width: qrBoxSize,
@@ -318,19 +304,19 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
 
       const qrX = (width - qrBoxSize) / 2
       ctx.drawImage(qrCanvas, qrX, currentY)
-      currentY += qrBoxSize + 45
+      currentY += qrBoxSize + 30
 
-      // Instruction & Domain
+      // Bottom Instruction & Domain
       ctx.save()
       ctx.fillStyle = '#64748b'
-      ctx.font = '500 24px Tajawal, sans-serif'
+      ctx.font = '500 22px Tajawal, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
       ctx.fillText('وجّه كاميرا هاتفك نحو الرمز لتصفح المنتجات والعروض مباشرة', width / 2, currentY)
-      currentY += 45
+      currentY += 38
 
       ctx.fillStyle = '#94a3b8'
-      ctx.font = 'bold 22px monospace'
+      ctx.font = 'bold 20px monospace'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
       ctx.fillText(menuUrl.replace(/^https?:\/\//, ''), width / 2, currentY)
@@ -396,11 +382,12 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
               max-width: 100%;
               max-height: 90vh;
               object-fit: contain;
-              border-radius: 12px;
+              border-radius: 16px;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             }
             @media print {
               body { padding: 0; }
-              img { max-height: 100vh; width: auto; }
+              img { max-height: 100vh; width: auto; box-shadow: none; }
             }
           </style>
         </head>
@@ -417,7 +404,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200" dir="rtl">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
@@ -442,32 +429,60 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           
-          {/* Compact Mini Preview Card */}
+          {/* WYSIWYG Mini Preview Card (Matches the exact exported image) */}
           <div className="flex justify-center">
-            <div className="w-full max-w-[240px] bg-slate-900 p-3.5 rounded-2xl shadow-lg border border-slate-800 flex flex-col items-center text-center">
+            <div className="w-full max-w-[270px] bg-white rounded-3xl shadow-md border border-slate-200 p-4 flex flex-col items-center text-center">
               
-              {template === 'stand' && (
-                <div className="mb-2 w-full flex flex-col items-center">
-                  {restaurant.logo_url ? (
-                    <div className="w-9 h-9 rounded-full bg-white p-0.5 border-2 mx-auto mb-1 overflow-hidden shadow-xs" style={{ borderColor: brandColor }}>
+              {template === 'stand' ? (
+                <>
+                  {/* Top Logo */}
+                  {restaurant.logo_url && (
+                    <div 
+                      className="w-11 h-11 rounded-full bg-white p-0.5 border-2 mx-auto mb-1.5 overflow-hidden shadow-2xs shrink-0"
+                      style={{ borderColor: brandColor }}
+                    >
                       <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-full" />
                     </div>
-                  ) : null}
-                  <h4 className="text-white text-xs font-black truncate max-w-[190px]">{restaurant.name}</h4>
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block" style={{ background: `${brandColor}25`, color: '#fdba74' }}>
-                    📱 امسح لعرض المنيو
-                  </span>
-                </div>
+                  )}
+
+                  {/* Store Name */}
+                  <h4 className="text-slate-900 text-xs font-black truncate max-w-[230px] mb-1">
+                    {restaurant.name}
+                  </h4>
+
+                  {/* Pill Badge */}
+                  <div 
+                    className="text-[9px] font-bold px-2.5 py-0.5 rounded-full mb-2.5 inline-flex items-center gap-1 shrink-0"
+                    style={{ background: `${brandColor}15`, color: brandColor }}
+                  >
+                    <span>📱 امسح لعرض قائمة المنيو والطلب</span>
+                  </div>
+
+                  {/* QR Code Canvas */}
+                  <div className="bg-white p-1 rounded-xl flex items-center justify-center w-full aspect-square mb-2.5">
+                    <canvas ref={canvasRef} className="w-full h-full object-contain" />
+                  </div>
+
+                  {/* Helper Text */}
+                  <p className="text-[8px] text-slate-500 font-medium leading-tight">
+                    وجّه كاميرا هاتفك نحو الرمز لتصفح المنتجات
+                  </p>
+                  <p className="text-[8px] text-slate-400 font-mono mt-0.5 dir-ltr truncate max-w-full">
+                    alfsouq.com/m/{restaurant.slug}
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Clean QR Only */}
+                  <div className="bg-white p-2 rounded-xl flex items-center justify-center w-full aspect-square">
+                    <canvas ref={canvasRef} className="w-full h-full object-contain" />
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-mono mt-2 dir-ltr truncate max-w-full">
+                    alfsouq.com/m/{restaurant.slug}
+                  </p>
+                </>
               )}
 
-              {/* QR Canvas */}
-              <div className="bg-white p-2 rounded-xl shadow-xs border border-slate-100 flex items-center justify-center w-full aspect-square">
-                <canvas ref={canvasRef} className="w-full h-full object-contain" />
-              </div>
-
-              <div className="mt-2 text-[10px] text-slate-400 font-mono dir-ltr truncate max-w-full">
-                alfsouq.com/m/{restaurant.slug}
-              </div>
             </div>
           </div>
 
