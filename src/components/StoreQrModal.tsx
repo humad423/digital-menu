@@ -241,18 +241,24 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
 
       // Call to action pill badge
       ctx.save()
-      ctx.fillStyle = `${brandColor}15`
-      const badgeWidth = 440
-      const badgeHeight = 48
-      roundRect(ctx, (width - badgeWidth) / 2, currentY, badgeWidth, badgeHeight, 24)
+      ctx.fillStyle = `${brandColor}18`
+      const badgeWidth = 540
+      const badgeHeight = 56
+      roundRect(ctx, (width - badgeWidth) / 2, currentY, badgeWidth, badgeHeight, 28)
       ctx.fill()
+
+      ctx.strokeStyle = `${brandColor}40`
+      ctx.lineWidth = 2
+      roundRect(ctx, (width - badgeWidth) / 2, currentY, badgeWidth, badgeHeight, 28)
+      ctx.stroke()
+
       ctx.fillStyle = brandColor
-      ctx.font = 'bold 22px Tajawal, sans-serif'
+      ctx.font = 'bold 26px Tajawal, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('📱 امسح لعرض قائمة المنيو والطلب', width / 2, currentY + (badgeHeight / 2))
+      ctx.fillText('📷 وجّه كاميرا هاتفك لفتح المنيو والطلب', width / 2, currentY + (badgeHeight / 2))
       ctx.restore()
-      currentY += badgeHeight + 32
+      currentY += badgeHeight + 30
 
       // QR Code Area (Large & Clear)
       const qrBoxSize = 680
@@ -452,10 +458,10 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
 
                   {/* Pill Badge */}
                   <div 
-                    className="text-[9px] font-bold px-2.5 py-0.5 rounded-full mb-2.5 inline-flex items-center gap-1 shrink-0"
-                    style={{ background: `${brandColor}15`, color: brandColor }}
+                    className="text-[10px] font-black px-3 py-1 rounded-full mb-2.5 inline-flex items-center gap-1 shrink-0 border shadow-2xs"
+                    style={{ background: `${brandColor}18`, color: brandColor, borderColor: `${brandColor}35` }}
                   >
-                    <span>📱 امسح لعرض قائمة المنيو والطلب</span>
+                    <span>📷 وجّه كاميرا هاتفك لفتح المنيو والطلب</span>
                   </div>
 
                   {/* QR Code Canvas */}
