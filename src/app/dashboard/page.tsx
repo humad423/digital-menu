@@ -19,6 +19,7 @@ export default function CompletelyStandaloneDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [unregisteredError, setUnregisteredError] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
   const [formattedPhoneState, setFormattedPhoneState] = useState('')
   
@@ -59,6 +60,8 @@ export default function CompletelyStandaloneDashboardPage() {
       clean = clean.replace(/^0+/, '')
     }
     setPhoneNumber(clean)
+    setUnregisteredError(null)
+    setError(null)
   }
 
   const setupRecaptcha = () => {
@@ -80,6 +83,7 @@ export default function CompletelyStandaloneDashboardPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setUnregisteredError(null)
     setInfoMessage(null)
     if (!phoneNumber) {
       setError('يرجى إدخال رقم الهاتف أولاً.')
@@ -93,12 +97,51 @@ export default function CompletelyStandaloneDashboardPage() {
     setFormattedPhoneState(formatted)
 
     try {
+      // 1. Verify that this phone number belongs to an existing registered store BEFORE sending OTP
+      let resId: string | null = null
+
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, restaurant_id, phone, role')
+        .eq('phone', formatted)
+        .limit(1)
+
+      if (profs && profs.length > 0 && profs[0].restaurant_id) {
+        resId = profs[0].restaurant_id
+      }
+
+      // Fallback: check restaurants whatsapp_number
+      if (!resId) {
+        const cleanDigits = formatted.replace(/[^0-9]/g, '')
+        const { data: resList } = await supabase
+          .from('restaurants')
+          .select('id, whatsapp_number')
+        
+        const matchedRes = (resList || []).find((r: any) => {
+          if (!r.whatsapp_number) return false
+          const num = r.whatsapp_number.replace(/[^0-9]/g, '')
+          return num === cleanDigits || cleanDigits.endsWith(num) || num.endsWith(cleanDigits)
+        })
+
+        if (matchedRes) {
+          resId = matchedRes.id
+        }
+      }
+
+      // If store is NOT registered, STOP and do NOT send SMS
+      if (!resId) {
+        setUnregisteredError(formatted)
+        setIsSubmitting(false)
+        return
+      }
+
+      // Store is registered -> Send SMS OTP
       setupRecaptcha()
       const appVerifier = recaptchaRef.current!
       auth.languageCode = 'ar'
       const confirmation = await signInWithPhoneNumber(auth, formatted, appVerifier)
       setConfirmationResult(confirmation)
-      setInfoMessage(`تم إرسال كود التفعيل عبر رسالة نصية SMS إلى الرقم (${formatted}) 📱`)
+      setInfoMessage(`تم إرسال كود التفعيل عبر رسالة نصية (SMS) إلى الرقم (${formatted}) 📱`)
       setStep('otp')
     } catch (err: any) {
       console.error('Error sending partner SMS OTP:', err)
@@ -152,9 +195,8 @@ export default function CompletelyStandaloneDashboardPage() {
         }
       }
 
-
       if (!resId) {
-        setError(`رقم الهاتف (${verifiedPhone}) غير مرتبط بأي مطعم مسجل. يرجى تزويد مدير المنصة برقمك لربطه بملف مطعمك.`)
+        setError(`رقم الهاتف (${verifiedPhone}) غير مرتبط بأي متجر مسجل. يرجى التواصل مع إدارة المنصة.`)
         setIsSubmitting(false)
         return
       }
@@ -190,22 +232,47 @@ export default function CompletelyStandaloneDashboardPage() {
       {/* Invisible Recaptcha Container */}
       <div id="dashboard-recaptcha"></div>
 
-      <div className="w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+      <div className="w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-3xl p-7 sm:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
         {/* Decorative ambient glow */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Header Logo */}
-        <div className="text-center mb-8 flex flex-col items-center">
+        <div className="text-center mb-7 flex flex-col items-center">
           <BrandLogo size="lg" variant="light" className="mb-3" />
           <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3.5 py-1 rounded-full border border-emerald-500/20 flex items-center gap-1.5">
             <MessageSquare size={13} />
             <span>بوابة شركاء ألف سوق Alfsouq Partner Portal</span>
           </span>
-          <p className="text-xs text-gray-400 font-medium mt-2">إدارة المنيو والطلبات والعروض الخاصة بمطعمك</p>
+          <p className="text-xs text-gray-400 font-medium mt-2">إدارة المنيو والطلبات والعروض الخاصة بمتجرك</p>
         </div>
 
-        {/* Error Alert */}
+        {/* Unregistered Store Error Box */}
+        {unregisteredError && (
+          <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-2xl text-xs font-bold leading-relaxed space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-400" />
+              <div>
+                <p className="text-white font-black text-sm mb-1">الرقم غير مسجل كشريك حتى الآن</p>
+                <p className="text-amber-200/90 text-xs font-normal">
+                  رقم الهاتف <span className="dir-ltr inline-block font-mono font-bold text-white">({unregisteredError})</span> غير مسجل كمتجر في المنصة. لتسجيل متجرك وتفعيل المنيو الخاص بك، يرجى التواصل مع إدارة المنصة.
+                </p>
+              </div>
+            </div>
+
+            <a
+              href={`https://wa.me/905352574134?text=${encodeURIComponent(`مرحباً، أود تسجيل وتفعيل متجري الجديد في منصة ألف سوق برقم الهاتف: ${unregisteredError}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition shadow-md no-underline cursor-pointer"
+            >
+              <MessageSquare size={15} />
+              <span>تواصل معنا عبر الواتساب لتسجيل متجرك 💬</span>
+            </a>
+          </div>
+        )}
+
+        {/* General Error Alert */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl text-xs font-bold leading-relaxed flex items-start gap-2.5">
             <AlertCircle size={18} className="shrink-0 mt-0.5" />
@@ -225,7 +292,7 @@ export default function CompletelyStandaloneDashboardPage() {
         {step === 'phone' ? (
           <form onSubmit={handleSendOtp} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold text-gray-300 mb-2">رقم هاتف صاحب المطعم المسجل بالواتساب</label>
+              <label className="block text-xs font-bold text-gray-300 mb-2">رقم هاتف صاحب المتجر المسجل</label>
               
               {/* LTR Country & Phone Input */}
               <div className="flex items-center gap-2 dir-ltr">
@@ -271,15 +338,14 @@ export default function CompletelyStandaloneDashboardPage() {
             </button>
           </form>
         ) : (
-          /* OTP Verification Step */
+          /* OTP Verification Step (Simplified & Clean) */
           <form onSubmit={handleVerifyOtp} className="space-y-5 animate-fade-in">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-2xl text-center">
-              <p className="text-xs text-gray-300 font-medium">تم إرسال كود الواتساب إلى:</p>
+            <div className="text-center pb-1">
+              <p className="text-xs text-gray-400 font-medium">أدخل رمز تفعيل الـ SMS المرسل إلى الرقم:</p>
               <p className="text-sm font-black text-emerald-400 dir-ltr mt-0.5">{formattedPhoneState}</p>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-300 mb-2 text-center">أدخل رمز تفعيل الـ SMS</label>
               <input
                 type="text"
                 maxLength={6}
@@ -308,7 +374,12 @@ export default function CompletelyStandaloneDashboardPage() {
 
             <button
               type="button"
-              onClick={() => setStep('phone')}
+              onClick={() => {
+                setStep('phone')
+                setOtpCode('')
+                setError(null)
+                setInfoMessage(null)
+              }}
               className="w-full text-xs text-gray-400 font-bold hover:text-white transition text-center block pt-1 cursor-pointer"
             >
               تغيير رقم الهاتف ↩️
@@ -316,26 +387,28 @@ export default function CompletelyStandaloneDashboardPage() {
           </form>
         )}
 
-        {/* CTA Box for New Store WhatsApp Contact */}
-        <div className="mt-6 pt-5 border-t border-gray-800 text-center space-y-2.5">
-          <p className="text-xs text-gray-300 font-bold">تريد الحصول على منيو رقمي جديد لمتجرك؟</p>
-          <a
-            href="https://wa.me/905352574134?text=مرحباً،%20أرغب%20في%20إنشاء%20منيو%20رقمي%20جديد%20لمطعمي%20عبر%20منصة%20ألف%20سوق"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-3 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer no-underline"
-          >
-            <MessageSquare size={16} />
-            <span>تواصل معنا لإنشاء منيو جديد عبر الواتساب 💬</span>
-          </a>
-        </div>
+        {/* CTA Box for New Store WhatsApp Contact (ONLY on phone input step) */}
+        {step === 'phone' && (
+          <div className="mt-6 pt-5 border-t border-gray-800 text-center space-y-2.5">
+            <p className="text-xs text-gray-300 font-bold">تريد الحصول على منيو رقمي جديد لمتجرك؟</p>
+            <a
+              href="https://wa.me/905352574134?text=مرحباً،%20أرغب%20في%20إنشاء%20منيو%20رقمي%20جديد%20لمتجري%20عبر%20منصة%20ألف%20سوق"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer no-underline"
+            >
+              <MessageSquare size={16} />
+              <span>تواصل معنا لإنشاء منيو جديد عبر الواتساب 💬</span>
+            </a>
+          </div>
+        )}
 
-        {/* Footer info for Subdomains */}
+        {/* Footer info */}
         <div className="mt-6 pt-4 border-t border-gray-800 flex items-center justify-between text-xs font-bold text-gray-500">
           <Link href="/" className="hover:text-emerald-400 transition flex items-center gap-1">
             <span>المنصة الرئيسية</span>
           </Link>
-          <span className="text-[10px] text-gray-600">Standalone Restaurant Portal</span>
+          <span className="text-[10px] text-gray-600">Alfsouq Partner Portal</span>
         </div>
       </div>
     </div>
