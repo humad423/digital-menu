@@ -280,13 +280,6 @@ export default function CompletelyStandaloneDashboardPage() {
           </div>
         )}
 
-        {/* Info Alert */}
-        {infoMessage && (
-          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl text-xs font-bold leading-relaxed flex items-start gap-2.5">
-            <CheckCircle size={18} className="shrink-0 mt-0.5" />
-            <span>{infoMessage}</span>
-          </div>
-        )}
 
         {/* Standalone Login Form */}
         {step === 'phone' ? (
