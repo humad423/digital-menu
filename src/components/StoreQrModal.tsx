@@ -18,7 +18,7 @@ interface StoreQrModalProps {
 }
 
 export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrModalProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [template, setTemplate] = useState<'stand' | 'clean'>('stand')
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -28,74 +28,77 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
   const menuUrl = getMainDomainMenuUrl(restaurant.slug)
   const qrTargetUrl = `${menuUrl}${menuUrl.includes('?') ? '&' : '?'}source=qr`
 
-  // Draw preview on modal canvas
+  // Generate QR preview data URL once when modal opens
   useEffect(() => {
-    if (!isOpen || !canvasRef.current) return
+    if (!isOpen) return
 
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    const generatePreview = async () => {
+      try {
+        const previewCanvas = document.createElement('canvas')
+        const size = 320
+        previewCanvas.width = size
+        previewCanvas.height = size
+        const ctx = previewCanvas.getContext('2d')
+        if (!ctx) return
 
-    const size = 260
-    canvas.width = size
-    canvas.height = size
-
-    QRCode.toCanvas(
-      canvas,
-      qrTargetUrl,
-      {
-        width: size,
-        margin: 1,
-        color: {
-          dark: qrColor,
-          light: '#ffffff',
-        },
-        errorCorrectionLevel: 'H',
-      },
-      (error) => {
-        if (error) {
-          console.error('Error generating QR:', error)
-          return
-        }
+        await QRCode.toCanvas(previewCanvas, qrTargetUrl, {
+          width: size,
+          margin: 1,
+          color: {
+            dark: qrColor,
+            light: '#ffffff',
+          },
+          errorCorrectionLevel: 'H',
+        })
 
         // Overlay store logo if available
         if (restaurant.logo_url) {
-          const img = new Image()
-          img.crossOrigin = 'anonymous'
-          img.onload = () => {
-            const logoSize = size * 0.24
-            const x = (size - logoSize) / 2
-            const y = (size - logoSize) / 2
+          await new Promise<void>((resolve) => {
+            const img = new Image()
+            img.crossOrigin = 'anonymous'
+            img.onload = () => {
+              const logoSize = size * 0.24
+              const x = (size - logoSize) / 2
+              const y = (size - logoSize) / 2
 
-            // White background circle with shadow
-            ctx.save()
-            ctx.beginPath()
-            ctx.arc(size / 2, size / 2, (logoSize / 2) + 4, 0, Math.PI * 2)
-            ctx.fillStyle = '#ffffff'
-            ctx.shadowColor = 'rgba(0,0,0,0.15)'
-            ctx.shadowBlur = 6
-            ctx.fill()
-            ctx.restore()
+              // White background circle with shadow
+              ctx.save()
+              ctx.beginPath()
+              ctx.arc(size / 2, size / 2, (logoSize / 2) + 4, 0, Math.PI * 2)
+              ctx.fillStyle = '#ffffff'
+              ctx.shadowColor = 'rgba(0,0,0,0.15)'
+              ctx.shadowBlur = 6
+              ctx.fill()
+              ctx.restore()
 
-            // Outer border with store primary color
-            ctx.beginPath()
-            ctx.arc(size / 2, size / 2, (logoSize / 2) + 2, 0, Math.PI * 2)
-            ctx.strokeStyle = brandColor
-            ctx.lineWidth = 2.5
-            ctx.stroke()
+              // Outer border with store primary color
+              ctx.beginPath()
+              ctx.arc(size / 2, size / 2, (logoSize / 2) + 2, 0, Math.PI * 2)
+              ctx.strokeStyle = brandColor
+              ctx.lineWidth = 2.5
+              ctx.stroke()
 
-            // Clip logo
-            ctx.save()
-            ctx.beginPath()
-            ctx.arc(size / 2, size / 2, logoSize / 2, 0, Math.PI * 2)
-            ctx.clip()
-            ctx.drawImage(img, x, y, logoSize, logoSize)
-            ctx.restore()
-          }
-          img.src = restaurant.logo_url
+              // Clip logo
+              ctx.save()
+              ctx.beginPath()
+              ctx.arc(size / 2, size / 2, logoSize / 2, 0, Math.PI * 2)
+              ctx.clip()
+              ctx.drawImage(img, x, y, logoSize, logoSize)
+              ctx.restore()
+              resolve()
+            }
+            img.onerror = () => resolve()
+            img.src = restaurant.logo_url!
+          })
         }
+
+        setQrDataUrl(previewCanvas.toDataURL('image/png'))
+      } catch (err) {
+        console.error('Error generating preview:', err)
       }
-    )
+    }
+
+    generatePreview()
   }, [isOpen, brandColor, restaurant.logo_url, qrTargetUrl])
 
   if (!isOpen) return null
@@ -517,9 +520,13 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
                     <span>📷 وجّه كاميرا هاتفك لفتح المنيو والطلب</span>
                   </div>
 
-                  {/* QR Code Canvas */}
-                  <div className="bg-white p-1 rounded-xl flex items-center justify-center w-full aspect-square mb-2.5">
-                    <canvas ref={canvasRef} className="w-full h-full object-contain" />
+                  {/* QR Code Image */}
+                  <div className="bg-white p-1 rounded-xl flex items-center justify-center w-full aspect-square mb-2.5 overflow-hidden">
+                    {qrDataUrl ? (
+                      <img src={qrDataUrl} alt="QR Code" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                    )}
                   </div>
 
                   {/* Helper Text */}
@@ -533,8 +540,12 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
               ) : (
                 <>
                   {/* Clean QR Only */}
-                  <div className="bg-white p-2 rounded-xl flex items-center justify-center w-full aspect-square">
-                    <canvas ref={canvasRef} className="w-full h-full object-contain" />
+                  <div className="bg-white p-2 rounded-xl flex items-center justify-center w-full aspect-square overflow-hidden">
+                    {qrDataUrl ? (
+                      <img src={qrDataUrl} alt="QR Code" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                    )}
                   </div>
                   <p className="text-[9px] text-slate-400 font-mono mt-2 dir-ltr truncate max-w-full">
                     alfsouq.com/m/{restaurant.slug}
