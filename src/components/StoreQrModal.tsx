@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import QRCode from 'qrcode'
-import { X, Download, Printer, Copy, Check, Sparkles, QrCode as QrIcon, Palette, Layout, ExternalLink, Image as ImageIcon } from 'lucide-react'
+import { X, Download, Printer, Copy, Check, QrCode as QrIcon, Layout } from 'lucide-react'
 import { getMainDomainMenuUrl } from '@/utils/url'
 
 interface StoreQrModalProps {
@@ -17,30 +17,18 @@ interface StoreQrModalProps {
   }
 }
 
-const PRESET_COLORS = [
-  { name: 'هوية المتجر', value: 'auto' },
-  { name: 'أسود كلاسيكي', value: '#0f172a' },
-  { name: 'ذهبي فاخر', value: '#b45309' },
-  { name: 'زمردي ملكي', value: '#047857' },
-  { name: 'أزرق محيطي', value: '#1d4ed8' },
-  { name: 'عنابي داكن', value: '#9f1239' },
-  { name: 'بنفسجي راقي', value: '#6d28d9' },
-]
-
 export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [selectedColor, setSelectedColor] = useState('auto')
-  const [customColor, setCustomColor] = useState(restaurant.primary_color || '#F97316')
-  const [includeLogo, setIncludeLogo] = useState(true)
-  const [template, setTemplate] = useState<'stand' | 'clean' | 'badge'>('stand')
+  const [template, setTemplate] = useState<'stand' | 'clean'>('stand')
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
-  const activeColor = selectedColor === 'auto' ? (restaurant.primary_color || '#F97316') : (selectedColor === 'custom' ? customColor : selectedColor)
+  const brandColor = restaurant.primary_color || '#F97316'
+  const qrColor = '#0f172a' // Classic black QR for best scanning
   const menuUrl = getMainDomainMenuUrl(restaurant.slug)
   const qrTargetUrl = `${menuUrl}${menuUrl.includes('?') ? '&' : '?'}source=qr`
 
-  // Draw QR on canvas whenever options change
+  // Draw preview on modal canvas
   useEffect(() => {
     if (!isOpen || !canvasRef.current) return
 
@@ -48,11 +36,10 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const size = 320
+    const size = 260
     canvas.width = size
     canvas.height = size
 
-    // Generate basic QR code data
     QRCode.toCanvas(
       canvas,
       qrTargetUrl,
@@ -60,7 +47,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
         width: size,
         margin: 2,
         color: {
-          dark: activeColor,
+          dark: qrColor,
           light: '#ffffff',
         },
         errorCorrectionLevel: 'H',
@@ -71,8 +58,8 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           return
         }
 
-        // Overlay store logo if enabled and available
-        if (includeLogo && restaurant.logo_url) {
+        // Overlay store logo if available
+        if (restaurant.logo_url) {
           const img = new Image()
           img.crossOrigin = 'anonymous'
           img.onload = () => {
@@ -80,26 +67,24 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
             const x = (size - logoSize) / 2
             const y = (size - logoSize) / 2
 
-            // Draw white background circle for logo with subtle shadow
+            // White background circle with shadow
             ctx.save()
             ctx.beginPath()
             ctx.arc(size / 2, size / 2, (logoSize / 2) + 4, 0, Math.PI * 2)
             ctx.fillStyle = '#ffffff'
             ctx.shadowColor = 'rgba(0,0,0,0.15)'
-            ctx.shadowBlur = 8
-            ctx.shadowOffsetX = 0
-            ctx.shadowOffsetY = 2
+            ctx.shadowBlur = 6
             ctx.fill()
             ctx.restore()
 
-            // Draw border matching QR color
+            // Outer border with store primary color
             ctx.beginPath()
             ctx.arc(size / 2, size / 2, (logoSize / 2) + 2, 0, Math.PI * 2)
-            ctx.strokeStyle = activeColor
-            ctx.lineWidth = 2
+            ctx.strokeStyle = brandColor
+            ctx.lineWidth = 2.5
             ctx.stroke()
 
-            // Clip circular logo
+            // Clip logo
             ctx.save()
             ctx.beginPath()
             ctx.arc(size / 2, size / 2, logoSize / 2, 0, Math.PI * 2)
@@ -111,7 +96,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
         }
       }
     )
-  }, [isOpen, activeColor, includeLogo, restaurant.logo_url, qrTargetUrl])
+  }, [isOpen, brandColor, restaurant.logo_url, qrTargetUrl])
 
   if (!isOpen) return null
 
@@ -134,11 +119,11 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       await QRCode.toCanvas(exportCanvas, qrTargetUrl, {
         width: baseSize,
         margin: 3,
-        color: { dark: activeColor, light: '#ffffff' },
+        color: { dark: qrColor, light: '#ffffff' },
         errorCorrectionLevel: 'H',
       })
 
-      if (includeLogo && restaurant.logo_url) {
+      if (restaurant.logo_url) {
         await new Promise<void>((resolve) => {
           const img = new Image()
           img.crossOrigin = 'anonymous'
@@ -151,14 +136,14 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
             ctx.beginPath()
             ctx.arc(baseSize / 2, baseSize / 2, (logoSize / 2) + (10 * scale), 0, Math.PI * 2)
             ctx.fillStyle = '#ffffff'
-            ctx.shadowColor = 'rgba(0,0,0,0.2)'
+            ctx.shadowColor = 'rgba(0,0,0,0.18)'
             ctx.shadowBlur = 15 * scale
             ctx.fill()
             ctx.restore()
 
             ctx.beginPath()
             ctx.arc(baseSize / 2, baseSize / 2, (logoSize / 2) + (4 * scale), 0, Math.PI * 2)
-            ctx.strokeStyle = activeColor
+            ctx.strokeStyle = brandColor
             ctx.lineWidth = 4 * scale
             ctx.stroke()
 
@@ -181,7 +166,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       exportCanvas.width = width
       exportCanvas.height = height
 
-      // Background gradient
+      // Background
       const bgGrad = ctx.createLinearGradient(0, 0, 0, height)
       bgGrad.addColorStop(0, '#0f172a')
       bgGrad.addColorStop(1, '#1e293b')
@@ -189,8 +174,8 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       ctx.fillRect(0, 0, width, height)
 
       // Top Decorative Banner with primary color
-      ctx.fillStyle = activeColor
-      ctx.fillRect(0, 0, width, 18)
+      ctx.fillStyle = brandColor
+      ctx.fillRect(0, 0, width, 16)
 
       // Inner Card Frame
       const cardMargin = 60
@@ -199,23 +184,23 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       
       ctx.save()
       ctx.fillStyle = '#ffffff'
-      ctx.shadowColor = 'rgba(0,0,0,0.3)'
-      ctx.shadowBlur = 40
-      ctx.shadowOffsetY = 20
-      roundRect(ctx, cardMargin, cardMargin, cardWidth, cardHeight, 40)
+      ctx.shadowColor = 'rgba(0,0,0,0.25)'
+      ctx.shadowBlur = 35
+      ctx.shadowOffsetY = 15
+      roundRect(ctx, cardMargin, cardMargin, cardWidth, cardHeight, 36)
       ctx.fill()
       ctx.restore()
 
       // Inner Border
       ctx.save()
       ctx.strokeStyle = '#f1f5f9'
-      ctx.lineWidth = 4
-      roundRect(ctx, cardMargin + 20, cardMargin + 20, cardWidth - 40, cardHeight - 40, 30)
+      ctx.lineWidth = 3
+      roundRect(ctx, cardMargin + 18, cardMargin + 18, cardWidth - 36, cardHeight - 36, 28)
       ctx.stroke()
       ctx.restore()
 
       // Header: Store Logo + Name
-      let currentY = 120
+      let currentY = 125
       if (restaurant.logo_url) {
         await new Promise<void>((resolve) => {
           const logoImg = new Image()
@@ -223,19 +208,17 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           logoImg.onload = () => {
             const logoSize = 130
             const logoX = (width - logoSize) / 2
-            const logoY = 120
+            const logoY = 125
             
-            // White circular background for logo with shadow
             ctx.save()
             ctx.beginPath()
             ctx.arc(width / 2, logoY + (logoSize / 2), (logoSize / 2) + 6, 0, Math.PI * 2)
             ctx.fillStyle = '#ffffff'
-            ctx.shadowColor = 'rgba(0,0,0,0.15)'
+            ctx.shadowColor = 'rgba(0,0,0,0.12)'
             ctx.shadowBlur = 12
             ctx.fill()
             ctx.restore()
 
-            // Clipped circular logo
             ctx.save()
             ctx.beginPath()
             ctx.arc(width / 2, logoY + (logoSize / 2), logoSize / 2, 0, Math.PI * 2)
@@ -243,10 +226,10 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
             ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
             ctx.restore()
 
-            // Outer ring matching primary color
+            // Outer ring with brand color
             ctx.beginPath()
             ctx.arc(width / 2, logoY + (logoSize / 2), (logoSize / 2) + 4, 0, Math.PI * 2)
-            ctx.strokeStyle = activeColor
+            ctx.strokeStyle = brandColor
             ctx.lineWidth = 4
             ctx.stroke()
 
@@ -260,7 +243,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
         currentY = 160
       }
 
-      // Store Name with explicit top baseline
+      // Store Name
       ctx.save()
       ctx.fillStyle = '#0f172a'
       ctx.font = 'bold 46px Tajawal, sans-serif'
@@ -272,12 +255,12 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
 
       // Call to action badge
       ctx.save()
-      ctx.fillStyle = `${activeColor}18`
+      ctx.fillStyle = `${brandColor}18`
       const badgeWidth = 460
       const badgeHeight = 52
       roundRect(ctx, (width - badgeWidth) / 2, currentY, badgeWidth, badgeHeight, 26)
       ctx.fill()
-      ctx.fillStyle = activeColor
+      ctx.fillStyle = brandColor
       ctx.font = 'bold 24px Tajawal, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
@@ -285,17 +268,17 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       ctx.restore()
       currentY += badgeHeight + 42
 
-      // QR Code Area
+      // QR Code Area (Classic crisp black)
       const qrBoxSize = 640
       const qrCanvas = document.createElement('canvas')
       await QRCode.toCanvas(qrCanvas, qrTargetUrl, {
         width: qrBoxSize,
         margin: 2,
-        color: { dark: activeColor, light: '#ffffff' },
+        color: { dark: qrColor, light: '#ffffff' },
         errorCorrectionLevel: 'H',
       })
 
-      if (includeLogo && restaurant.logo_url) {
+      if (restaurant.logo_url) {
         await new Promise<void>((resolve) => {
           const img = new Image()
           img.crossOrigin = 'anonymous'
@@ -316,8 +299,8 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
 
             qrCtx.beginPath()
             qrCtx.arc(qrBoxSize / 2, qrBoxSize / 2, (logoSize / 2) + 3, 0, Math.PI * 2)
-            qrCtx.strokeStyle = activeColor
-            qrCtx.lineWidth = 3
+            qrCtx.strokeStyle = brandColor
+            qrCtx.lineWidth = 3.5
             qrCtx.stroke()
 
             qrCtx.save()
@@ -357,7 +340,6 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
     return exportCanvas
   }
 
-  // Helper to draw rounded rectangle on canvas
   function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
     ctx.beginPath()
     ctx.moveTo(x + r, y)
@@ -434,231 +416,132 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
   }
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200" dir="rtl">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200" dir="rtl">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xs" style={{ background: activeColor }}>
-              <QrIcon size={20} />
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-2xs" style={{ background: brandColor }}>
+              <QrIcon size={16} />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <span>رمز الـ QR المخصص للمتجر</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">احترافي ⚡</span>
-              </h2>
-              <p className="text-xs text-slate-400 font-medium">جاهز للطباعة على الطاولات والملصقات مع تتبع الزيارات</p>
+              <h2 className="text-sm font-black text-slate-900">رمز الـ QR للمتجر</h2>
+              <p className="text-[11px] text-slate-400 font-medium">{restaurant.name}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-slate-200/60 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-slate-200/60 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            
-            {/* Live Preview Column */}
-            <div className="md:col-span-5 flex flex-col items-center justify-center">
-              <div className="w-full bg-slate-900 p-4 sm:p-5 rounded-3xl shadow-xl flex flex-col items-center text-center relative overflow-hidden border border-slate-800">
-                {/* Decorative glow */}
-                <div 
-                  className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-2xl opacity-40 pointer-events-none"
-                  style={{ background: activeColor }}
-                />
-
-                {template === 'stand' && (
-                  <div className="mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 p-0.5 border border-white/20 mx-auto mb-1.5 overflow-hidden flex items-center justify-center">
-                      {restaurant.logo_url ? (
-                        <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-lg" />
-                      ) : (
-                        <span className="font-black text-xs text-white">{restaurant.name.charAt(0)}</span>
-                      )}
-                    </div>
-                    <h4 className="text-white text-xs font-black truncate max-w-[170px]">{restaurant.name}</h4>
-                    <p className="text-[10px] text-amber-400 font-bold mt-0.5">📱 امسح لعرض المنيو</p>
-                  </div>
-                )}
-
-                {/* QR Canvas Preview */}
-                <div className="bg-white p-3 rounded-2xl shadow-md border border-slate-100 flex items-center justify-center">
-                  <canvas ref={canvasRef} className="w-48 h-48 sm:w-52 sm:h-52 object-contain" />
-                </div>
-
-                <div className="mt-3 flex items-center gap-1 text-[11px] text-slate-400 font-bold dir-ltr">
-                  <span>alfsouq.com/m/{restaurant.slug}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Customization Options Column */}
-            <div className="md:col-span-7 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          
+          {/* Compact Mini Preview Card */}
+          <div className="flex justify-center">
+            <div className="w-full max-w-[240px] bg-slate-900 p-3.5 rounded-2xl shadow-lg border border-slate-800 flex flex-col items-center text-center">
               
-              {/* Template Style Selector */}
-              <div>
-                <label className="text-xs font-black text-slate-700 mb-2 flex items-center gap-1.5">
-                  <Layout size={14} className="text-orange-500" />
-                  <span>نمط وتصميم العرض</span>
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTemplate('stand')}
-                    className={`p-2.5 rounded-2xl text-xs font-black border text-right transition cursor-pointer flex flex-col gap-1 ${
-                      template === 'stand'
-                        ? 'border-orange-500 bg-orange-50/60 text-orange-950 shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1">
-                      <span>🏷️ ستاند طاولة فاخر</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-normal">بطاقة جاهزة مع اسم المتجر وشعاره</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTemplate('clean')}
-                    className={`p-2.5 rounded-2xl text-xs font-black border text-right transition cursor-pointer flex flex-col gap-1 ${
-                      template === 'clean'
-                        ? 'border-orange-500 bg-orange-50/60 text-orange-950 shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1">
-                      <span>⚡ رمز كلاسيكي فقط</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-normal">رمز الـ QR بدقة عالية بدون إطارات</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Color Customizer */}
-              <div>
-                <label className="text-xs font-black text-slate-700 mb-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Palette size={14} className="text-orange-500" />
-                    <span>لون الرمز (هوية المتجر)</span>
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-400" dir="ltr">{activeColor}</span>
-                </label>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {PRESET_COLORS.map(c => {
-                    const isSelected = selectedColor === c.value
-                    const sampleColor = c.value === 'auto' ? (restaurant.primary_color || '#F97316') : c.value
-
-                    return (
-                      <button
-                        key={c.name}
-                        type="button"
-                        onClick={() => setSelectedColor(c.value)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                          isSelected
-                            ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <span className="w-3 h-3 rounded-full shrink-0 border border-black/10" style={{ background: sampleColor }} />
-                        <span>{c.name}</span>
-                      </button>
-                    )
-                  })}
-
-                  {/* Custom color picker */}
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                    <input
-                      type="color"
-                      value={customColor}
-                      onChange={(e) => {
-                        setCustomColor(e.target.value)
-                        setSelectedColor('custom')
-                      }}
-                      className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent p-0"
-                      title="اختر لوناً مخصصاً"
-                    />
-                    <span className="text-[11px] font-bold text-slate-600 px-1">مخصص</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Logo Overlay Toggle */}
-              {restaurant.logo_url && (
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon size={16} className="text-slate-500" />
-                    <div>
-                      <h5 className="text-xs font-black text-slate-800">تضمين شعار المتجر في المنتصف</h5>
-                      <p className="text-[10px] text-slate-400 font-medium">يضيف لمسة احترافية مع المحافظة على سرعة المسح</p>
+              {template === 'stand' && (
+                <div className="mb-2 w-full flex flex-col items-center">
+                  {restaurant.logo_url ? (
+                    <div className="w-9 h-9 rounded-full bg-white p-0.5 border-2 mx-auto mb-1 overflow-hidden shadow-xs" style={{ borderColor: brandColor }}>
+                      <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-full" />
                     </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includeLogo}
-                      onChange={(e) => setIncludeLogo(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500" />
-                  </label>
+                  ) : null}
+                  <h4 className="text-white text-xs font-black truncate max-w-[190px]">{restaurant.name}</h4>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block" style={{ background: `${brandColor}25`, color: '#fdba74' }}>
+                    📱 امسح لعرض المنيو
+                  </span>
                 </div>
               )}
 
-              {/* Direct QR Link Copy Box */}
-              <div className="p-3 bg-orange-50/70 border border-orange-100 rounded-2xl flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-black text-orange-800 mb-0.5">رابط الـ QR المزود بكود التتبع:</p>
-                  <p className="text-xs font-bold text-orange-950 truncate dir-ltr text-right">{qrTargetUrl}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 shrink-0 transition active:scale-95 cursor-pointer shadow-2xs"
-                >
-                  {copied ? <Check size={13} /> : <Copy size={13} />}
-                  <span>{copied ? 'تم النسخ' : 'نسخ الرابط'}</span>
-                </button>
+              {/* QR Canvas */}
+              <div className="bg-white p-2 rounded-xl shadow-xs border border-slate-100 flex items-center justify-center w-full aspect-square">
+                <canvas ref={canvasRef} className="w-full h-full object-contain" />
               </div>
 
+              <div className="mt-2 text-[10px] text-slate-400 font-mono dir-ltr truncate max-w-full">
+                alfsouq.com/m/{restaurant.slug}
+              </div>
             </div>
-
           </div>
+
+          {/* Template Style Selector */}
+          <div>
+            <label className="text-xs font-black text-slate-700 mb-1.5 flex items-center gap-1">
+              <Layout size={13} className="text-orange-500" />
+              <span>نمط العرض</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setTemplate('stand')}
+                className={`py-2 px-3 rounded-xl text-xs font-black border transition cursor-pointer text-center ${
+                  template === 'stand'
+                    ? 'border-orange-500 bg-orange-50/70 text-orange-950 shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                🏷️ ستاند طاولة مخصص
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTemplate('clean')}
+                className={`py-2 px-3 rounded-xl text-xs font-black border transition cursor-pointer text-center ${
+                  template === 'clean'
+                    ? 'border-orange-500 bg-orange-50/70 text-orange-950 shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                ⚡ رمز QR فقط
+              </button>
+            </div>
+          </div>
+
+          {/* Direct Link Copy Box */}
+          <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-slate-400 font-bold mb-0.5">رابط المنيو المباشر:</p>
+              <p className="text-xs font-bold text-slate-800 truncate dir-ltr text-right">{qrTargetUrl}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 transition active:scale-95 cursor-pointer shadow-2xs"
+            >
+              {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+              <span>{copied ? 'تم النسخ' : 'نسخ'}</span>
+            </button>
+          </div>
+
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="px-5 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-            <Sparkles size={14} className="text-amber-500" />
-            <span>يتم تسجيل مسحات الزوار وإحصائياتها تلقائياً</span>
-          </div>
+        <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+          >
+            <Printer size={14} />
+            <span>طباعة 🖨️</span>
+          </button>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
-            >
-              <Printer size={15} />
-              <span>طباعة فورية 🖨️</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadPng}
-              disabled={downloading}
-              className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer shadow-md disabled:opacity-60"
-            >
-              <Download size={15} />
-              <span>{downloading ? 'جاري التحميل...' : 'تحميل صورة عالية الدقة (PNG)'}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleDownloadPng}
+            disabled={downloading}
+            className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-sm disabled:opacity-60"
+          >
+            <Download size={14} />
+            <span>{downloading ? 'جاري التحميل...' : 'تحميل صورة (PNG)'}</span>
+          </button>
         </div>
 
       </div>
