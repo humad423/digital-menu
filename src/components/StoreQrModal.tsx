@@ -367,38 +367,91 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       const printWindow = window.open('', '_blank')
       if (!printWindow) return
 
+      printWindow.document.open()
       printWindow.document.write(`
         <!DOCTYPE html>
-        <html dir="rtl">
+        <html dir="rtl" lang="ar">
         <head>
+          <meta charset="utf-8" />
           <title>طباعة رمز الـ QR - ${restaurant.name}</title>
           <style>
-            body {
+            @page {
+              size: portrait;
+              margin: 1cm;
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            html, body {
               margin: 0;
-              padding: 20px;
+              padding: 0;
+              background: #ffffff;
+              width: 100%;
+              min-height: 100%;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: center;
-              min-height: 100vh;
               font-family: system-ui, -apple-system, sans-serif;
-              background: #fff;
             }
-            img {
-              max-width: 100%;
-              max-height: 90vh;
-              object-fit: contain;
-              border-radius: 16px;
-              box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            .print-wrapper {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+              page-break-inside: avoid;
+            }
+            .qr-card-img {
+              width: 100%;
+              max-width: 480px;
+              height: auto;
+              border-radius: 24px;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+              display: block;
+            }
+            .cut-hint {
+              margin-top: 14px;
+              font-size: 11px;
+              color: #94a3b8;
+              text-align: center;
+              font-weight: bold;
             }
             @media print {
-              body { padding: 0; }
-              img { max-height: 100vh; width: auto; box-shadow: none; }
+              html, body {
+                display: block;
+              }
+              .print-wrapper {
+                padding: 0;
+                margin: 0 auto;
+              }
+              .qr-card-img {
+                max-width: 12.5cm;
+                box-shadow: none;
+                margin: 0 auto;
+              }
+              .cut-hint {
+                display: none;
+              }
             }
           </style>
         </head>
         <body>
-          <img src="${dataUrl}" alt="QR Stand" onload="window.print(); window.close();" />
+          <div class="print-wrapper">
+            <img src="${dataUrl}" alt="QR Stand" class="qr-card-img" />
+            <div class="cut-hint">✂️ يمكنك قص البطاقة ووضعها على استاند الطاولة أو الواجهة</div>
+          </div>
+          <script>
+            window.addEventListener('load', function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+              }, 300);
+            });
+          </script>
         </body>
         </html>
       `)
