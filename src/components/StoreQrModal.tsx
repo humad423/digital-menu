@@ -343,7 +343,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       ctx.font = '500 24px Tajawal, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
-      ctx.fillText('وجّه كاميرا هاتفك نحو الرمز لتصفح الأطباق والعروض مباشرة', width / 2, currentY)
+      ctx.fillText('وجّه كاميرا هاتفك نحو الرمز لتصفح المنتجات والعروض مباشرة', width / 2, currentY)
       currentY += 45
 
       ctx.fillStyle = '#94a3b8'
