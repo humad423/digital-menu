@@ -10,6 +10,7 @@ import { ArrowRight, MapPin } from 'lucide-react'
 import { getStoreStatus } from '@/utils/storeStatus'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import MenuLocationNotice from '@/components/MenuLocationNotice'
+import MenuQrTracker from '@/components/MenuQrTracker'
 
 // Fully dynamic SSR — eliminates Vercel ISR Write Units completely (0 ISR Writes)
 export const dynamic = 'force-dynamic'
@@ -114,6 +115,7 @@ export default async function RestaurantLayout({
       className="min-h-screen bg-slate-200 text-slate-800 font-sans pb-28"
       style={{ '--color-primary': primary } as React.CSSProperties}
     >
+      <MenuQrTracker restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
       {/* Centered mobile-frame wrapper */}
       <div className="max-w-md sm:max-w-lg mx-auto bg-slate-50 min-h-screen relative shadow-2xl">
         <MenuLocationNotice restaurant={restaurant} />

@@ -6,7 +6,8 @@ import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share } from 'lucide-react'
+import StoreQrModal from '@/components/StoreQrModal'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share, QrCode } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -26,6 +27,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true)
   const [authenticatedOwner, setAuthenticatedOwner] = useState<any>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showQrModal, setShowQrModal] = useState(false)
 
   // ── Partner PWA App Install State ─────────────────────────────
   const [canInstallPwa, setCanInstallPwa] = useState(true)
@@ -892,6 +894,15 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
               <span>الإعدادات ⚙️</span>
             </button>
 
+            <button
+              onClick={() => setShowQrModal(true)}
+              className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 text-amber-300 hover:text-white hover:bg-orange-500/30 border border-amber-500/40 rounded-xl text-xs font-black flex items-center gap-1.5 shrink-0 active:scale-95 cursor-pointer shadow-2xs"
+              title="تخصيص وطباعة رمز الـ QR الخاص بالمتجر"
+            >
+              <QrCode size={13} className="text-amber-400" />
+              <span>رمز الـ QR 📱</span>
+            </button>
+
             <a
               href={getMainDomainMenuUrl(restaurant.slug)}
               target="_blank"
@@ -1574,6 +1585,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         onClose={() => setShowSettingsModal(false)}
         onSaveSuccess={fetchData}
       />
+
+      {restaurant && (
+        <StoreQrModal
+          isOpen={showQrModal}
+          onClose={() => setShowQrModal(false)}
+          restaurant={restaurant}
+        />
+      )}
 
       {/* Device-Specific Install Guide Modal */}
       {showInstallModal && (

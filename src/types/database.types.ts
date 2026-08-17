@@ -420,6 +420,32 @@ export interface Database {
           is_active?: boolean
         }
       }
+      qr_scans: {
+        Row: {
+          id: string
+          created_at: string
+          restaurant_id: string
+          source: string
+          device_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          restaurant_id: string
+          source?: string
+          device_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          restaurant_id?: string
+          source?: string
+          device_type?: string | null
+          user_agent?: string | null
+        }
+      }
     }
   }
 }

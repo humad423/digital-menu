@@ -9,15 +9,17 @@ import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
 import AdminBusinessTypesTab, { BusinessType } from '@/components/AdminBusinessTypesTab'
 import AdminLegalPagesTab from '@/components/AdminLegalPagesTab'
+import AdminQrAnalyticsTab from '@/components/AdminQrAnalyticsTab'
 import TabErrorBoundary from '@/components/TabErrorBoundary'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck } from 'lucide-react'
+import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode } from 'lucide-react'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
 const TABS = [
   { key: 'restaurants', label: 'المتاجر', Icon: Store },
+  { key: 'qr_analytics', label: 'إحصائيات الـ QR 📊', Icon: QrCode },
   { key: 'offers', label: 'العروض والتخفيضات', Icon: Flame },
   { key: 'business_types', label: 'أنواع الأنشطة 🏷️', Icon: Tag },
   { key: 'legal', label: 'الخصوصية والشروط 📜', Icon: ShieldCheck },
@@ -471,6 +473,15 @@ export default function AdminDashboard() {
               <p className="text-sm font-bold text-slate-400">جاري تحميل البيانات...</p>
             </div>
           </div>
+        )}
+
+        {/* ══════════════════════════════════════
+            QR ANALYTICS TAB
+        ══════════════════════════════════════ */}
+        {!loading && activeTab === 'qr_analytics' && (
+          <TabErrorBoundary tabName="إحصائيات الـ QR">
+            <AdminQrAnalyticsTab restaurants={restaurants} />
+          </TabErrorBoundary>
         )}
 
         {/* ══════════════════════════════════════
