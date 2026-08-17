@@ -215,7 +215,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       ctx.restore()
 
       // Header: Store Logo + Name
-      let currentY = 160
+      let currentY = 120
       if (restaurant.logo_url) {
         await new Promise<void>((resolve) => {
           const logoImg = new Image()
@@ -223,16 +223,29 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           logoImg.onload = () => {
             const logoSize = 130
             const logoX = (width - logoSize) / 2
+            const logoY = 120
+            
+            // White circular background for logo with shadow
             ctx.save()
             ctx.beginPath()
-            ctx.arc(width / 2, currentY + (logoSize / 2), logoSize / 2, 0, Math.PI * 2)
-            ctx.clip()
-            ctx.drawImage(logoImg, logoX, currentY, logoSize, logoSize)
+            ctx.arc(width / 2, logoY + (logoSize / 2), (logoSize / 2) + 6, 0, Math.PI * 2)
+            ctx.fillStyle = '#ffffff'
+            ctx.shadowColor = 'rgba(0,0,0,0.15)'
+            ctx.shadowBlur = 12
+            ctx.fill()
             ctx.restore()
 
-            // Outer ring
+            // Clipped circular logo
+            ctx.save()
             ctx.beginPath()
-            ctx.arc(width / 2, currentY + (logoSize / 2), (logoSize / 2) + 4, 0, Math.PI * 2)
+            ctx.arc(width / 2, logoY + (logoSize / 2), logoSize / 2, 0, Math.PI * 2)
+            ctx.clip()
+            ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
+            ctx.restore()
+
+            // Outer ring matching primary color
+            ctx.beginPath()
+            ctx.arc(width / 2, logoY + (logoSize / 2), (logoSize / 2) + 4, 0, Math.PI * 2)
             ctx.strokeStyle = activeColor
             ctx.lineWidth = 4
             ctx.stroke()
@@ -242,28 +255,35 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           logoImg.onerror = () => resolve()
           logoImg.src = restaurant.logo_url!
         })
-        currentY += 160
+        currentY = 280
       } else {
-        currentY += 40
+        currentY = 160
       }
 
-      // Store Name
+      // Store Name with explicit top baseline
+      ctx.save()
       ctx.fillStyle = '#0f172a'
-      ctx.font = 'bold 52px Tajawal, sans-serif'
+      ctx.font = 'bold 46px Tajawal, sans-serif'
       ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
       ctx.fillText(restaurant.name, width / 2, currentY)
-      currentY += 60
+      ctx.restore()
+      currentY += 65
 
       // Call to action badge
       ctx.save()
-      ctx.fillStyle = `${activeColor}15`
-      roundRect(ctx, (width - 480) / 2, currentY - 35, 480, 56, 28)
+      ctx.fillStyle = `${activeColor}18`
+      const badgeWidth = 460
+      const badgeHeight = 52
+      roundRect(ctx, (width - badgeWidth) / 2, currentY, badgeWidth, badgeHeight, 26)
       ctx.fill()
       ctx.fillStyle = activeColor
-      ctx.font = 'bold 26px Tajawal, sans-serif'
-      ctx.fillText('📱 امسح لعرض قائمة المنيو والطلب', width / 2, currentY + 3)
+      ctx.font = 'bold 24px Tajawal, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('📱 امسح لعرض قائمة المنيو والطلب', width / 2, currentY + (badgeHeight / 2))
       ctx.restore()
-      currentY += 75
+      currentY += badgeHeight + 42
 
       // QR Code Area
       const qrBoxSize = 640
@@ -318,14 +338,20 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
       currentY += qrBoxSize + 45
 
       // Instruction & Domain
+      ctx.save()
       ctx.fillStyle = '#64748b'
       ctx.font = '500 24px Tajawal, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
       ctx.fillText('وجّه كاميرا هاتفك نحو الرمز لتصفح الأطباق والعروض مباشرة', width / 2, currentY)
       currentY += 45
 
       ctx.fillStyle = '#94a3b8'
       ctx.font = 'bold 22px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
       ctx.fillText(menuUrl.replace(/^https?:\/\//, ''), width / 2, currentY)
+      ctx.restore()
     }
 
     return exportCanvas
