@@ -27,7 +27,9 @@ import {
   parseRestaurantMultiplier, 
   encodeRestaurantMultiplier, 
   getEffectiveVisits, 
-  MULTIPLIER_PRESETS 
+  MULTIPLIER_PRESETS,
+  getBusinessDayStart,
+  isWithinCurrentBusinessDay
 } from '@/utils/visitsHelper'
 
 interface AdminQrAnalyticsTabProps {
@@ -61,7 +63,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
     let end: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
     if (period === 'today') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+      start = getBusinessDayStart()
     } else if (period === '7d') {
       start = new Date()
       start.setDate(now.getDate() - 6)
@@ -166,7 +168,8 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
       const dayKey = s.created_at ? s.created_at.slice(0, 10) : 'unknown'
       dailyMap[dayKey] = (dailyMap[dayKey] || 0) + 1
 
-      if (dayKey === todayDateStr) {
+      // Check if scan is within current business day (since 4:00 AM)
+      if (isWithinCurrentBusinessDay(s.created_at)) {
         todayCountMap[s.restaurant_id] = (todayCountMap[s.restaurant_id] || 0) + 1
         todayTotalScans++
       }
