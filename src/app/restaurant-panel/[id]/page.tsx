@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
 import { triggerRevalidate } from '@/utils/revalidate'
+import { parseRestaurantMultiplier, getEffectiveVisits, fetchTodayVisits } from '@/utils/visitsHelper'
 
 
 export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
@@ -28,6 +29,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [authenticatedOwner, setAuthenticatedOwner] = useState<any>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
+  const [todayVisits, setTodayVisits] = useState<number>(0)
 
   // ── Partner PWA App Install State ─────────────────────────────
   const [canInstallPwa, setCanInstallPwa] = useState(true)
@@ -211,6 +213,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       if (resData) {
         setRestaurant(resData)
         setDeliveryTiers(resData.delivery_tiers || [])
+        // Fetch and calculate today's visits with marketing multiplier
+        try {
+          const rawVisits = await fetchTodayVisits(supabase, id)
+          const { multiplier } = parseRestaurantMultiplier(resData.subscription_notes)
+          setTodayVisits(getEffectiveVisits(rawVisits, multiplier))
+        } catch (vErr) {
+          console.warn('Error fetching visits:', vErr)
+        }
       }
 
       const { data: catData } = await supabase
@@ -859,15 +869,27 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
               </div>
             </div>
 
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="px-2.5 py-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer shrink-0"
-              title="تسجيل الخروج"
-            >
-              <LogOut size={14} />
-              <span>خروج</span>
-            </button>
+            {/* Right Group: Discreet Today's Visits Badge + Logout */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div
+                className="px-2.5 py-1 bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-xs font-black flex items-center gap-1.5 shadow-2xs transition"
+                title="عدد زيارات وتصفح المنيو المسجلة لهذا اليوم"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="text-slate-400 font-bold text-[10px]">زيارات اليوم:</span>
+                <span className="text-amber-400 font-black text-xs">{todayVisits}</span>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="px-2.5 py-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer shrink-0"
+                title="تسجيل الخروج"
+              >
+                <LogOut size={14} />
+                <span>خروج</span>
+              </button>
+            </div>
           </div>
 
           {/* Action Pills Row (Scrollable on Mobile) */}
@@ -947,8 +969,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           )}
 
           {/* Panel Stats */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5 animate-fade-in-up">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-5 animate-fade-in-up">
             {[
+              { label: 'زيارات اليوم 👁️', value: todayVisits, color: '#0EA5E9', emoji: '⚡' },
               { label: 'العروض', value: offers.length, color: '#F97316', emoji: '🔥' },
               { label: terms.itemLabel, value: menuItems.length, color: '#10B981', emoji: '🍱' },
               { label: 'الأقسام', value: categories.length, color: '#3B82F6', emoji: '📁' },

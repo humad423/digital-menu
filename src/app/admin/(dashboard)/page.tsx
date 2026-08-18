@@ -14,6 +14,7 @@ import TabErrorBoundary from '@/components/TabErrorBoundary'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
 import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode } from 'lucide-react'
+import { parseRestaurantMultiplier, encodeRestaurantMultiplier, MULTIPLIER_PRESETS } from '@/utils/visitsHelper'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
@@ -164,7 +165,7 @@ export default function AdminDashboard() {
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true,
     opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false,
-    is_subscription_active: true, is_menu_active: true, subscription_notes: ''
+    is_subscription_active: true, is_menu_active: true, subscription_notes: '', visits_multiplier: 1
   }
   const [resForm, setResForm] = useState(emptyRes)
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([])
@@ -192,7 +193,7 @@ export default function AdminDashboard() {
       is_on_holiday: resForm.is_on_holiday || false,
       is_subscription_active: resForm.is_subscription_active !== false,
       is_menu_active: resForm.is_menu_active !== false,
-      subscription_notes: resForm.subscription_notes || null,
+      subscription_notes: encodeRestaurantMultiplier(resForm.subscription_notes, resForm.visits_multiplier || 1),
     }
     let restaurantId = editResId
     if (editResId) {
@@ -233,6 +234,7 @@ export default function AdminDashboard() {
   const handleEditRes = (r: any) => {
     setEditResId(r.id)
     const currentOwnerPhone = ownerPhoneMap[r.id] || r.owner_phone || ''
+    const { note: cleanNote, multiplier: parsedMult } = parseRestaurantMultiplier(r.subscription_notes)
     setResForm({
       name: r.name, slug: r.slug, primary_color: r.primary_color || '#ea580c',
       whatsapp_number: r.whatsapp_number || '', owner_phone: currentOwnerPhone,
@@ -248,7 +250,8 @@ export default function AdminDashboard() {
       is_on_holiday: !!r.is_on_holiday,
       is_subscription_active: r.is_subscription_active !== false,
       is_menu_active: r.is_menu_active !== false,
-      subscription_notes: r.subscription_notes || '',
+      subscription_notes: cleanNote,
+      visits_multiplier: parsedMult,
     })
     setSelectedCatIds(restaurantCategoryMap[r.id] || [])
     setShowResForm(true)
@@ -670,6 +673,34 @@ export default function AdminDashboard() {
                           placeholder="مثال: اشتراك شهري مدفوع حتى تاريخ..."
                           className="f-input bg-slate-950 text-white border-slate-700 text-xs placeholder:text-slate-500"
                         />
+                      </div>
+
+                      {/* Marketing Multiplier Controls */}
+                      <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-black text-amber-400 flex items-center gap-1.5">
+                            <span>🚀 مضاعف الزيارات للتسويق:</span>
+                            <span className="text-white font-bold">×{resForm.visits_multiplier || 1}</span>
+                          </label>
+                          <span className="text-[10px] text-slate-400">يظهر لصاحب المتجر فقط</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {MULTIPLIER_PRESETS.map(p => (
+                            <button
+                              key={p.value}
+                              type="button"
+                              onClick={() => setResForm({ ...resForm, visits_multiplier: p.value })}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
+                                (resForm.visits_multiplier || 1) === p.value
+                                  ? 'bg-amber-500 text-slate-950 shadow-xs'
+                                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
@@ -1629,10 +1660,14 @@ export default function AdminDashboard() {
                             <span className="font-black text-orange-600">{order.total_price?.toFixed(2)} ₺</span>
                           </td>
                           <td>
-                            {order.location_url && (
+                            {order.location_url ? (
                               <a href={order.location_url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50">
                                 <MapPin size={12} /> خريطة
                               </a>
+                            ) : (
+                              <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
+                                غير مرفق
+                              </span>
                             )}
                           </td>
                           <td className="text-xs text-slate-400 font-medium">

@@ -17,9 +17,18 @@ import {
   ExternalLink,
   ChevronDown,
   Sparkles,
-  BarChart3
+  BarChart3,
+  Flame,
+  Check,
+  X
 } from 'lucide-react'
 import { getMainDomainMenuUrl } from '@/utils/url'
+import { 
+  parseRestaurantMultiplier, 
+  encodeRestaurantMultiplier, 
+  getEffectiveVisits, 
+  MULTIPLIER_PRESETS 
+} from '@/utils/visitsHelper'
 
 interface AdminQrAnalyticsTabProps {
   restaurants: any[]
@@ -35,6 +44,13 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
   const [loading, setLoading] = useState(true)
   const [scans, setScans] = useState<any[]>([])
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Multiplier editing state
+  const [activeModalStore, setActiveModalStore] = useState<any | null>(null)
+  const [selectedMultiplier, setSelectedMultiplier] = useState<number>(1)
+  const [customMultiplierInput, setCustomMultiplierInput] = useState<string>('1')
+  const [isCustomMode, setIsCustomMode] = useState(false)
+  const [savingMultiplier, setSavingMultiplier] = useState(false)
 
   const supabase = createClient()
 
@@ -132,6 +148,11 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
     // Daily distribution map
     const dailyMap: Record<string, number> = {}
 
+    // Today's date string (YYYY-MM-DD)
+    const todayDateStr = new Date().toISOString().slice(0, 10)
+    const todayCountMap: Record<string, number> = {}
+    let todayTotalScans = 0
+
     scans.forEach(s => {
       // Device
       if (s.device_type === 'mobile') mobileCount++
@@ -144,6 +165,11 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
       // Day (YYYY-MM-DD)
       const dayKey = s.created_at ? s.created_at.slice(0, 10) : 'unknown'
       dailyMap[dayKey] = (dailyMap[dayKey] || 0) + 1
+
+      if (dayKey === todayDateStr) {
+        todayCountMap[s.restaurant_id] = (todayCountMap[s.restaurant_id] || 0) + 1
+        todayTotalScans++
+      }
     })
 
     // Top Store
@@ -162,10 +188,19 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
     const storeBreakdown = restaurants
       .map(r => {
         const count = storeCountMap[r.id] || 0
+        const todayReal = todayCountMap[r.id] || 0
+        const { multiplier, note } = parseRestaurantMultiplier(r.subscription_notes)
+        const todayBoosted = getEffectiveVisits(todayReal, multiplier)
+        const totalBoosted = getEffectiveVisits(count, multiplier)
         const lastScan = scans.find(s => s.restaurant_id === r.id)?.created_at || null
         return {
           ...r,
           scanCount: count,
+          todayReal,
+          todayBoosted,
+          multiplier,
+          note,
+          totalBoosted,
           percentage: totalScans > 0 ? Math.round((count / totalScans) * 100) : 0,
           lastScan,
         }
@@ -174,6 +209,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
 
     return {
       totalScans,
+      todayTotalScans,
       mobileCount,
       tabletCount,
       desktopCount,
@@ -183,6 +219,48 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
       dailyMap,
     }
   }, [scans, restaurants, restaurantMap])
+
+  const openMultiplierModal = (store: any) => {
+    setActiveModalStore(store)
+    const { multiplier } = parseRestaurantMultiplier(store.subscription_notes)
+    setSelectedMultiplier(multiplier)
+    setCustomMultiplierInput(multiplier.toString())
+    const isPreset = MULTIPLIER_PRESETS.some(p => p.value === multiplier)
+    setIsCustomMode(!isPreset)
+  }
+
+  const handleSaveMultiplier = async () => {
+    if (!activeModalStore) return
+    const finalMult = isCustomMode 
+      ? Math.max(1, parseFloat(customMultiplierInput) || 1)
+      : selectedMultiplier
+
+    try {
+      setSavingMultiplier(true)
+      const { note } = parseRestaurantMultiplier(activeModalStore.subscription_notes)
+      const encoded = encodeRestaurantMultiplier(note, finalMult)
+
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ subscription_notes: encoded })
+        .eq('id', activeModalStore.id)
+
+      if (error) {
+        alert('خطأ في حفظ المضاعف: ' + error.message)
+      } else {
+        // Mutate in local array
+        activeModalStore.subscription_notes = encoded
+        const matched = restaurants.find(r => r.id === activeModalStore.id)
+        if (matched) matched.subscription_notes = encoded
+        setRefreshTrigger(prev => prev + 1)
+        setActiveModalStore(null)
+      }
+    } catch (err: any) {
+      alert('خطأ: ' + err?.message)
+    } finally {
+      setSavingMultiplier(false)
+    }
+  }
 
   // Daily Chart Days
   const chartDays = useMemo(() => {
@@ -374,6 +452,25 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
           </div>
         </div>
 
+        {/* Today's Real Visits */}
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-black text-slate-400">زيارات اليوم (المنصة ككل)</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Sparkles size={18} />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
+              {loading ? '...' : stats.todayTotalScans}
+            </h3>
+            <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>تحديث مباشر لليوم ⚡</span>
+            </p>
+          </div>
+        </div>
+
         {/* Top Store */}
         <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
@@ -410,24 +507,6 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
           </div>
         </div>
 
-        {/* Active Stores Ratio */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-black text-slate-400">المتاجر التي تم مسحها</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Store size={18} />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
-              {loading ? '...' : stats.storeBreakdown.filter(s => s.scanCount > 0).length}
-            </h3>
-            <p className="text-[11px] font-bold text-purple-600">
-              من أصل {restaurants.length} متجر مسجل
-            </p>
-          </div>
-        </div>
-
       </div>
 
       {/* ── Visual Trend Chart ── */}
@@ -442,7 +521,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
 
         {/* Bar Chart Representation */}
         <div className="flex items-end gap-2 sm:gap-3 h-40 pt-4 px-2 border-b border-slate-100">
-          {chartDays.map((d, i) => {
+          {chartDays.map((d) => {
             const heightPercent = Math.max(Math.round((d.count / maxDailyCount) * 100), 4)
             return (
               <div key={d.dateStr} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
@@ -470,7 +549,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
               <Store size={16} className="text-orange-500" />
-              <span>ترتيب المتاجر حسب مسحات الـ QR</span>
+              <span>ترتيب المتاجر وتحكم مضاعف الزيارات</span>
             </h3>
             <span className="text-xs font-bold text-slate-400">{restaurants.length} متجر</span>
           </div>
@@ -480,14 +559,16 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] font-black text-slate-400">
                   <th className="py-2.5 px-3">المتجر</th>
-                  <th className="py-2.5 px-3 text-center">عدد المسحات</th>
+                  <th className="py-2.5 px-3 text-center">مسحات الفترة</th>
+                  <th className="py-2.5 px-3 text-center">زيارات اليوم (الفعلي / للشريك)</th>
+                  <th className="py-2.5 px-3 text-center">مضاعف التسويق 🚀</th>
                   <th className="py-2.5 px-3 text-center">النسبة</th>
                   <th className="py-2.5 px-3">آخر مسح</th>
                   <th className="py-2.5 px-3 text-center">معاينة</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 text-xs">
-                {stats.storeBreakdown.slice(0, 15).map(r => (
+                {stats.storeBreakdown.slice(0, 25).map(r => (
                   <tr key={r.id} className="hover:bg-slate-50/70 transition">
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2.5">
@@ -505,15 +586,48 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
                       </div>
                     </td>
 
+                    {/* Scan Count in selected period */}
                     <td className="py-3 px-3 text-center">
                       <span className="font-black text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-xl">
                         {r.scanCount}
                       </span>
                     </td>
 
+                    {/* Today's Visits: Real vs Boosted */}
+                    <td className="py-3 px-3 text-center">
+                      <div className="inline-flex flex-col items-center">
+                        <span className="font-black text-xs text-slate-900 flex items-center gap-1">
+                          <span className="text-emerald-600 font-black">{r.todayReal}</span>
+                          <span className="text-slate-300 font-normal">/</span>
+                          <span className="text-amber-600 font-black" title="الرقم الظاهر لصاحب المتجر">
+                            {r.todayBoosted} 👁️
+                          </span>
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-bold">
+                          {r.multiplier > 1 ? `(مضروب بـ ${r.multiplier}x)` : '(حقيقي)'}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Marketing Multiplier Control Button */}
+                    <td className="py-3 px-3 text-center">
+                      <button
+                        onClick={() => openMultiplierModal(r)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-black border transition cursor-pointer active:scale-95 flex items-center gap-1 mx-auto ${
+                          r.multiplier > 1
+                            ? 'bg-gradient-to-r from-amber-500/15 to-orange-500/15 text-orange-700 border-orange-300 hover:border-orange-400 shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                        }`}
+                        title="تعديل مضاعف الزيارات لهذا المتجر"
+                      >
+                        <Flame size={12} className={r.multiplier > 1 ? 'text-orange-500' : 'text-slate-400'} />
+                        <span>×{r.multiplier}</span>
+                      </button>
+                    </td>
+
                     <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <div className="w-12 bg-slate-100 rounded-full h-2 overflow-hidden hidden sm:block">
+                        <div className="w-10 bg-slate-100 rounded-full h-2 overflow-hidden hidden sm:block">
                           <div className="bg-orange-500 h-full rounded-full" style={{ width: `${r.percentage}%` }} />
                         </div>
                         <span className="font-bold text-slate-600 text-[11px]">{r.percentage}%</span>
@@ -603,6 +717,159 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
 
       </div>
 
+      {/* ── Multiplier Control Modal ── */}
+      {activeModalStore && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+          onClick={e => {
+            if (e.target === e.currentTarget && !savingMultiplier) setActiveModalStore(null)
+          }}
+        >
+          <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-slate-200 my-8 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center text-base shadow-sm">
+                  🚀
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">مضاعف الزيارات للتسويق</h3>
+                  <p className="text-[11px] text-slate-400 font-medium truncate max-w-[240px]">
+                    {activeModalStore.name}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => !savingMultiplier && setActiveModalStore(null)}
+                disabled={savingMultiplier}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-1">
+                <p className="font-black flex items-center gap-1.5 text-amber-900">
+                  <span>💡 كيف تعمل هذه الميزة؟</span>
+                </p>
+                <p className="font-medium text-[11px] leading-relaxed text-amber-800">
+                  يتم ضرب عدد الزيارات الفعلية بالقيمة المحددة أدناه لتظهر في لوحة تحكم صاحب المتجر، بينما تظل الأرقام الحقيقية محفوظة ومتاحة لك كمسؤول بكل دقة.
+                </p>
+              </div>
+
+              {/* Preset Multipliers */}
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-700">اختر المضاعف التسويقي:</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {MULTIPLIER_PRESETS.map(p => {
+                    const isSelected = !isCustomMode && selectedMultiplier === p.value
+                    return (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMultiplier(p.value)
+                          setIsCustomMode(false)
+                        }}
+                        className={`p-2.5 rounded-2xl text-xs font-black border transition cursor-pointer flex flex-col items-center gap-1 ${
+                          isSelected
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-sm font-black">{p.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Multiplier Option */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black text-slate-700">أو حدد قيمة مخصصة:</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomMode(true)}
+                    className={`text-[11px] font-bold underline cursor-pointer ${
+                      isCustomMode ? 'text-orange-600' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    تفعيل القيمة المخصصة
+                  </button>
+                </div>
+
+                {isCustomMode && (
+                  <div className="flex items-center gap-2 animate-in fade-in duration-150">
+                    <span className="text-sm font-black text-slate-700">×</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="100"
+                      value={customMultiplierInput}
+                      onChange={e => setCustomMultiplierInput(e.target.value)}
+                      className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-black text-slate-900 outline-none focus:border-orange-500"
+                      placeholder="مثال: 1.7 أو 4"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Live Preview Box */}
+              {(() => {
+                const currentVal = isCustomMode
+                  ? Math.max(1, parseFloat(customMultiplierInput) || 1)
+                  : selectedMultiplier
+                const sampleReal = 10
+                const sampleBoosted = Math.round(sampleReal * currentVal)
+                return (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
+                    <span className="font-bold text-slate-500 text-[11px]">معاينة حية للمتجر:</span>
+                    <div className="flex items-center justify-between font-black text-slate-800">
+                      <span>إذا كانت الزيارات الفعلية {sampleReal}</span>
+                      <span className="text-orange-600 text-sm">ستظهر له: {sampleBoosted} زيارة 👁️</span>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveMultiplier}
+                  disabled={savingMultiplier}
+                  className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-2xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {savingMultiplier ? (
+                    <span>جاري الحفظ...</span>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      <span>حفظ المضاعف فوراً</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModalStore(null)}
+                  disabled={savingMultiplier}
+                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-2xl transition cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
+

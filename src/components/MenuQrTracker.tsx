@@ -16,12 +16,10 @@ function MenuQrTrackerContent({ restaurantId }: MenuQrTrackerProps) {
     if (!restaurantId) return
 
     const source = searchParams?.get('source') || searchParams?.get('src')
-    const isQr = source === 'qr'
+    const visitSource = source === 'qr' ? 'qr' : 'direct'
 
-    if (!isQr) return
-
-    // Debounce / deduplicate scans within the same session
-    const sessionKey = `qr_scanned_${restaurantId}`
+    // Debounce / deduplicate visits within the same session
+    const sessionKey = `menu_visited_${restaurantId}`
     if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey)) {
       return
     }
@@ -43,13 +41,13 @@ function MenuQrTrackerContent({ restaurantId }: MenuQrTrackerProps) {
         const supabase = createClient()
         await supabase.from('qr_scans').insert({
           restaurant_id: restaurantId,
-          source: 'qr',
+          source: visitSource,
           device_type: deviceType,
           user_agent: ua.slice(0, 250),
         })
       } catch (err) {
         // Silently catch to never disturb customer experience
-        console.error('Failed to log QR visit:', err)
+        console.error('Failed to log menu visit:', err)
       }
     }
 

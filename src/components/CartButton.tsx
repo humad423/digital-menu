@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCartStore } from '@/store/cartStore'
 import { ShoppingBag, X, Plus, Minus, Trash2, MessageCircle, MapPin, AlertTriangle } from 'lucide-react'
 import { Database } from '@/types/database.types'
@@ -34,6 +34,22 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
   const totalItems = items.reduce((a, i) => a + i.quantity, 0)
   const totalPrice = items.reduce((a, i) => a + i.price * i.quantity, 0)
 
+  // Pre-fetch live location silently in background when cart opens (0ms latency during checkout)
+  useEffect(() => {
+    if (isOpen && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude: lat, longitude: lng } = pos.coords
+          try {
+            localStorage.setItem('user_location', JSON.stringify({ lat, lng, timestamp: Date.now() }))
+          } catch (e) {}
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 30000 }
+      )
+    }
+  }, [isOpen])
+
   if (restaurant.enable_whatsapp_orders === false) return null
   if (!items.length) return null
 
@@ -50,43 +66,37 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
 
     let locationUrl: string | null = null
 
-    // Always attempt to fetch location for admin order tracking
-    let savedLat: number | null = null
-    let savedLng: number | null = null
-
-    try {
-      const storedLocStr = localStorage.getItem('user_location') || localStorage.getItem('alfsouq_user_loc')
-      if (storedLocStr) {
-        const parsed = JSON.parse(storedLocStr)
-        if (parsed.lat && parsed.lng) {
-          savedLat = Number(parsed.lat)
-          savedLng = Number(parsed.lng)
-        }
-      }
-    } catch (e) {}
-
-    if (savedLat && savedLng) {
-      locationUrl = `https://www.google.com/maps?q=${savedLat},${savedLng}`
-    } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+    // 1. Try to get fresh live GPS location with strict fast timeout (max 2000ms)
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: false,
-            timeout: 5000,
-            maximumAge: 300000
+            timeout: 2000,
+            maximumAge: 30000 // use cached position if fresh within 30 seconds
           })
         })
         const { latitude: lat, longitude: lng } = pos.coords
         locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
-        try { localStorage.setItem('user_location', JSON.stringify({ lat, lng })) } catch (e) {}
-      } catch (err) {
-        // If shareLocation was explicitly checked and position couldn't be resolved, inform user
-        if (shareLocation) {
-          setError('تعذر تحديد موقعك الحالي تلقائياً. يمكنك إلغاء خيار (إرفاق موقعي) وإرسال الطلب مباشرة.')
-          setChecking(false)
-          return
-        }
+        try {
+          localStorage.setItem('user_location', JSON.stringify({ lat, lng, timestamp: Date.now() }))
+        } catch (e) {}
+      } catch (e) {
+        // Live GPS failed or timed out — smoothly fallback to cached location below
       }
+    }
+
+    // 2. Fallback: If live GPS timed out, check localStorage for previous location
+    if (!locationUrl) {
+      try {
+        const storedLocStr = localStorage.getItem('user_location') || localStorage.getItem('alfsouq_user_loc')
+        if (storedLocStr) {
+          const parsed = JSON.parse(storedLocStr)
+          if (parsed.lat && parsed.lng) {
+            locationUrl = `https://www.google.com/maps?q=${Number(parsed.lat)},${Number(parsed.lng)}`
+          }
+        }
+      } catch (e) {}
     }
 
     try {

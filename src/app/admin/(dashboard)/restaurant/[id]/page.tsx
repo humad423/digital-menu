@@ -10,6 +10,7 @@ import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utens
 import Link from 'next/link'
 import { getMainDomainMenuUrl } from '@/utils/url'
 import { triggerRevalidate } from '@/utils/revalidate'
+import { parseRestaurantMultiplier, encodeRestaurantMultiplier, getEffectiveVisits, fetchTodayVisits, MULTIPLIER_PRESETS } from '@/utils/visitsHelper'
 
 
 export default function AdminRestaurantPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
@@ -23,6 +24,9 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
   const [categories, setCategories] = useState<any[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [todayRealVisits, setTodayRealVisits] = useState<number>(0)
+  const [multiplierVal, setMultiplierVal] = useState<number>(1)
+  const [savingMultiplier, setSavingMultiplier] = useState(false)
   const supabase = createClient()
 
   // ── Sub-category State ─────────────────────────────────────────
@@ -94,6 +98,10 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
           { min_km: 10, max_km: 20, fee: 50, is_active: true },
           { min_km: 20, max_km: 30, fee: 85, is_active: true }
         ])
+        const { multiplier } = parseRestaurantMultiplier(resData.subscription_notes)
+        setMultiplierVal(multiplier)
+        const realToday = await fetchTodayVisits(supabase, id)
+        setTodayRealVisits(realToday)
       }
 
       const { data: catData } = await supabase
@@ -137,6 +145,22 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     setRestaurant((prev: any) => ({ ...prev, is_menu_active: newVal }))
     await supabase.from('restaurants').update({ is_menu_active: newVal }).eq('id', id)
     triggerRevalidate(restaurant.slug, 'all')
+  }
+
+  const updateMultiplier = async (newMultiplier: number) => {
+    if (!restaurant) return
+    try {
+      setSavingMultiplier(true)
+      const { note } = parseRestaurantMultiplier(restaurant.subscription_notes)
+      const encoded = encodeRestaurantMultiplier(note, newMultiplier)
+      setMultiplierVal(newMultiplier)
+      setRestaurant((prev: any) => ({ ...prev, subscription_notes: encoded }))
+      await supabase.from('restaurants').update({ subscription_notes: encoded }).eq('id', id)
+    } catch (err: any) {
+      alert('خطأ في تعديل المضاعف: ' + err?.message)
+    } finally {
+      setSavingMultiplier(false)
+    }
   }
 
   useEffect(() => {
@@ -597,52 +621,95 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       <main className="max-w-7xl mx-auto px-4 mt-6 space-y-6">
 
         {/* ── Subscription & Menu Status Admin Control Banner ── */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-slate-800 text-orange-400 flex items-center justify-center text-xl shrink-0 border border-slate-700">
-              🛡️
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-slate-800 text-orange-400 flex items-center justify-center text-xl shrink-0 border border-slate-700">
+                🛡️
+              </div>
+              <div>
+                <h3 className="font-black text-sm text-white flex items-center gap-2">
+                  <span>حالة الاشتراك ونشر المنيو للزبائن</span>
+                  {(() => {
+                    const { note } = parseRestaurantMultiplier(restaurant.subscription_notes)
+                    return note ? (
+                      <span className="text-[10px] text-slate-400 font-normal">({note})</span>
+                    ) : null
+                  })()}
+                </h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  تحكم مباشر في إتاحة التعديل ونشر المنيو ومضاعفة الزيارات التسويقية.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-black text-sm text-white flex items-center gap-2">
-                <span>حالة الاشتراك ونشر المنيو للزبائن</span>
-                {restaurant.subscription_notes && (
-                  <span className="text-[10px] text-slate-400 font-normal">({restaurant.subscription_notes})</span>
-                )}
-              </h3>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">
-                يمكنك بنقرة واحدة تعليق اشتراك المتجر لمنع التعديل، أو تعليق المنيو لمنع الزبائن من تصفحه.
-              </p>
+
+            {/* Quick Stats & Toggles */}
+            <div className="flex items-center gap-2.5 flex-wrap self-end sm:self-center">
+              {/* Today Visits Badge */}
+              <div className="px-3 py-2 bg-slate-800 border border-slate-700 text-slate-200 rounded-2xl text-xs font-black flex items-center gap-1.5 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-slate-400 font-normal">زيارات اليوم:</span>
+                <span className="text-emerald-400 font-black">{todayRealVisits} فعلي</span>
+                <span className="text-slate-500">/</span>
+                <span className="text-amber-400 font-black" title="الرقم المعروض لصاحب المتجر">
+                  {getEffectiveVisits(todayRealVisits, multiplierVal)} للشريك 👁️
+                </span>
+              </div>
+
+              {/* Subscription Toggle */}
+              <button
+                type="button"
+                onClick={toggleSubscription}
+                className={`px-3 py-2 rounded-2xl text-xs font-black border transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-sm ${
+                  restaurant.is_subscription_active !== false
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                    : 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
+                }`}
+              >
+                <span>اشتراك المتجر:</span>
+                <span className="underline">{restaurant.is_subscription_active !== false ? 'نشط (تعديل متاح) ✅' : 'معلق (تعديل مقفل) ⛔'}</span>
+              </button>
+
+              {/* Menu Toggle */}
+              <button
+                type="button"
+                onClick={toggleMenu}
+                className={`px-3 py-2 rounded-2xl text-xs font-black border transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-sm ${
+                  restaurant.is_menu_active !== false
+                    ? 'bg-blue-500/15 text-blue-300 border-blue-500/30 hover:bg-blue-500/25'
+                    : 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25'
+                }`}
+              >
+                <span>منيو الزبائن:</span>
+                <span className="underline">{restaurant.is_menu_active !== false ? 'منشور متاح 🟢' : 'معلق مخفي 🔴'}</span>
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap self-end sm:self-center">
-            {/* Subscription Toggle */}
-            <button
-              type="button"
-              onClick={toggleSubscription}
-              className={`px-3 py-2 rounded-2xl text-xs font-black border transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-sm ${
-                restaurant.is_subscription_active !== false
-                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
-                  : 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
-              }`}
-            >
-              <span>اشتراك المتجر:</span>
-              <span className="underline">{restaurant.is_subscription_active !== false ? 'نشط (تعديل متاح) ✅' : 'معلق (تعديل مقفل) ⛔'}</span>
-            </button>
+          {/* Quick Multiplier Bar */}
+          <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-amber-400">🚀 مضاعف الزيارات للتسويق:</span>
+              <span className="text-[11px] text-slate-400 font-medium">يتم ضرب عدد الزيارات الفعلية وتظهر لصاحب المتجر كـ ×{multiplierVal}</span>
+            </div>
 
-            {/* Menu Toggle */}
-            <button
-              type="button"
-              onClick={toggleMenu}
-              className={`px-3 py-2 rounded-2xl text-xs font-black border transition flex items-center gap-2 cursor-pointer active:scale-95 shadow-sm ${
-                restaurant.is_menu_active !== false
-                  ? 'bg-blue-500/15 text-blue-300 border-blue-500/30 hover:bg-blue-500/25'
-                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25'
-              }`}
-            >
-              <span>منيو الزبائن:</span>
-              <span className="underline">{restaurant.is_menu_active !== false ? 'منشور متاح 🟢' : 'معلق مخفي 🔴'}</span>
-            </button>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {MULTIPLIER_PRESETS.map(p => (
+                <button
+                  key={p.value}
+                  type="button"
+                  disabled={savingMultiplier}
+                  onClick={() => updateMultiplier(p.value)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 ${
+                    multiplierVal === p.value
+                      ? 'bg-amber-500 text-slate-950 shadow-xs'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
