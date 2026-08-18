@@ -114,11 +114,22 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
         return
       }
 
-      const text = items.map(i => `${i.quantity}x ${i.name} (${(i.price * i.quantity).toFixed(2)} ₺)`).join('\n')
-      let msg = `مرحباً مطعم ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺`
+      const text = items.map(i => {
+        const hasCustomPriceInName = i.name.includes('بمبلغ') || i.name.includes('وزن')
+        if (hasCustomPriceInName) {
+          return i.quantity > 1 ? `• (${i.quantity}x) ${i.name}` : `• ${i.name}`
+        }
+        const itemTotal = (i.price * i.quantity).toFixed(2)
+        if (i.quantity > 1) {
+          return `• ${i.name} (عدد ${i.quantity}) - ${itemTotal} ₺`
+        }
+        return `• ${i.name} - ${itemTotal} ₺`
+      }).join('\n')
+
+      let msg = `مرحباً ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺`
 
       if (shareLocation && locationUrl) {
-        msg += `\n\n📍 موقعي:\n${locationUrl}`
+        msg += `\n\n📍 موقع التوصيل:\n${locationUrl}`
       }
 
       trackGAWhatsAppOrder(restaurant.name, totalPrice)
