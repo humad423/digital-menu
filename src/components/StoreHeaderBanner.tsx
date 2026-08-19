@@ -71,6 +71,20 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
   return (
     <div className="space-y-2 mb-3" dir="rtl">
 
+      {/* 0. Thin Restaurant Notice / Announcement Strip */}
+      {restaurant.menu_note && restaurant.menu_note.trim() && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-400/30 rounded-2xl py-2 px-3.5 flex items-center gap-2.5 shadow-2xs">
+          <span className="flex h-2 w-2 relative shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+          </span>
+          <span className="text-xs shrink-0">📢</span>
+          <p className="text-xs font-bold text-slate-800 leading-tight flex-1">
+            {restaurant.menu_note.trim()}
+          </p>
+        </div>
+      )}
+
       {/* 1. Closed / Holiday Warning Banner */}
       {!status.isOpen && (() => {
         const content = getClosedContent()

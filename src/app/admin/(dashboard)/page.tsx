@@ -61,7 +61,7 @@ export default function AdminDashboard() {
           'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, store_type, ' +
           'has_delivery, is_on_holiday, opening_time, closing_time, days_off, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
-          'enable_whatsapp_orders, is_subscription_active, is_menu_active, subscription_notes, created_at'
+          'enable_whatsapp_orders, menu_note, is_subscription_active, is_menu_active, subscription_notes, created_at'
         )
         .order('created_at', { ascending: false }),
       supabase.from('platform_categories').select('id, name, icon, sort_order, created_at').order('created_at', { ascending: true }),
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
   const emptyRes = {
     name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '',
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
-    max_offers_limit: '5', store_type: 'restaurant', has_delivery: true,
+    max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
     opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false,
     is_subscription_active: true, is_menu_active: true, subscription_notes: '', visits_multiplier: 1
   }
@@ -187,6 +187,7 @@ export default function AdminDashboard() {
       max_offers_limit: resForm.max_offers_limit ? parseInt(resForm.max_offers_limit) : 5,
       store_type: resForm.store_type || 'restaurant',
       has_delivery: resForm.has_delivery,
+      menu_note: resForm.menu_note ? resForm.menu_note.slice(0, 100).trim() : null,
       opening_time: resForm.opening_time || '09:00',
       closing_time: resForm.closing_time || '23:00',
       days_off: resForm.days_off || [],
@@ -244,6 +245,7 @@ export default function AdminDashboard() {
       max_offers_limit: r.max_offers_limit?.toString() || '5',
       store_type: r.store_type || 'restaurant',
       has_delivery: r.has_delivery !== false,
+      menu_note: r.menu_note || '',
       opening_time: r.opening_time || '09:00',
       closing_time: r.closing_time || '23:00',
       days_off: Array.isArray(r.days_off) ? r.days_off : [],
@@ -814,6 +816,15 @@ export default function AdminDashboard() {
                           <input type="number" min="1" max="100" value={resForm.max_offers_limit}
                             onChange={e => setResForm({ ...resForm, max_offers_limit: e.target.value })}
                             className="f-input bg-white font-black text-orange-600" placeholder="5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <label className="f-label">شريط ملاحظة / إعلان المنيو (📢)</label>
+                            <span className="text-[10px] text-slate-400 font-bold">{(resForm.menu_note || '').length} / 100 حرف</span>
+                          </div>
+                          <input type="text" maxLength={100} value={resForm.menu_note || ''}
+                            onChange={e => setResForm({ ...resForm, menu_note: e.target.value.slice(0, 100) })}
+                            className="f-input bg-white text-xs font-bold" placeholder="شريط إعلان رفيع أعلى المنيو (حد أقصى 100 حرف)..." />
                         </div>
                       </div>
                       {resForm.latitude && resForm.longitude ? (

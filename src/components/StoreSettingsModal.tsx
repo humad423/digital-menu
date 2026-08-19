@@ -35,6 +35,7 @@ export default function StoreSettingsModal({
   )
   const [isOnHoliday, setIsOnHoliday] = useState<boolean>(!!restaurant?.is_on_holiday)
   const [holidayMessage, setHolidayMessage] = useState(restaurant?.holiday_message || '')
+  const [menuNote, setMenuNote] = useState(restaurant?.menu_note || '')
   const [enableWhatsappOrders, setEnableWhatsappOrders] = useState<boolean>(restaurant?.enable_whatsapp_orders !== false)
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(Number(restaurant?.delivery_radius_km) || 15)
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>(
@@ -57,6 +58,7 @@ export default function StoreSettingsModal({
       setDaysOff(Array.isArray(restaurant.days_off) ? restaurant.days_off : [])
       setIsOnHoliday(!!restaurant.is_on_holiday)
       setHolidayMessage(restaurant.holiday_message || '')
+      setMenuNote(restaurant.menu_note || '')
       setEnableWhatsappOrders(restaurant.enable_whatsapp_orders !== false)
       setDeliveryRadiusKm(Number(restaurant.delivery_radius_km) || 15)
       setDeliveryTiers(Array.isArray(restaurant.delivery_tiers) ? restaurant.delivery_tiers : [])
@@ -129,6 +131,8 @@ export default function StoreSettingsModal({
       closing_time: closingTime,
       days_off: daysOff,
       is_on_holiday: isOnHoliday,
+      holiday_message: holidayMessage.trim() || null,
+      menu_note: menuNote.trim() || null,
       enable_whatsapp_orders: enableWhatsappOrders,
       delivery_radius_km: deliveryRadiusKm,
       delivery_tiers: deliveryTiers
@@ -200,6 +204,30 @@ export default function StoreSettingsModal({
               <span>{errorMsg}</span>
             </div>
           )}
+
+          {/* Menu Announcement / Note Strip */}
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📢</span>
+                <div>
+                  <h4 className="font-black text-xs text-slate-900">شريط ملاحظة / إعلان المنيو</h4>
+                  <p className="text-[10px] text-slate-500 font-medium">يظهر كشريط رفيع وأنيق أعلى المنيو للزبائن</p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${menuNote.length >= 100 ? 'bg-rose-100 text-rose-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                {menuNote.length} / 100 حرف
+              </span>
+            </div>
+            <input
+              type="text"
+              maxLength={100}
+              placeholder="مثال: يرجى كتابة ملاحظات الحساسية عند الطلب / عروض خاصة يومياً..."
+              value={menuNote}
+              onChange={e => setMenuNote(e.target.value.slice(0, 100))}
+              className="f-input text-xs font-bold bg-white"
+            />
+          </div>
 
           {/* Holiday Emergency Toggle */}
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-2.5">

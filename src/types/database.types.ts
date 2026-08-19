@@ -29,6 +29,7 @@ export interface Database {
           is_subscription_active?: boolean | null
           is_menu_active?: boolean | null
           subscription_notes?: string | null
+          menu_note?: string | null
         }
         Insert: {
           id?: string
@@ -49,6 +50,7 @@ export interface Database {
           is_subscription_active?: boolean | null
           is_menu_active?: boolean | null
           subscription_notes?: string | null
+          menu_note?: string | null
         }
         Update: {
           id?: string
@@ -69,6 +71,7 @@ export interface Database {
           is_subscription_active?: boolean | null
           is_menu_active?: boolean | null
           subscription_notes?: string | null
+          menu_note?: string | null
         }
       }
       categories: {

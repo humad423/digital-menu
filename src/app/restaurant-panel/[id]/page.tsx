@@ -206,7 +206,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
           'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, store_type, ' +
-          'max_offers_limit, is_subscription_active, is_menu_active, subscription_notes'
+          'max_offers_limit, menu_note, is_subscription_active, is_menu_active, subscription_notes'
         )
         .eq('id', id)
         .maybeSingle() as any
@@ -984,6 +984,34 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Quick Menu Note / Announcement Banner */}
+          <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in-up">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center text-lg shrink-0">
+                📢
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h4 className="font-black text-xs text-slate-900">شريط ملاحظة المنيو للزبائن</h4>
+                  <span className="text-[10px] text-slate-400 font-bold">(شريط رفيع أعلى المنيو - حد أقصى 100 حرف)</span>
+                </div>
+                {restaurant?.menu_note ? (
+                  <p className="text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-xl truncate inline-block max-w-full">
+                    {restaurant.menu_note}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400 font-medium">لم تقم بكتابة أي ملاحظة بعد. انقر لإضافة شريط ملاحظة أو إعلان أعلى المنيو.</p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="btn btn-ghost btn-sm text-xs font-black text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 shrink-0 self-end sm:self-center"
+            >
+              {restaurant?.menu_note ? '✏️ تعديل الملاحظة' : '+ كتابة ملاحظة'}
+            </button>
           </div>
 
           {/* ══════════ MAIN GRID ══════════ */}

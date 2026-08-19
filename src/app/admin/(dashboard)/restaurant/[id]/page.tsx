@@ -86,7 +86,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
           'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
           'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, ' +
-          'store_type, max_offers_limit, is_subscription_active, is_menu_active, subscription_notes'
+          'store_type, max_offers_limit, menu_note, is_subscription_active, is_menu_active, subscription_notes'
         )
         .eq('id', id)
         .maybeSingle() as any
