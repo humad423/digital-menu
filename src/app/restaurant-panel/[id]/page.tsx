@@ -196,6 +196,26 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [newTier, setNewTier] = useState({ min_km: '', max_km: '', fee: '', is_active: true })
   const [savingTiers, setSavingTiers] = useState(false)
   const [savingDelivery, setSavingDelivery] = useState(false)
+  const [menuNoteInput, setMenuNoteInput] = useState('')
+  const [savingMenuNote, setSavingMenuNote] = useState(false)
+  const [menuNoteSuccess, setMenuNoteSuccess] = useState(false)
+
+  const handleSaveMenuNote = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!checkSubscriptionGuard()) return
+    setSavingMenuNote(true)
+    const trimmed = menuNoteInput.slice(0, 100).trim() || null
+    const { error } = await supabase.from('restaurants').update({ menu_note: trimmed }).eq('id', id)
+    if (error) {
+      alert('خطأ في حفظ الملاحظة: ' + error.message)
+    } else {
+      setRestaurant((prev: any) => ({ ...prev, menu_note: trimmed }))
+      setMenuNoteSuccess(true)
+      setTimeout(() => setMenuNoteSuccess(false), 3000)
+      triggerRevalidate(restaurant?.slug, 'menu')
+    }
+    setSavingMenuNote(false)
+  }
 
   const fetchData = async (showFullSpinner = false) => {
     try {
@@ -212,6 +232,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         .maybeSingle() as any
       if (resData) {
         setRestaurant(resData)
+        setMenuNoteInput(resData.menu_note || '')
         setDeliveryTiers(resData.delivery_tiers || [])
         // Fetch and calculate today's visits with marketing multiplier
         try {
@@ -987,31 +1008,58 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           </div>
 
           {/* Quick Menu Note / Announcement Banner */}
-          <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in-up">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center text-lg shrink-0">
-                📢
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h4 className="font-black text-xs text-slate-900">شريط ملاحظة المنيو للزبائن</h4>
-                  <span className="text-[10px] text-slate-400 font-bold">(شريط رفيع أعلى المنيو - حد أقصى 100 حرف)</span>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs mb-6 animate-fade-in-up">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center text-base shrink-0">
+                  📢
                 </div>
-                {restaurant?.menu_note ? (
-                  <p className="text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-xl truncate inline-block max-w-full">
-                    {restaurant.menu_note}
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-400 font-medium">لم تقم بكتابة أي ملاحظة بعد. انقر لإضافة شريط ملاحظة أو إعلان أعلى المنيو.</p>
+                <div>
+                  <h4 className="font-black text-xs text-slate-900">شريط ملاحظة / إعلان المنيو للزبائن</h4>
+                  <p className="text-[10px] text-slate-400 font-bold">يظهر كشريط رفيع وأنيق أعلى المنيو لجميع زوار المتجر</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${menuNoteInput.length >= 100 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {menuNoteInput.length} / 100 حرف
+                </span>
+                {menuNoteSuccess && (
+                  <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 animate-fade-in">
+                    ✓ تم الحفظ بنجاح!
+                  </span>
                 )}
               </div>
             </div>
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="btn btn-ghost btn-sm text-xs font-black text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 shrink-0 self-end sm:self-center"
-            >
-              {restaurant?.menu_note ? '✏️ تعديل الملاحظة' : '+ كتابة ملاحظة'}
-            </button>
+
+            <form onSubmit={handleSaveMenuNote} className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  maxLength={100}
+                  placeholder="اكتب ملاحظة أو إعلان قصير للمنيو (مثال: يرجى كتابة ملاحظات الطلب بدقة / عروض خاصة اليوم)..."
+                  value={menuNoteInput}
+                  onChange={e => setMenuNoteInput(e.target.value.slice(0, 100))}
+                  className="f-input text-xs font-bold bg-slate-50 focus:bg-white pl-8"
+                />
+                {menuNoteInput && (
+                  <button
+                    type="button"
+                    onClick={() => setMenuNoteInput('')}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    title="مسح"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={savingMenuNote}
+                className="btn btn-dark btn-sm text-xs font-black shrink-0 px-4 py-2"
+              >
+                {savingMenuNote ? 'جاري الحفظ...' : '💾 حفظ الملاحظة'}
+              </button>
+            </form>
           </div>
 
           {/* ══════════ MAIN GRID ══════════ */}
