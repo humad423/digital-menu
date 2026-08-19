@@ -205,79 +205,6 @@ export default function StoreSettingsModal({
             </div>
           )}
 
-          {/* Menu Announcement / Note Strip */}
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">📢</span>
-                <div>
-                  <h4 className="font-black text-xs text-slate-900">شريط ملاحظة / إعلان المنيو</h4>
-                  <p className="text-[10px] text-slate-500 font-medium">يظهر كشريط رفيع وأنيق أعلى المنيو للزبائن</p>
-                </div>
-              </div>
-              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${menuNote.length >= 100 ? 'bg-rose-100 text-rose-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
-                {menuNote.length} / 100 حرف
-              </span>
-            </div>
-            <input
-              type="text"
-              maxLength={100}
-              placeholder="مثال: يرجى كتابة ملاحظات الحساسية عند الطلب / عروض خاصة يومياً..."
-              value={menuNote}
-              onChange={e => setMenuNote(e.target.value.slice(0, 100))}
-              className="f-input text-xs font-bold bg-white"
-            />
-          </div>
-
-          {/* Holiday Emergency Toggle */}
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🌴</span>
-                <div>
-                  <h4 className="font-black text-xs text-amber-900">وضع العطلة المؤقتة (إغلاق طارئ)</h4>
-                  <p className="text-[10px] text-amber-700 font-medium">عند التفعيل سيظهر للمستخدمين أن المحل في عطلة ويمنع إرسال الطلبات</p>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={isOnHoliday}
-                onChange={e => setIsOnHoliday(e.target.checked)}
-                className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
-              />
-            </div>
-            {isOnHoliday && (
-              <input
-                type="text"
-                placeholder="رسالة العطلة (مثال: مغلق بمناسبة العيد السعيد)..."
-                value={holidayMessage}
-                onChange={e => setHolidayMessage(e.target.value)}
-                className="f-input text-xs font-bold bg-white"
-              />
-            )}
-          </div>
-
-          {/* WhatsApp Order Toggle */}
-          <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0">
-                💬
-              </div>
-              <div>
-                <h4 className="font-black text-xs text-slate-900">تفعيل زر الطلب عبر الواتساب</h4>
-                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                  عند إيقاف هذا الخيار، سيظهر المنيو للزوار للعرض والتصفح فقط ولن يظهر زر إرسال الطلب.
-                </p>
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={enableWhatsappOrders}
-              onChange={e => setEnableWhatsappOrders(e.target.checked)}
-              className="w-5 h-5 accent-emerald-600 rounded cursor-pointer shrink-0"
-            />
-          </div>
-
           {/* Basic Info */}
           <div className="space-y-3">
             <div>
@@ -509,6 +436,81 @@ export default function StoreSettingsModal({
               </label>
               <ImageUpload value={coverUrl} onChange={url => setCoverUrl(url)} />
             </div>
+          </div>
+
+          {/* ── Bottom Controls: WhatsApp, Holiday, Note ── */}
+
+          {/* WhatsApp Order Toggle */}
+          <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0">
+                💬
+              </div>
+              <div>
+                <h4 className="font-black text-xs text-slate-900">تفعيل زر الطلب عبر الواتساب</h4>
+                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                  عند إيقاف هذا الخيار، سيظهر المنيو للزوار للعرض والتصفح فقط ولن يظهر زر إرسال الطلب.
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={enableWhatsappOrders}
+              onChange={e => setEnableWhatsappOrders(e.target.checked)}
+              className="w-5 h-5 accent-emerald-600 rounded cursor-pointer shrink-0"
+            />
+          </div>
+
+          {/* Holiday Emergency Toggle */}
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌴</span>
+                <div>
+                  <h4 className="font-black text-xs text-amber-900">وضع العطلة المؤقتة (إغلاق طارئ)</h4>
+                  <p className="text-[10px] text-amber-700 font-medium">عند التفعيل سيظهر للمستخدمين أن المحل في عطلة ويمنع إرسال الطلبات</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isOnHoliday}
+                onChange={e => setIsOnHoliday(e.target.checked)}
+                className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
+              />
+            </div>
+            {isOnHoliday && (
+              <input
+                type="text"
+                placeholder="رسالة العطلة (مثال: مغلق بمناسبة العيد السعيد)..."
+                value={holidayMessage}
+                onChange={e => setHolidayMessage(e.target.value)}
+                className="f-input text-xs font-bold bg-white"
+              />
+            )}
+          </div>
+
+          {/* Menu Announcement / Note Strip */}
+          <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📢</span>
+                <div>
+                  <h4 className="font-black text-xs text-slate-900">شريط ملاحظة / إعلان المنيو</h4>
+                  <p className="text-[10px] text-slate-500 font-medium">يظهر كشريط رفيع وأنيق أعلى المنيو للزبائن</p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${menuNote.length >= 100 ? 'bg-rose-100 text-rose-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                {menuNote.length} / 100 حرف
+              </span>
+            </div>
+            <input
+              type="text"
+              maxLength={100}
+              placeholder="مثال: يرجى كتابة ملاحظات الحساسية عند الطلب / عروض خاصة يومياً..."
+              value={menuNote}
+              onChange={e => setMenuNote(e.target.value.slice(0, 100))}
+              className="f-input text-xs font-bold bg-white"
+            />
           </div>
 
           {/* Actions */}
