@@ -120,7 +120,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
 
       const { data: offerData } = await supabase
         .from('offers')
-        .select('id, title, discount_percent, new_price, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity')
+        .select('id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity')
         .eq('restaurant_id', id)
         .order('created_at', { ascending: false })
       if (offerData) setOffers(offerData)

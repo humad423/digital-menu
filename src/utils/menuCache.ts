@@ -75,8 +75,8 @@ export const getMenuByRestaurantId = cache(
       supabase
         .from('offers')
         .select(
-          'id, title, discount_percent, new_price, is_active, created_at, restaurant_id, ' +
-          'primary_item_id, bonus_item_id, item3_id, item4_id, ' +
+          'id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, ' +
+          'primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity, ' +
           'primary_item:menu_items!primary_item_id(image_url, images, name), ' +
           'bonus_item:menu_items!bonus_item_id(image_url, images, name), ' +
           'item3:menu_items!item3_id(image_url, images, name), ' +
@@ -161,8 +161,8 @@ export const getHomePageData = cache(async (): Promise<{
     supabase
       .from('offers')
       .select(
-        'id, title, is_active, sort_order, created_at, restaurant_id, ' +
-        'primary_item_id, bonus_item_id, item3_id, item4_id, ' +
+        'id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, ' +
+        'primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity, ' +
         'restaurants(id, name, slug, latitude, longitude, delivery_radius_km), ' +
         'primary_item:menu_items!primary_item_id(image_url), ' +
         'bonus_item:menu_items!bonus_item_id(image_url), ' +
@@ -217,8 +217,8 @@ export const getOffersPageData = cache(async (): Promise<{
     supabase
       .from('offers')
       .select(
-        'id, title, is_active, sort_order, created_at, restaurant_id, ' +
-        'primary_item_id, bonus_item_id, item3_id, item4_id, ' +
+        'id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, ' +
+        'primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity, ' +
         'restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery), ' +
         'primary_item:menu_items!primary_item_id(image_url), ' +
         'bonus_item:menu_items!bonus_item_id(image_url), ' +
