@@ -54,12 +54,14 @@ export default function MenuItem({
     const half = Math.round(pricePerKg * 0.5)
     const threeQuarter = Math.round(pricePerKg * 0.75)
     const full = Math.round(pricePerKg)
+    const double = Math.round(pricePerKg * 2)
 
     return [
       { label: `ربع كغ (${quarter} ₺)`, val: quarter.toString() },
       { label: `نصف كغ (${half} ₺)`, val: half.toString() },
       { label: `3 أرباع (${threeQuarter} ₺)`, val: threeQuarter.toString() },
       { label: `1 كغ (${full} ₺)`, val: full.toString() },
+      { label: `2 كغ (${double} ₺)`, val: double.toString() },
     ]
   }, [pricePerKg])
 
