@@ -143,7 +143,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const itemSectionRef = useRef<HTMLDivElement>(null)
 
   // ── Detect mobile for responsive modal behavior ────────────────
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(true) // default true = mobile-first, useEffect corrects for desktop
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024)
     check()
