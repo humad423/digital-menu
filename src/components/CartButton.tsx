@@ -126,7 +126,7 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
         return `• ${i.name} - ${itemTotal} ₺`
       }).join('\n')
 
-      let msg = `مرحباً ${restaurant.name}، أود طلب التالي:\n\n${text}\n\nالإجمالي: ${totalPrice.toFixed(2)} ₺`
+      let msg = `مرحباً ${restaurant.name}، أود طلب التالي:\n\n${text}\n\n🧾 إجمالي الطلب: ${totalPrice.toFixed(2)} ₺\n(🛵 السعر أعلاه للمنتجات فقط — تُضاف أجور التوصيل حسب العنوان)`
 
       if (shareLocation && locationUrl) {
         msg += `\n\n📍 موقع التوصيل:\n${locationUrl}`
@@ -269,7 +269,10 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
               )}
 
               <div className="flex justify-between items-center px-1">
-                <span className="text-xs font-bold text-slate-500">المجموع</span>
+                <div>
+                  <span className="text-xs font-bold text-slate-500 block">إجمالي المنتجات</span>
+                  <span className="text-[10px] text-slate-400 font-medium">غير شامل أجور التوصيل 🛵</span>
+                </div>
                 <span className="text-xl font-black text-slate-900">
                   {totalPrice.toFixed(2)} <span className="text-xs text-slate-400 font-bold">₺</span>
                 </span>
