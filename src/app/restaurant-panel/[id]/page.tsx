@@ -1425,66 +1425,119 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 )}
 
                 {showItemForm && categories.length > 0 && (
-                  <div className="mx-4 mb-4 bg-slate-50 border border-slate-200 rounded-2xl p-4 animate-slide-down">
-                    <h4 className="font-black text-slate-800 mb-3">
-                      {editItemId
-                        ? (restaurant?.store_type === 'clothing' ? 'تعديل بيانات الموديل' : 'تعديل المنتَج')
-                        : (restaurant?.store_type === 'clothing' ? 'إضافة موديل ألبسة جديد' : 'إضافة منتَج جديد')}
-                    </h4>
-                    <form onSubmit={handleSaveItem} className="space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="f-label">القسم الفرعي *</label>
-                          <select required value={itemForm.category_id} onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })} className="f-input">
-                            <option value="">-- غير محدد (اختر القسم الفرعي) --</option>
-                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="f-label">
-                            {restaurant?.store_type === 'clothing' ? 'اسم القطعة / الموديل *' : 'اسم المنتج *'}
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={itemForm.name}
-                            onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
-                            placeholder={restaurant?.store_type === 'clothing' ? 'مثال: فستان سهرة مخمل' : 'اسم المنتج...'}
-                            className="f-input"
-                          />
-                        </div>
-                        <div>
-                          <label className="f-label">
-                            {(itemForm.unit === 'kg' || itemForm.allow_custom_amount)
-                              ? 'سعر الكيلو (TL) *'
-                              : (restaurant?.store_type === 'supermarket' ? 'سعر العرض (TL) *' : 'السعر (TL) *')
-                            }
-                          </label>
-                          <input type="number" step="0.5" required value={itemForm.price} onChange={e => setItemForm({ ...itemForm, price: e.target.value })} className="f-input text-orange-600 font-black" />
-                        </div>
-                        {restaurant?.store_type === 'clothing' && (
+                  <div
+                    className="fixed inset-0 z-50 flex flex-col justify-end"
+                    dir="rtl"
+                    onClick={(e) => { if (e.target === e.currentTarget) setShowItemForm(false) }}
+                    style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
+                  >
+                    <div
+                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col"
+                      style={{ maxHeight: '92dvh' }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {/* ── Handle & Header ── */}
+                      <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
+                        <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3" />
+                        <div className="flex items-center justify-between">
                           <div>
-                            <label className="f-label">القياسات المتاحة (افصل بينها بفاصلة)</label>
-                            <input
-                              type="text"
-                              placeholder="مثال: S, M, L, XL"
-                              value={itemForm.sizesText || ''}
-                              onChange={e => setItemForm({ ...itemForm, sizesText: e.target.value })}
-                              className="f-input"
-                            />
+                            <h3 className="font-black text-slate-900 text-base leading-tight">
+                              {editItemId
+                                ? (restaurant?.store_type === 'clothing' ? '✏️ تعديل الموديل' : '✏️ تعديل المنتج')
+                                : (restaurant?.store_type === 'clothing' ? '👗 موديل جديد' : '📦 منتج جديد')}
+                            </h3>
+                            <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                              {editItemId ? 'عدّل البيانات ثم اضغط حفظ' : 'سيظهر في المنيو فور الحفظ'}
+                            </p>
                           </div>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => setShowItemForm(false)}
+                            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition cursor-pointer"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </div>
 
-                        {/* Kilo / Custom Weight Selling Option */}
-                        <div className="md:col-span-2 bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xl">⚖️</span>
+                      {/* ── Scrollable Body ── */}
+                      <div className="overflow-y-auto flex-1 px-4 py-4">
+                        <form id="item-form-modal" onSubmit={handleSaveItem} className="space-y-4">
+
+                          {/* ── الاسم والقسم والسعر ── */}
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">📋 بيانات المنتج</p>
+
+                            {/* اسم المنتج */}
                             <div>
-                              <h4 className="font-black text-xs text-amber-900">هذا المنتج يُباع بالكيلو / بالوزن</h4>
-                              <p className="text-[10px] text-amber-700 font-medium">يتيح للزبون الطلب بمبلغ محدد (مثال: بـ 100 ليرة) أو بوزن معين (مثال: ربع كيلو / نصف كيلو)</p>
+                              <label className="text-xs font-black text-slate-700 block mb-1">
+                                {restaurant?.store_type === 'clothing' ? 'اسم القطعة / الموديل *' : 'اسم المنتج *'}
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={itemForm.name}
+                                onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
+                                placeholder={restaurant?.store_type === 'clothing' ? 'مثال: فستان سهرة مخمل' : 'مثال: شاورما دجاج'}
+                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/10"
+                              />
                             </div>
+
+                            {/* القسم + السعر في صف واحد */}
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div>
+                                <label className="text-xs font-black text-slate-700 block mb-1">القسم *</label>
+                                <select
+                                  required
+                                  value={itemForm.category_id}
+                                  onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })}
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-slate-800 cursor-pointer"
+                                >
+                                  <option value="">اختر القسم...</option>
+                                  {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-xs font-black text-slate-700 block mb-1">
+                                  {(itemForm.unit === 'kg' || itemForm.allow_custom_amount) ? 'سعر الكيلو (₺) *' : 'السعر (₺) *'}
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  required
+                                  placeholder="0.00"
+                                  value={itemForm.price}
+                                  onChange={e => setItemForm({ ...itemForm, price: e.target.value })}
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-black text-orange-600 outline-none focus:border-orange-400"
+                                  dir="ltr"
+                                />
+                              </div>
+                            </div>
+
+                            {/* القياسات (للملابس فقط) */}
+                            {restaurant?.store_type === 'clothing' && (
+                              <div>
+                                <label className="text-xs font-black text-slate-700 block mb-1">القياسات المتاحة</label>
+                                <input
+                                  type="text"
+                                  placeholder="مثال: S, M, L, XL"
+                                  value={itemForm.sizesText || ''}
+                                  onChange={e => setItemForm({ ...itemForm, sizesText: e.target.value })}
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-slate-800"
+                                />
+                              </div>
+                            )}
                           </div>
-                          <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs font-bold text-xs text-amber-900 shrink-0">
+
+                          {/* ── بيع بالكيلو ── */}
+                          <label className="flex items-center justify-between bg-amber-50 border border-amber-200/80 rounded-2xl p-3.5 cursor-pointer select-none">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-lg">⚖️</span>
+                              <div>
+                                <p className="text-xs font-black text-amber-900">يُباع بالكيلو / بالوزن</p>
+                                <p className="text-[10px] text-amber-700 font-medium">الزبون يطلب ربع / نصف / كيلو</p>
+                              </div>
+                            </div>
                             <input
                               type="checkbox"
                               checked={itemForm.unit === 'kg' || itemForm.allow_custom_amount}
@@ -1493,61 +1546,92 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                                 unit: e.target.checked ? 'kg' : 'piece',
                                 allow_custom_amount: e.target.checked
                               })}
-                              className="w-4 h-4 accent-amber-600 rounded cursor-pointer"
+                              className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
                             />
-                            <span>بيع بالكيلو (وزن)</span>
                           </label>
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="f-label">الوصف والتفاصيل (اختياري)</label>
-                          <textarea rows={2} value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="المكونات والمواصفات..." className="f-input" />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="f-label mb-1.5 block">
-                            📸 صور المنتج (يمكنك رفع واحدة أو عدة صور - صور حصراً حد أقصى 5MB للواحدة)
-                          </label>
-                          <MultiImageUpload
-                            images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
-                            onChange={urls => {
-                              setItemForm({
-                                ...itemForm,
-                                images: urls,
-                                image_url: urls[0] || ''
-                              })
-                            }}
-                          />
-                        </div>
+
+                          {/* ── الوصف ── */}
+                          <div>
+                            <label className="text-xs font-black text-slate-600 block mb-1.5">الوصف (اختياري)</label>
+                            <textarea
+                              rows={2}
+                              value={itemForm.description}
+                              onChange={e => setItemForm({ ...itemForm, description: e.target.value })}
+                              placeholder="المكونات، المواصفات، ملاحظات..."
+                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-slate-800 resize-none"
+                            />
+                          </div>
+
+                          {/* ── صور المنتج ── */}
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">📸</span>
+                              <div>
+                                <p className="text-xs font-black text-slate-700">صور المنتج</p>
+                                <p className="text-[10px] text-slate-400 font-medium">اختياري — حد أقصى 5MB للصورة</p>
+                              </div>
+                            </div>
+                            <MultiImageUpload
+                              images={itemForm.images || (itemForm.image_url ? [itemForm.image_url] : [])}
+                              onChange={urls => setItemForm({ ...itemForm, images: urls, image_url: urls[0] || '' })}
+                            />
+                          </div>
+
+                          {/* ── حالة المنتج ── */}
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <label className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl p-3 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={itemForm.is_available}
+                                onChange={e => setItemForm({ ...itemForm, is_available: e.target.checked })}
+                                className="w-5 h-5 accent-emerald-500 rounded cursor-pointer shrink-0"
+                              />
+                              <div>
+                                <p className="text-[11px] font-black text-emerald-800">متوفر</p>
+                                <p className="text-[10px] text-emerald-600 font-medium">للطلب الآن</p>
+                              </div>
+                            </label>
+                            <label className="flex items-center gap-2.5 bg-amber-50 border border-amber-200/80 rounded-2xl p-3 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!itemForm.is_hidden}
+                                onChange={e => setItemForm({ ...itemForm, is_hidden: e.target.checked })}
+                                className="w-5 h-5 accent-amber-500 rounded cursor-pointer shrink-0"
+                              />
+                              <div>
+                                <p className="text-[11px] font-black text-amber-800">إخفاء 🙈</p>
+                                <p className="text-[10px] text-amber-600 font-medium">مؤقتاً من المنيو</p>
+                              </div>
+                            </label>
+                          </div>
+
+                        </form>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 bg-white border border-slate-200 p-2.5 rounded-xl">
-                          <input
-                            type="checkbox"
-                            checked={itemForm.is_available}
-                            onChange={e => setItemForm({ ...itemForm, is_available: e.target.checked })}
-                            className="w-4 h-4 accent-green-500 rounded"
-                          />
-                          <span>متوفر للطلب (إذا ألغي يظهر كـ نفد)</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 bg-white border border-slate-200 p-2.5 rounded-xl">
-                          <input
-                            type="checkbox"
-                            checked={!!itemForm.is_hidden}
-                            onChange={e => setItemForm({ ...itemForm, is_hidden: e.target.checked })}
-                            className="w-4 h-4 accent-amber-500 rounded"
-                          />
-                          <span>تعطيل وإخفاء من المنيو مؤقتاً 🙈</span>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 pt-2">
-                        <button type="button" onClick={() => setShowItemForm(false)} className="btn btn-ghost btn-sm">إلغاء</button>
-                        <button type="submit" disabled={savingItem} className="btn btn-dark btn-sm">
-                          {savingItem ? 'حفظ...' : '💾 حفظ المنتج'}
+                      {/* ── Footer ── */}
+                      <div className="px-4 py-4 border-t border-slate-100 flex-shrink-0 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowItemForm(false)}
+                          className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-black text-sm hover:bg-slate-50 transition cursor-pointer"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          type="submit"
+                          form="item-form-modal"
+                          disabled={savingItem}
+                          className="flex-1 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 transition active:scale-95 disabled:opacity-60 cursor-pointer"
+                          style={{ flexGrow: 2 }}
+                        >
+                          {savingItem ? (
+                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>جاري الحفظ...</span></>
+                          ) : (
+                            <>{editItemId ? '💾 حفظ التعديلات' : '✅ إضافة المنتج'}</>
+                          )}
                         </button>
                       </div>
-                    </form>
+                    </div>
                   </div>
                 )}
 
