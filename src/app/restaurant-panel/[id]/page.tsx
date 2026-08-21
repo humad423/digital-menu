@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
@@ -137,6 +137,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [showItem3Input, setShowItem3Input] = useState(false)
   const [showItem4Input, setShowItem4Input] = useState(false)
   const [savingOffer, setSavingOffer] = useState(false)
+
+  // ── Refs for scroll-into-view ─────────────────────────────────────
+  const offerSectionRef = useRef<HTMLDivElement>(null)
+  const itemSectionRef = useRef<HTMLDivElement>(null)
 
   // Verify restaurant owner session or Super Admin access
   useEffect(() => {
@@ -1066,19 +1070,19 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
                 {showOfferForm && (
                   <div
-                    className="fixed inset-0 z-50 flex flex-col justify-end"
+                    className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center lg:items-center lg:p-6"
                     dir="rtl"
                     onClick={(e) => { if (e.target === e.currentTarget) setShowOfferForm(false) }}
                     style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
                   >
                     <div
-                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col"
+                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl lg:rounded-3xl shadow-2xl overflow-hidden animate-slide-up lg:animate-none lg:scale-100 flex flex-col"
                       style={{ maxHeight: '92dvh' }}
                       onClick={e => e.stopPropagation()}
                     >
-                      {/* ── Drag Handle & Header ── */}
+                      {/* ── Drag Handle (mobile only) & Header ── */}
                       <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
-                        <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3" />
+                        <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3 lg:hidden" />
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="font-black text-slate-900 text-base leading-tight">
@@ -1426,19 +1430,19 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
                 {showItemForm && categories.length > 0 && (
                   <div
-                    className="fixed inset-0 z-50 flex flex-col justify-end"
+                    className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center lg:items-center lg:p-6"
                     dir="rtl"
                     onClick={(e) => { if (e.target === e.currentTarget) setShowItemForm(false) }}
                     style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
                   >
                     <div
-                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col"
+                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl lg:rounded-3xl shadow-2xl overflow-hidden animate-slide-up lg:animate-none flex flex-col"
                       style={{ maxHeight: '92dvh' }}
                       onClick={e => e.stopPropagation()}
                     >
-                      {/* ── Handle & Header ── */}
+                      {/* ── Handle (mobile only) & Header ── */}
                       <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
-                        <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3" />
+                        <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3 lg:hidden" />
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="font-black text-slate-900 text-base leading-tight">
