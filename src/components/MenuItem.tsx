@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useCartStore } from '@/store/cartStore'
 import { Plus, Minus, ChevronLeft, ChevronRight, X, Layers, Scale, DollarSign, ShoppingBag } from 'lucide-react'
 import { Database } from '@/types/database.types'
@@ -42,10 +42,26 @@ export default function MenuItem({
 
   // ── Kilo / Custom Weight State ─────────────────────────────────
   const isKiloItem = item.unit === 'kg' || item.allow_custom_amount === true
+  const pricePerKg = Number(item.price) || 1
   const [showKiloModal, setShowKiloModal] = useState(false)
   const [kiloMode, setKiloMode] = useState<'amount' | 'weight'>('amount')
-  const [customPriceInput, setCustomPriceInput] = useState<string>('100')
+  const [customPriceInput, setCustomPriceInput] = useState<string>(() => Math.round(pricePerKg * 0.5).toString())
   const [customWeightInput, setCustomWeightInput] = useState<string>('0.5')
+
+  // Dynamic price presets proportional to item's price per kg
+  const pricePresets = useMemo(() => {
+    const quarter = Math.round(pricePerKg * 0.25)
+    const half = Math.round(pricePerKg * 0.5)
+    const threeQuarter = Math.round(pricePerKg * 0.75)
+    const full = Math.round(pricePerKg)
+
+    return [
+      { label: `ربع كغ (${quarter} ₺)`, val: quarter.toString() },
+      { label: `نصف كغ (${half} ₺)`, val: half.toString() },
+      { label: `3 أرباع (${threeQuarter} ₺)`, val: threeQuarter.toString() },
+      { label: `1 كغ (${full} ₺)`, val: full.toString() },
+    ]
+  }, [pricePerKg])
 
   // Parse multi-images
   let imageList: string[] = []
@@ -86,6 +102,10 @@ export default function MenuItem({
   const handleAdd = () => {
     if (isOutOfStock) return
     if (isKiloItem) {
+      const defaultHalfPrice = Math.round(pricePerKg * 0.5) || 100
+      if (!customPriceInput || customPriceInput === '100') {
+        setCustomPriceInput(defaultHalfPrice.toString())
+      }
       setShowKiloModal(true)
       return
     }
@@ -96,7 +116,6 @@ export default function MenuItem({
   }
 
   // Kilo Calculations
-  const pricePerKg = Number(item.price) || 1
   const numPriceInput = parseFloat(customPriceInput) || 0
   const numWeightInput = parseFloat(customWeightInput) || 0
 
@@ -253,7 +272,7 @@ export default function MenuItem({
               </span>
             ) : isKiloItem ? (
               <button
-                onClick={() => setShowKiloModal(true)}
+                onClick={handleAdd}
                 className="px-3.5 py-1.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
               >
                 <Scale size={13} />
@@ -353,22 +372,22 @@ export default function MenuItem({
               {kiloMode === 'amount' && (
                 <div className="space-y-3">
                   <label className="text-xs font-black text-slate-700 block">
-                    اختر مبلع سريع أو أدخل أي مبلغ بالليرة:
+                    اختر مبلغاً سريعاً أو أدخل أي مبلغ بالليرة:
                   </label>
                   
-                  {/* Preset Price Buttons */}
+                  {/* Preset Price Buttons (Quarter, Half, 3/4, 1 Kg) */}
                   <div className="flex flex-wrap gap-2">
-                    {['50', '100', '150', '200', pricePerKg.toString()].map(preset => (
+                    {pricePresets.map(preset => (
                       <button
-                        key={preset}
-                        onClick={() => setCustomPriceInput(preset)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition ${
-                          customPriceInput === preset
+                        key={preset.val}
+                        onClick={() => setCustomPriceInput(preset.val)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer active:scale-95 ${
+                          customPriceInput === preset.val
                             ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
-                        {preset === pricePerKg.toString() ? `${preset} ₺ (1 كغ)` : `${preset} ₺`}
+                        {preset.label}
                       </button>
                     ))}
                   </div>
