@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, use, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
@@ -14,6 +15,54 @@ import { getMainDomainMenuUrl } from '@/utils/url'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { parseRestaurantMultiplier, getEffectiveVisits, fetchTodayVisits } from '@/utils/visitsHelper'
 
+function FormPortal({
+  isMobile,
+  isOpen,
+  onClose,
+  children
+}: {
+  isMobile: boolean
+  isOpen: boolean
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (isMobile && isOpen) {
+      const origOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = origOverflow
+      }
+    }
+  }, [isMobile, isOpen])
+
+  if (!isOpen) return null
+
+  if (isMobile && mounted && typeof document !== 'undefined') {
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[99999] flex flex-col justify-end"
+        dir="rtl"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+        style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
+      >
+        {children}
+      </div>,
+      document.body
+    )
+  }
+
+  return (
+    <div className="mx-4 mb-4" dir="rtl">
+      {children}
+    </div>
+  )
+}
 
 export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const resolvedParams = params && typeof (params as any).then === 'function' 
@@ -1077,22 +1126,16 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   </div>
                 )}
 
-                {showOfferForm && (
+                <FormPortal isMobile={isMobile} isOpen={showOfferForm} onClose={() => setShowOfferForm(false)}>
                   <div
-                    className={isMobile ? 'fixed inset-0 z-50 flex flex-col justify-end' : 'mx-4 mb-4'}
-                    dir="rtl"
-                    onClick={(e) => { if (isMobile && e.target === e.currentTarget) setShowOfferForm(false) }}
-                    style={isMobile ? { background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' } : {}}
+                    className={isMobile
+                      ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
+                      : 'bg-orange-50 border border-orange-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
+                    }
+                    style={isMobile ? { maxHeight: '90dvh' } : {}}
+                    onClick={e => e.stopPropagation()}
                   >
-                    <div
-                      className={isMobile
-                        ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
-                        : 'bg-orange-50 border border-orange-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
-                      }
-                      style={isMobile ? { maxHeight: '92dvh' } : {}}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {/* ── Handle (mobile) / Title row (desktop) ── */}
+                    {/* ── Handle (mobile) / Title row (desktop) ── */}
                       <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
                         <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3 lg:hidden" />
                         <div className="flex items-center justify-between">
@@ -1360,8 +1403,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         </button>
                       </div>
                     </div>
-                  </div>
-                )}
+                  </FormPortal>
 
                 <div className="c-card-body pt-0">
                   {offers.length === 0 && !showOfferForm ? (
@@ -1440,22 +1482,16 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   </div>
                 )}
 
-                {showItemForm && categories.length > 0 && (
+                <FormPortal isMobile={isMobile} isOpen={showItemForm && categories.length > 0} onClose={() => setShowItemForm(false)}>
                   <div
-                    className={isMobile ? 'fixed inset-0 z-50 flex flex-col justify-end' : 'mx-4 mb-4'}
-                    dir="rtl"
-                    onClick={(e) => { if (isMobile && e.target === e.currentTarget) setShowItemForm(false) }}
-                    style={isMobile ? { background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' } : {}}
+                    className={isMobile
+                      ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
+                      : 'bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
+                    }
+                    style={isMobile ? { maxHeight: '90dvh' } : {}}
+                    onClick={e => e.stopPropagation()}
                   >
-                    <div
-                      className={isMobile
-                        ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
-                        : 'bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
-                      }
-                      style={isMobile ? { maxHeight: '92dvh' } : {}}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {/* ── Handle (mobile) / Title (desktop) ── */}
+                    {/* ── Handle (mobile) / Title (desktop) ── */}
                       <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
                         <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3 lg:hidden" />
                         <div className="flex items-center justify-between">
@@ -1651,8 +1687,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         </button>
                       </div>
                     </div>
-                  </div>
-                )}
+                  </FormPortal>
 
                 <div className="c-card-body pt-0">
                   {categories.length > 0 && menuItems.length === 0 && !showItemForm ? (
