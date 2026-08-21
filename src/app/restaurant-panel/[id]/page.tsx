@@ -1065,140 +1065,285 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 )}
 
                 {showOfferForm && (
-                  <div className="mx-4 mb-4 bg-orange-50 border border-orange-200 rounded-2xl p-4 animate-slide-down">
-                    <h4 className="font-black text-slate-800 mb-3">{editOfferId ? 'تعديل العرض' : 'إنشاء عرض جديد'}</h4>
-                    <form onSubmit={handleSaveOffer} className="space-y-3">
-                      {/* Product 1 */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100">
-                        <div className="md:col-span-2">
-                          <label className="f-label">المنتج الأول (الأساسي) *</label>
-                          <select required value={offerForm.primary_item_id} onChange={e => updateOfferField('primary_item_id', e.target.value)} className="f-input">
-                            <option value="">اختر المنتج الأول...</option>
-                            {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="f-label">الكمية</label>
-                          <input type="number" min="1" required value={offerForm.min_quantity}
-                            onChange={e => updateOfferField('min_quantity', e.target.value)} className="f-input text-center" />
-                        </div>
-                      </div>
-
-                      {/* Product 2 */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100">
-                        <div className="md:col-span-2">
-                          <label className="f-label">المنتج الثاني (اختياري)</label>
-                          <select value={offerForm.bonus_item_id} onChange={e => updateOfferField('bonus_item_id', e.target.value)} className="f-input">
-                            <option value="">بدون منتج ثاني</option>
-                            {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="f-label">كميتها</label>
-                          <input type="number" min="1" value={offerForm.bonus_quantity} disabled={!offerForm.bonus_item_id}
-                            onChange={e => updateOfferField('bonus_quantity', e.target.value)} className="f-input text-center" />
-                        </div>
-                      </div>
-
-                      {/* Product 3 (Hidden by default until needed) */}
-                      {(offerForm.item3_id || showItem3Input) && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100 animate-slide-down">
-                          <div className="md:col-span-2">
-                            <label className="f-label flex items-center justify-between">
-                              <span>المنتج الثالث (اختياري)</span>
-                              <button type="button" onClick={() => { updateOfferField('item3_id', ''); setShowItem3Input(false); }} className="text-red-500 text-[10px]">إلغاء ✕</button>
-                            </label>
-                            <select value={offerForm.item3_id} onChange={e => updateOfferField('item3_id', e.target.value)} className="f-input">
-                              <option value="">اختر المنتج الثالث...</option>
-                              {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
-                            </select>
-                          </div>
+                  <div
+                    className="fixed inset-0 z-50 flex flex-col justify-end"
+                    dir="rtl"
+                    onClick={(e) => { if (e.target === e.currentTarget) setShowOfferForm(false) }}
+                    style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
+                  >
+                    <div
+                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col"
+                      style={{ maxHeight: '92dvh' }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {/* ── Drag Handle & Header ── */}
+                      <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
+                        <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3" />
+                        <div className="flex items-center justify-between">
                           <div>
-                            <label className="f-label">كميتها</label>
-                            <input type="number" min="1" value={offerForm.item3_quantity} disabled={!offerForm.item3_id}
-                              onChange={e => updateOfferField('item3_quantity', e.target.value)} className="f-input text-center" />
+                            <h3 className="font-black text-slate-900 text-base leading-tight">
+                              {editOfferId ? '✏️ تعديل العرض' : '🔥 عرض جديد'}
+                            </h3>
+                            <p className="text-[11px] text-slate-400 font-medium mt-0.5">يظهر للزبائن في أعلى المتجر</p>
                           </div>
-                        </div>
-                      )}
-
-                      {!offerForm.item3_id && !showItem3Input && (
-                        <button type="button" onClick={() => setShowItem3Input(true)} className="w-full py-2 border border-dashed border-orange-300 hover:border-orange-500 rounded-xl text-orange-600 font-bold text-xs flex items-center justify-center gap-1 transition bg-white/50 hover:bg-white">
-                          + إضافة منتج ثالث للعرض
-                        </button>
-                      )}
-
-                      {/* Product 4 (Hidden by default until Product 3 is active) */}
-                      {(offerForm.item4_id || showItem4Input) && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-orange-100 animate-slide-down">
-                          <div className="md:col-span-2">
-                            <label className="f-label flex items-center justify-between">
-                              <span>المنتج الرابع (اختياري)</span>
-                              <button type="button" onClick={() => { updateOfferField('item4_id', ''); setShowItem4Input(false); }} className="text-red-500 text-[10px]">إلغاء ✕</button>
-                            </label>
-                            <select value={offerForm.item4_id} onChange={e => updateOfferField('item4_id', e.target.value)} className="f-input">
-                              <option value="">اختر المنتج الرابع...</option>
-                              {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="f-label">كميتها</label>
-                            <input type="number" min="1" value={offerForm.item4_quantity} disabled={!offerForm.item4_id}
-                              onChange={e => updateOfferField('item4_quantity', e.target.value)} className="f-input text-center" />
-                          </div>
-                        </div>
-                      )}
-
-                      {(offerForm.item3_id || showItem3Input) && !offerForm.item4_id && !showItem4Input && (
-                        <button type="button" onClick={() => setShowItem4Input(true)} className="w-full py-2 border border-dashed border-orange-300 hover:border-orange-500 rounded-xl text-orange-600 font-bold text-xs flex items-center justify-center gap-1 transition bg-white/50 hover:bg-white">
-                          + إضافة منتج رابع للعرض
-                        </button>
-                      )}
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="f-label">عنوان العرض الترويجي *</label>
-                          <input type="text" required value={offerForm.title} onChange={e => setOfferForm({ ...offerForm, title: e.target.value })} className="f-input" />
-                        </div>
-                        <div>
-                          <label className="f-label">سعر العرض النهائي (₺) *</label>
-                          <input type="number" step="0.5" required value={offerForm.offer_price}
-                            onChange={e => setOfferForm({ ...offerForm, offer_price: e.target.value })}
-                            className="f-input text-orange-600 font-black" dir="ltr" />
-                        </div>
-                        <div>
-                          <label className="f-label">السعر الأصلي قبل الخصم (₺)</label>
-                          <input type="number" step="0.5" value={offerForm.original_price}
-                            onChange={e => setOfferForm({ ...offerForm, original_price: e.target.value })}
-                            className="f-input" dir="ltr" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="f-label mb-1">
-                          📸 صور العرض المخصصة (يمكنك رفع واحدة أو عدة صور للعرض - صور حصراً حد أقصى 5MB للواحدة)
-                        </label>
-                        <p className="text-[10px] text-slate-400 font-bold mb-2">
-                          💡 في حال عدم رفع صورة مخصصة، سيقوم النظام تلقائياً بدمج وتنسيق صور المنتجات المختارة في العرض.
-                        </p>
-                        <MultiImageUpload
-                          images={offerForm.images || (offerForm.image_url ? [offerForm.image_url] : [])}
-                          onChange={urls => setOfferForm({ ...offerForm, images: urls, image_url: urls[0] || '' })}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2">
-                        <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
-                          <input type="checkbox" checked={offerForm.is_active} onChange={e => setOfferForm({ ...offerForm, is_active: e.target.checked })} className="w-4 h-4 accent-orange-500" />
-                          تفعيل فوراً للزبائن
-                        </label>
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => setShowOfferForm(false)} className="btn btn-ghost btn-sm">إلغاء</button>
-                          <button type="submit" disabled={savingOffer} className="btn btn-primary btn-sm">
-                            {savingOffer ? 'حفظ...' : '💾 حفظ العرض'}
+                          <button
+                            type="button"
+                            onClick={() => setShowOfferForm(false)}
+                            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition cursor-pointer"
+                          >
+                            <X size={16} />
                           </button>
                         </div>
                       </div>
-                    </form>
+
+                      {/* ── Scrollable Form Body ── */}
+                      <div className="overflow-y-auto flex-1 px-4 py-4">
+                        <form id="offer-form-modal" onSubmit={handleSaveOffer} className="space-y-4">
+
+                          {/* ── العنوان والسعر (أهم حقلين في الأعلى) ── */}
+                          <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3.5 space-y-3">
+                            <p className="text-[10px] font-black text-orange-700 uppercase tracking-wide">📋 معلومات العرض</p>
+                            <div>
+                              <label className="text-xs font-black text-slate-700 block mb-1">عنوان العرض الترويجي *</label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="مثال: شاورما + مشروب"
+                                value={offerForm.title}
+                                onChange={e => setOfferForm({ ...offerForm, title: e.target.value })}
+                                className="w-full bg-white border border-orange-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div>
+                                <label className="text-xs font-black text-slate-700 block mb-1">سعر العرض (₺) *</label>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  required
+                                  placeholder="0.00"
+                                  value={offerForm.offer_price}
+                                  onChange={e => setOfferForm({ ...offerForm, offer_price: e.target.value })}
+                                  className="w-full bg-white border border-orange-200 rounded-xl px-3 py-2.5 text-sm font-black text-orange-600 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                                  dir="ltr"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-black text-slate-700 block mb-1">السعر قبل الخصم</label>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  placeholder="اختياري"
+                                  value={offerForm.original_price}
+                                  onChange={e => setOfferForm({ ...offerForm, original_price: e.target.value })}
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 outline-none focus:border-orange-400"
+                                  dir="ltr"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ── المنتجات المشمولة في العرض ── */}
+                          <div className="space-y-2.5">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide px-0.5">🛒 المنتجات المشمولة</p>
+
+                            {/* المنتج الأول */}
+                            <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">1</span>
+                                <span className="text-xs font-black text-slate-700">المنتج الأساسي *</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <select
+                                  required
+                                  value={offerForm.primary_item_id}
+                                  onChange={e => updateOfferField('primary_item_id', e.target.value)}
+                                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-orange-500 cursor-pointer"
+                                >
+                                  <option value="">اختر المنتج...</option>
+                                  {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
+                                </select>
+                                <div className="shrink-0 w-16">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={offerForm.min_quantity}
+                                    onChange={e => updateOfferField('min_quantity', e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-black text-center text-slate-800 outline-none focus:border-orange-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* المنتج الثاني */}
+                            <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-600 text-[10px] font-black flex items-center justify-center shrink-0">2</span>
+                                <span className="text-xs font-black text-slate-600">منتج إضافي <span className="text-slate-400 font-medium">(اختياري)</span></span>
+                              </div>
+                              <div className="flex gap-2">
+                                <select
+                                  value={offerForm.bonus_item_id}
+                                  onChange={e => updateOfferField('bonus_item_id', e.target.value)}
+                                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-orange-500 cursor-pointer"
+                                >
+                                  <option value="">بدون منتج إضافي</option>
+                                  {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
+                                </select>
+                                <div className="shrink-0 w-16">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={offerForm.bonus_quantity}
+                                    disabled={!offerForm.bonus_item_id}
+                                    onChange={e => updateOfferField('bonus_quantity', e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-black text-center text-slate-800 outline-none focus:border-orange-500 disabled:opacity-40"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* المنتج الثالث */}
+                            {(offerForm.item3_id || showItem3Input) ? (
+                              <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-600 text-[10px] font-black flex items-center justify-center shrink-0">3</span>
+                                    <span className="text-xs font-black text-slate-600">منتج ثالث <span className="text-slate-400 font-medium">(اختياري)</span></span>
+                                  </div>
+                                  <button type="button" onClick={() => { updateOfferField('item3_id', ''); setShowItem3Input(false); }}
+                                    className="text-red-400 hover:text-red-600 text-[10px] font-black transition cursor-pointer">✕ إلغاء</button>
+                                </div>
+                                <div className="flex gap-2">
+                                  <select
+                                    value={offerForm.item3_id}
+                                    onChange={e => updateOfferField('item3_id', e.target.value)}
+                                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-orange-500 cursor-pointer"
+                                  >
+                                    <option value="">اختر المنتج الثالث...</option>
+                                    {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
+                                  </select>
+                                  <div className="shrink-0 w-16">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={offerForm.item3_quantity}
+                                      disabled={!offerForm.item3_id}
+                                      onChange={e => updateOfferField('item3_quantity', e.target.value)}
+                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-black text-center text-slate-800 outline-none disabled:opacity-40"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={() => setShowItem3Input(true)}
+                                className="w-full py-2.5 border border-dashed border-slate-300 hover:border-orange-400 rounded-xl text-slate-500 hover:text-orange-600 font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer bg-white hover:bg-orange-50">
+                                <Plus size={13} /> إضافة منتج ثالث
+                              </button>
+                            )}
+
+                            {/* المنتج الرابع */}
+                            {(offerForm.item3_id || showItem3Input) && (
+                              (offerForm.item4_id || showItem4Input) ? (
+                                <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-600 text-[10px] font-black flex items-center justify-center shrink-0">4</span>
+                                      <span className="text-xs font-black text-slate-600">منتج رابع <span className="text-slate-400 font-medium">(اختياري)</span></span>
+                                    </div>
+                                    <button type="button" onClick={() => { updateOfferField('item4_id', ''); setShowItem4Input(false); }}
+                                      className="text-red-400 hover:text-red-600 text-[10px] font-black transition cursor-pointer">✕ إلغاء</button>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <select
+                                      value={offerForm.item4_id}
+                                      onChange={e => updateOfferField('item4_id', e.target.value)}
+                                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-orange-500 cursor-pointer"
+                                    >
+                                      <option value="">اختر المنتج الرابع...</option>
+                                      {menuItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.price} ₺)</option>)}
+                                    </select>
+                                    <div className="shrink-0 w-16">
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={offerForm.item4_quantity}
+                                        disabled={!offerForm.item4_id}
+                                        onChange={e => updateOfferField('item4_quantity', e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-black text-center text-slate-800 outline-none disabled:opacity-40"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button type="button" onClick={() => setShowItem4Input(true)}
+                                  className="w-full py-2.5 border border-dashed border-slate-300 hover:border-orange-400 rounded-xl text-slate-500 hover:text-orange-600 font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer bg-white hover:bg-orange-50">
+                                  <Plus size={13} /> إضافة منتج رابع
+                                </button>
+                              )
+                            )}
+                          </div>
+
+                          {/* ── صورة العرض ── */}
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">📸</span>
+                              <div>
+                                <p className="text-xs font-black text-slate-700">صورة العرض</p>
+                                <p className="text-[10px] text-slate-400 font-medium">اختياري — تُدمج صور المنتجات تلقائياً</p>
+                              </div>
+                            </div>
+                            <MultiImageUpload
+                              images={offerForm.images || (offerForm.image_url ? [offerForm.image_url] : [])}
+                              onChange={urls => setOfferForm({ ...offerForm, images: urls, image_url: urls[0] || '' })}
+                            />
+                          </div>
+
+                          {/* ── تفعيل العرض ── */}
+                          <label className="flex items-center justify-between bg-emerald-50 border border-emerald-200/80 rounded-2xl p-3.5 cursor-pointer select-none">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">✅</span>
+                              <div>
+                                <p className="text-xs font-black text-emerald-800">تفعيل فوراً للزبائن</p>
+                                <p className="text-[10px] text-emerald-600 font-medium">يظهر في أعلى المنيو مباشرة</p>
+                              </div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={offerForm.is_active}
+                              onChange={e => setOfferForm({ ...offerForm, is_active: e.target.checked })}
+                              className="w-5 h-5 accent-emerald-500 rounded cursor-pointer"
+                            />
+                          </label>
+
+                        </form>
+                      </div>
+
+                      {/* ── Footer Actions (Sticky) ── */}
+                      <div className="px-4 py-4 border-t border-slate-100 flex-shrink-0 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowOfferForm(false)}
+                          className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-black text-sm hover:bg-slate-50 transition cursor-pointer"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          type="submit"
+                          form="offer-form-modal"
+                          disabled={savingOffer}
+                          className="flex-2 flex-1 py-3 rounded-2xl bg-gradient-to-l from-orange-500 to-orange-600 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 transition active:scale-95 disabled:opacity-60 cursor-pointer"
+                          style={{ flexGrow: 2 }}
+                        >
+                          {savingOffer ? (
+                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>جاري الحفظ...</span></>
+                          ) : (
+                            <>{editOfferId ? '💾 حفظ التعديلات' : '🔥 نشر العرض'}</>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
