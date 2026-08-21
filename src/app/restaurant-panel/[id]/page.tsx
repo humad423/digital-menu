@@ -142,6 +142,15 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const offerSectionRef = useRef<HTMLDivElement>(null)
   const itemSectionRef = useRef<HTMLDivElement>(null)
 
+  // ── Detect mobile for responsive modal behavior ────────────────
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   // Verify restaurant owner session or Super Admin access
   useEffect(() => {
     async function checkOwnerAuth() {
@@ -1070,17 +1079,20 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
                 {showOfferForm && (
                   <div
-                    className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center lg:items-center lg:p-6"
+                    className={isMobile ? 'fixed inset-0 z-50 flex flex-col justify-end' : 'mx-4 mb-4'}
                     dir="rtl"
-                    onClick={(e) => { if (e.target === e.currentTarget) setShowOfferForm(false) }}
-                    style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
+                    onClick={(e) => { if (isMobile && e.target === e.currentTarget) setShowOfferForm(false) }}
+                    style={isMobile ? { background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' } : {}}
                   >
                     <div
-                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl lg:rounded-3xl shadow-2xl overflow-hidden animate-slide-up lg:animate-none lg:scale-100 flex flex-col"
-                      style={{ maxHeight: '92dvh' }}
+                      className={isMobile
+                        ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
+                        : 'bg-orange-50 border border-orange-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
+                      }
+                      style={isMobile ? { maxHeight: '92dvh' } : {}}
                       onClick={e => e.stopPropagation()}
                     >
-                      {/* ── Drag Handle (mobile only) & Header ── */}
+                      {/* ── Handle (mobile) / Title row (desktop) ── */}
                       <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
                         <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3 lg:hidden" />
                         <div className="flex items-center justify-between">
@@ -1430,17 +1442,20 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
                 {showItemForm && categories.length > 0 && (
                   <div
-                    className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center lg:items-center lg:p-6"
+                    className={isMobile ? 'fixed inset-0 z-50 flex flex-col justify-end' : 'mx-4 mb-4'}
                     dir="rtl"
-                    onClick={(e) => { if (e.target === e.currentTarget) setShowItemForm(false) }}
-                    style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
+                    onClick={(e) => { if (isMobile && e.target === e.currentTarget) setShowItemForm(false) }}
+                    style={isMobile ? { background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' } : {}}
                   >
                     <div
-                      className="bg-white w-full max-w-lg mx-auto rounded-t-3xl lg:rounded-3xl shadow-2xl overflow-hidden animate-slide-up lg:animate-none flex flex-col"
-                      style={{ maxHeight: '92dvh' }}
+                      className={isMobile
+                        ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
+                        : 'bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
+                      }
+                      style={isMobile ? { maxHeight: '92dvh' } : {}}
                       onClick={e => e.stopPropagation()}
                     >
-                      {/* ── Handle (mobile only) & Header ── */}
+                      {/* ── Handle (mobile) / Title (desktop) ── */}
                       <div className="px-4 pt-3 pb-4 border-b border-slate-100 flex-shrink-0">
                         <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-3 lg:hidden" />
                         <div className="flex items-center justify-between">
