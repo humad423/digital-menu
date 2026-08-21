@@ -866,7 +866,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         itemLabel: 'المنتجات والعروض',
         subCatsHeader: 'أقسام الماركت الفرعية',
         countUnit: 'منتَج',
-        offersHeader: 'إدارة العروض والتخفيضات 🏷️',
+        offersHeader: 'العروض والتخفيضات',
         offersDesc: 'عروض وتخفيضات تظهر في أعلى الماركت للزبائن',
         newOfferBtn: 'عرض تخفيض جديد',
         noOffersText: 'لا توجد عروض تخفيض حالياً لهذا الماركت',
@@ -887,7 +887,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         itemLabel: 'تشكيلة الموديلات',
         subCatsHeader: 'أقسام التشكيلة الفرعية',
         countUnit: 'موديل',
-        offersHeader: 'إدارة عروض الأزياء والتخفيضات 👗',
+        offersHeader: 'عروض الأزياء والتخفيضات',
         offersDesc: 'عروض وموديلات مميزة تظهر أعلى قسم الألبسة',
         newOfferBtn: 'عرض جديد',
         noOffersText: 'لا توجد عروض تخفيض حالياً لهذا المتجر',
@@ -908,7 +908,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         itemLabel: 'المنتجات والخدمات',
         subCatsHeader: 'أقسام المتجر الفرعية',
         countUnit: 'عنصر',
-        offersHeader: 'إدارة العروض والتخفيضات 🎁',
+        offersHeader: 'العروض والتخفيضات',
         offersDesc: 'عروض تظهر في أعلى المتجر للزبائن',
         newOfferBtn: 'عرض جديد',
         noOffersText: 'لا توجد عروض حالياً لهذا المتجر',
@@ -928,7 +928,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       itemLabel: 'المنتجات',
       subCatsHeader: 'أقسام المتجر الفرعية',
       countUnit: 'منتَج',
-      offersHeader: 'إدارة العروض والتخفيضات 🏷️',
+      offersHeader: 'العروض والتخفيضات',
       offersDesc: 'عروض وتخفيضات تظهر في أعلى المتجر للزبائن',
       newOfferBtn: 'عرض جديد',
       noOffersText: 'لا توجد عروض ترويجية حالياً لهذا المتجر',
@@ -1092,22 +1092,15 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
               {/* 1. OFFERS SECTION */}
               <div className="c-card border-t-4 border-t-orange-400">
-                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 border-b border-slate-100">
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center text-lg shrink-0 shadow-xs">
-                      🔥
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-black text-slate-900 text-sm sm:text-base leading-tight">
-                          {terms.offersHeader}
-                        </h3>
-                        <span className="text-[11px] font-black text-orange-600 bg-orange-50 border border-orange-200/80 px-2.5 py-0.5 rounded-full">
-                          {offers.length} / {restaurant?.max_offers_limit || 5} متاح
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 font-medium mt-0.5">{terms.offersDesc}</p>
-                    </div>
+                <div className="c-card-header">
+                  <div>
+                    <h3 className="font-black text-slate-800 flex items-center gap-2">
+                      <span>🔥</span> {terms.offersHeader}
+                      <span className="text-xs text-orange-600 font-bold bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
+                        {offers.length} / {restaurant?.max_offers_limit || 5} متاح
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">{terms.offersDesc}</p>
                   </div>
                   <button
                     onClick={() => {
@@ -1117,7 +1110,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                       setShowOfferForm(!showOfferForm)
                     }}
                     disabled={offers.length >= (restaurant?.max_offers_limit || 5) && !editOfferId}
-                    className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-l from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black text-xs rounded-xl shadow-md shadow-orange-500/20 transition active:scale-95 disabled:opacity-40 flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="btn btn-primary btn-sm disabled:opacity-40"
                   >
                     <Plus size={15} /> {terms.newOfferBtn}
                   </button>
@@ -1409,12 +1402,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     </div>
                   </FormPortal>
 
-                <div className="p-3 sm:p-5">
+                <div className="c-card-body pt-0">
                   {offers.length === 0 && !showOfferForm ? (
-                    <div className="text-center py-8 border-2 border-dashed border-orange-200/80 rounded-2xl bg-orange-50/20">
-                      <p className="text-3xl mb-1.5">🔥</p>
-                      <p className="text-slate-500 text-xs sm:text-sm font-bold">{terms.noOffersText}</p>
-                      <p className="text-[11px] text-slate-400 mt-1">أضف عروضاً ترويجية لجذب المزيد من الزبائن وزيادة المبيعات</p>
+                    <div className="text-center py-8 border-2 border-dashed border-orange-200 rounded-2xl">
+                      <p className="text-slate-400 text-sm font-medium">{terms.noOffersText}</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1424,75 +1415,31 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                         const item3 = menuItems.find(i => i.id === offer.item3_id)
                         const item4 = menuItems.find(i => i.id === offer.item4_id)
                         return (
-                          <div
-                            key={offer.id}
-                            className={`p-3.5 rounded-2xl border transition flex flex-col justify-between gap-3 ${
-                              offer.is_active
-                                ? 'bg-white border-slate-200 shadow-xs hover:border-orange-200'
-                                : 'bg-slate-50 border-dashed border-slate-300 opacity-80'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <SmartOfferImage
-                                primaryImage={primaryItem?.image_url}
-                                bonusImage={bonusItem?.image_url}
-                                item3Image={item3?.image_url}
-                                item4Image={item4?.image_url}
-                                customImage={offer.image_url}
-                                minQuantity={offer.min_quantity}
-                                bonusQuantity={offer.bonus_quantity}
-                                className="w-16 h-16 rounded-xl border border-slate-100 shrink-0 shadow-xs"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-black text-sm text-slate-900 line-clamp-1 leading-snug">
-                                  {offer.title}
-                                </h4>
-                                <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
-                                  <span className="font-black text-orange-600 text-base">
-                                    {offer.offer_price} ₺
-                                  </span>
-                                  {offer.original_price && (
-                                    <span className="text-xs text-slate-400 line-through">
-                                      {offer.original_price} ₺
-                                    </span>
-                                  )}
-                                </div>
+                          <div key={offer.id} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
+                            <SmartOfferImage
+                              primaryImage={primaryItem?.image_url}
+                              bonusImage={bonusItem?.image_url}
+                              item3Image={item3?.image_url}
+                              item4Image={item4?.image_url}
+                              customImage={offer.image_url}
+                              minQuantity={offer.min_quantity}
+                              bonusQuantity={offer.bonus_quantity}
+                              className="w-16 h-16 rounded-xl shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-black text-sm text-slate-900 truncate">{offer.title}</h4>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="font-black text-orange-500 text-sm">{offer.offer_price} ₺</span>
+                                {offer.original_price && <span className="text-xs text-slate-400 line-through">{offer.original_price} ₺</span>}
+                                <button onClick={() => toggleOfferActive(offer)}
+                                  className={`badge cursor-pointer ${offer.is_active ? 'badge-green' : 'badge-gray'}`}>
+                                  {offer.is_active ? 'نشط' : 'معطّل'}
+                                </button>
                               </div>
                             </div>
-
-                            {/* Action Bar */}
-                            <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
-                              <button
-                                type="button"
-                                onClick={() => toggleOfferActive(offer)}
-                                className={`px-2.5 py-1 rounded-xl text-[11px] font-black border transition flex items-center gap-1.5 cursor-pointer active:scale-95 ${
-                                  offer.is_active
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                                }`}
-                              >
-                                <span className={`w-2 h-2 rounded-full ${offer.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                <span>{offer.is_active ? 'نشط بالمنيو' : 'معطّل مؤقتاً'}</span>
-                              </button>
-
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditOffer(offer)}
-                                  className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs flex items-center gap-1 border border-blue-100 transition cursor-pointer active:scale-95"
-                                >
-                                  <Edit size={13} />
-                                  <span>تعديل</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => deleteOffer(offer.id)}
-                                  className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 border border-rose-100 transition cursor-pointer active:scale-95"
-                                  title="حذف العرض"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <button onClick={() => handleEditOffer(offer)} className="btn btn-ghost btn-sm text-blue-600 p-1.5"><Edit size={14} /></button>
+                              <button onClick={() => deleteOffer(offer.id)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={14} /></button>
                             </div>
                           </div>
                         )
