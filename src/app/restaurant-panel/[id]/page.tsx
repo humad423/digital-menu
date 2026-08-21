@@ -7,7 +7,7 @@ import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
 import StoreQrModal from '@/components/StoreQrModal'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share, QrCode } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -307,6 +307,45 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       fetchData(false)
       // Invalidate the public ISR cache
       triggerRevalidate(restaurant?.slug, 'menu')
+    }
+  }
+
+  const moveCategory = async (index: number, direction: 'up' | 'down') => {
+    if (!checkSubscriptionGuard()) return
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= categories.length) return
+
+    const newCategories = [...categories]
+    const [moved] = newCategories.splice(index, 1)
+    newCategories.splice(targetIndex, 0, moved)
+
+    const updatedWithSort = newCategories.map((cat, idx) => ({
+      ...cat,
+      sort_order: idx + 1,
+    }))
+
+    // Optimistic UI update
+    setCategories(updatedWithSort)
+
+    try {
+      // Save all updated sort_orders to database
+      const updatePromises = updatedWithSort.map(cat =>
+        supabase.from('categories').update({ sort_order: cat.sort_order }).eq('id', cat.id)
+      )
+      await Promise.all(updatePromises)
+
+      // Clear client-side local cache if present
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(`alfsouq_menu_cache_${id}`)
+        } catch (e) {}
+      }
+
+      // Invalidate the public ISR cache so visitors see the new order immediately
+      triggerRevalidate(restaurant?.slug, 'menu')
+    } catch (err) {
+      console.error('Error reordering categories:', err)
+      fetchData(false)
     }
   }
 
@@ -1567,23 +1606,51 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                     )}
                   </form>
                   <div className="space-y-2">
-                    {categories.map(cat => (
-                      <div key={cat.id} className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition">
-                        <div>
-                          <span className="font-bold text-sm text-slate-800">{cat.name}</span>
-                          <span className="text-xs text-slate-400 mr-2">{menuItems.filter(m => m.category_id === cat.id).length} {terms.countUnit}</span>
+                    {categories.map((cat, idx) => (
+                      <div key={cat.id} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Reorder Buttons: Up & Down */}
+                          <div className="flex flex-col gap-0.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => moveCategory(idx, 'up')}
+                              disabled={idx === 0}
+                              title="رفع القسم للأعلى ⬆️"
+                              className="w-6 h-5 rounded bg-white hover:bg-slate-200 text-slate-600 flex items-center justify-center border border-slate-200/80 disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition shadow-2xs active:scale-90"
+                            >
+                              <ChevronUp size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveCategory(idx, 'down')}
+                              disabled={idx === categories.length - 1}
+                              title="إنزال القسم للأسفل ⬇️"
+                              className="w-6 h-5 rounded bg-white hover:bg-slate-200 text-slate-600 flex items-center justify-center border border-slate-200/80 disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition shadow-2xs active:scale-90"
+                            >
+                              <ChevronDown size={13} />
+                            </button>
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs sm:text-sm text-slate-800 truncate">{cat.name}</span>
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-medium">{menuItems.filter(m => m.category_id === cat.id).length} {terms.countUnit}</span>
+                          </div>
                         </div>
-                        <div className="flex gap-1">
+
+                        <div className="flex gap-1 shrink-0">
                           <button onClick={() => {
                             if (!checkSubscriptionGuard()) return
                             setEditCatId(cat.id)
                             setEditCatName(cat.name)
                             setEditCatSort(cat.sort_order || 0)
                           }}
-                            className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100 p-1.5">
+                            className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100 p-1.5"
+                            title="تعديل اسم القسم">
                             <Edit size={13} />
                           </button>
-                          <button onClick={() => deleteCategory(cat.id, cat.name)} className="btn btn-danger btn-sm p-1.5">
+                          <button onClick={() => deleteCategory(cat.id, cat.name)} className="btn btn-danger btn-sm p-1.5" title="حذف القسم">
                             <Trash2 size={13} />
                           </button>
                         </div>

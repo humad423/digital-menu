@@ -6,7 +6,7 @@ import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { getMainDomainMenuUrl } from '@/utils/url'
 import { triggerRevalidate } from '@/utils/revalidate'
@@ -186,6 +186,40 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (confirm(`حذف القسم "${name}" مع كافة منتجاته؟`)) {
       await supabase.from('categories').delete().eq('id', catId)
       triggerRevalidate(restaurant?.slug, 'menu')
+      fetchData()
+    }
+  }
+
+  const moveCategory = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= categories.length) return
+
+    const newCategories = [...categories]
+    const [moved] = newCategories.splice(index, 1)
+    newCategories.splice(targetIndex, 0, moved)
+
+    const updatedWithSort = newCategories.map((cat, idx) => ({
+      ...cat,
+      sort_order: idx + 1,
+    }))
+
+    setCategories(updatedWithSort)
+
+    try {
+      const updatePromises = updatedWithSort.map(cat =>
+        supabase.from('categories').update({ sort_order: cat.sort_order }).eq('id', cat.id)
+      )
+      await Promise.all(updatePromises)
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(`alfsouq_menu_cache_${id}`)
+        } catch (e) {}
+      }
+
+      triggerRevalidate(restaurant?.slug, 'menu')
+    } catch (err) {
+      console.error('Error reordering categories:', err)
       fetchData()
     }
   }
@@ -1353,7 +1387,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
 
               {/* Categories List */}
               <div className="space-y-2">
-                {categories.map(cat => {
+                {categories.map((cat, idx) => {
                   const count = menuItems.filter(i => i.category_id === cat.id).length
                   if (editCatId === cat.id) {
                     return (
@@ -1382,13 +1416,36 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
                   }
 
                   return (
-                    <div key={cat.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-3 flex items-center justify-between gap-2">
+                    <div key={cat.id} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-2.5 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <GripVertical size={15} className="text-slate-500 shrink-0" />
-                        <span className="font-black text-xs text-white truncate">{cat.name}</span>
-                        <span className="text-[10px] text-slate-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full shrink-0">
-                          {count} منتَج
-                        </span>
+                        {/* Reorder Buttons */}
+                        <div className="flex flex-col gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => moveCategory(idx, 'up')}
+                            disabled={idx === 0}
+                            title="رفع القسم للأعلى ⬆️"
+                            className="w-5 h-4.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700 disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition active:scale-90"
+                          >
+                            <ChevronUp size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveCategory(idx, 'down')}
+                            disabled={idx === categories.length - 1}
+                            title="إنزال القسم للأسفل ⬇️"
+                            className="w-5 h-4.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700 disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition active:scale-90"
+                          >
+                            <ChevronDown size={12} />
+                          </button>
+                        </div>
+
+                        <div className="min-w-0">
+                          <span className="font-black text-xs text-white truncate block">{cat.name}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">
+                            {count} منتَج
+                          </span>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">

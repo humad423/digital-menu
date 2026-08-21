@@ -67,7 +67,8 @@ export default function MenuClient({
 
   const displayCats = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    const filteredCats = categories.map(cat => ({
+    const sortedCategories = [...categories].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    const filteredCats = sortedCategories.map(cat => ({
       ...cat,
       items: menuItems.filter(i =>
         i.category_id === cat.id &&
