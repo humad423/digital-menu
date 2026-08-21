@@ -32,35 +32,32 @@ function FormPortal({
   }, [])
 
   useEffect(() => {
-    if (isMobile && isOpen) {
+    if (isOpen) {
       const origOverflow = document.body.style.overflow
       document.body.style.overflow = 'hidden'
       return () => {
         document.body.style.overflow = origOverflow
       }
     }
-  }, [isMobile, isOpen])
+  }, [isOpen])
 
   if (!isOpen) return null
+  if (!mounted || typeof document === 'undefined') return null
 
-  if (isMobile && mounted && typeof document !== 'undefined') {
-    return createPortal(
-      <div
-        className="fixed inset-0 z-[99999] flex flex-col justify-end"
-        dir="rtl"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-        style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)' }}
-      >
-        {children}
-      </div>,
-      document.body
-    )
-  }
-
-  return (
-    <div className="mx-4 mb-4" dir="rtl">
+  return createPortal(
+    <div
+      className={`fixed inset-0 z-[99999] transition-all duration-300 ${
+        isMobile
+          ? 'flex flex-col justify-end'
+          : 'flex justify-start'
+      }`}
+      dir="rtl"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{ background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)' }}
+    >
       {children}
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1130,9 +1127,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   <div
                     className={isMobile
                       ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
-                      : 'bg-orange-50 border border-orange-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
+                      : 'bg-white w-[540px] max-w-[95vw] h-full shadow-2xl overflow-hidden animate-drawer-rtl flex flex-col border-l border-slate-200'
                     }
-                    style={isMobile ? { maxHeight: '90dvh' } : {}}
+                    style={isMobile ? { maxHeight: '90dvh' } : { height: '100dvh' }}
                     onClick={e => e.stopPropagation()}
                   >
                     {/* ── Handle (mobile) / Title row (desktop) ── */}
@@ -1486,9 +1483,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   <div
                     className={isMobile
                       ? 'bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col'
-                      : 'bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden animate-slide-down flex flex-col'
+                      : 'bg-white w-[540px] max-w-[95vw] h-full shadow-2xl overflow-hidden animate-drawer-rtl flex flex-col border-l border-slate-200'
                     }
-                    style={isMobile ? { maxHeight: '90dvh' } : {}}
+                    style={isMobile ? { maxHeight: '90dvh' } : { height: '100dvh' }}
                     onClick={e => e.stopPropagation()}
                   >
                     {/* ── Handle (mobile) / Title (desktop) ── */}
