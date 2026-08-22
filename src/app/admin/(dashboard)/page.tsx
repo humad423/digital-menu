@@ -13,7 +13,7 @@ import AdminQrAnalyticsTab from '@/components/AdminQrAnalyticsTab'
 import TabErrorBoundary from '@/components/TabErrorBoundary'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode } from 'lucide-react'
+import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon } from 'lucide-react'
 import { parseRestaurantMultiplier, encodeRestaurantMultiplier, MULTIPLIER_PRESETS } from '@/utils/visitsHelper'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
@@ -44,6 +44,11 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('restaurants')
   const [selectedStoreForSettings, setSelectedStoreForSettings] = useState<any>(null)
+
+  const [resSearchQuery, setResSearchQuery] = useState('')
+  const [resFilterStatus, setResFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [resFilterType, setResFilterType] = useState<string>('all')
+  const [resViewMode, setResViewMode] = useState<'grid' | 'table'>('grid')
 
   const [allOffers, setAllOffers] = useState<any[]>([])
   const [offerSearchQuery, setOfferSearchQuery] = useState('')
@@ -518,19 +523,135 @@ export default function AdminDashboard() {
             RESTAURANTS TAB
         ══════════════════════════════════════ */}
         {!loading && activeTab === 'restaurants' && (
-          <div className="animate-fade-in-up">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-lg font-black text-slate-800">المطاعم المسجلة</h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">{restaurants.length} مطعم مسجل في المنصة</p>
+          <div className="animate-fade-in-up space-y-4">
+            {/* Header & Controls Toolbar */}
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                    <Store className="text-orange-500" size={20} />
+                    <span>المتاجر المسجلة</span>
+                    <span className="text-xs font-black bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full border border-orange-100">
+                      {restaurants.length} متجر
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    إدارة بيانات المتاجر، الاشتراكات، ساعات العمل، وحسابات الدخول
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* View Mode Toggle */}
+                  <div className="bg-slate-100 p-1 rounded-2xl flex items-center border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setResViewMode('grid')}
+                      className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                        resViewMode === 'grid'
+                          ? 'bg-white text-slate-900 shadow-xs font-black'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="عرض بطاقات مضغوطة"
+                    >
+                      <GridIcon size={15} />
+                      <span className="hidden sm:inline">بطاقات</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResViewMode('table')}
+                      className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                        resViewMode === 'table'
+                          ? 'bg-white text-slate-900 shadow-xs font-black'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="عرض جدول سريع"
+                    >
+                      <List size={15} />
+                      <span className="hidden sm:inline">جدول سريع</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => { setShowResForm(!showResForm); setEditResId(null); setSelectedCatIds([]); setResForm(emptyRes) }}
+                    className="btn btn-primary text-xs font-black py-2.5 px-4 rounded-2xl flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Plus size={16} />
+                    <span>متجر جديد</span>
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => { setShowResForm(!showResForm); setEditResId(null); setSelectedCatIds([]); setResForm(emptyRes) }}
-                className="btn btn-primary"
-              >
-                <Plus size={16} />
-                <span>مطعم جديد</span>
-              </button>
+
+              {/* Search & Filter Bar */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-100">
+                {/* Search Input */}
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="ابحث باسم المتجر، الرابط (Slug)، أو رقم الهاتف..."
+                    value={resSearchQuery}
+                    onChange={e => setResSearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pr-9 pl-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-orange-500 transition"
+                  />
+                  {resSearchQuery && (
+                    <button
+                      onClick={() => setResSearchQuery('')}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setResFilterStatus('all')}
+                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                      resFilterStatus === 'all' ? 'bg-white text-slate-900 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    الكل ({restaurants.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResFilterStatus('active')}
+                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+                      resFilterStatus === 'active' ? 'bg-emerald-500 text-white font-black shadow-xs' : 'text-slate-500 hover:text-emerald-600'
+                    }`}
+                  >
+                    <span>نشط</span>
+                    <span className="text-[10px] opacity-80">({restaurants.filter(r => r.is_subscription_active !== false).length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResFilterStatus('inactive')}
+                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+                      resFilterStatus === 'inactive' ? 'bg-rose-500 text-white font-black shadow-xs' : 'text-slate-500 hover:text-rose-600'
+                    }`}
+                  >
+                    <span>معلق</span>
+                    <span className="text-[10px] opacity-80">({restaurants.filter(r => r.is_subscription_active === false).length})</span>
+                  </button>
+                </div>
+
+                {/* Store Type Filter */}
+                {businessTypes.length > 0 && (
+                  <select
+                    value={resFilterType}
+                    onChange={e => setResFilterType(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 cursor-pointer"
+                  >
+                    <option value="all">جميع أنواع الأنشطة (الكل)</option>
+                    {businessTypes.map(bt => (
+                      <option key={bt.id} value={bt.slug}>
+                        {bt.icon} {bt.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
 
             {/* Restaurant Form */}
@@ -865,162 +986,346 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Restaurants Grid */}
-            {restaurants.length === 0 ? (
-              <div className="c-card text-center py-16">
-                <p className="text-5xl mb-3">🏪</p>
-                <p className="font-bold text-slate-400">لا توجد مطاعم مسجلة حتى الآن</p>
-                <p className="text-xs text-slate-400 mt-1">اضغط "مطعم جديد" لإضافة أول مطعم</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {restaurants.map(r => {
-                  const cats = (restaurantCategoryMap[r.id] || [])
-                    .map(cid => platformCategories.find(c => c.id === cid))
-                    .filter(Boolean)
-                  return (
-                    <div key={r.id} className="c-card flex flex-col hover:shadow-md transition-shadow duration-200">
-                      {/* Cover */}
-                      <div className="h-28 relative overflow-hidden">
-                        {r.cover_url
-                          ? <img src={r.cover_url} alt="" className="w-full h-full object-cover" />
-                          : <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${r.primary_color}cc 0%, ${r.primary_color}55 100%)` }} />
-                        }
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                        {r.logo_url && (
-                          <img src={r.logo_url} alt="" className="absolute bottom-3 right-4 w-12 h-12 rounded-full border-2 border-white object-contain bg-white shadow-md" />
-                        )}
-                      </div>
-                      {/* Body */}
-                      <div className="p-4 flex-1 flex flex-col">
-                        <div className="mb-3 flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="font-black text-base text-slate-900">{r.name}</h3>
-                            <p className="text-xs text-slate-400 font-mono mt-0.5" dir="ltr">/m/{r.slug}</p>
+            {/* Restaurants Display (Grid or Table) */}
+            {(() => {
+              const filteredRestaurants = restaurants.filter(r => {
+                const q = resSearchQuery.toLowerCase().trim()
+                const phone = ownerPhoneMap[r.id] || r.owner_phone || ''
+                const matchesQuery = !q ||
+                  r.name?.toLowerCase().includes(q) ||
+                  r.slug?.toLowerCase().includes(q) ||
+                  r.whatsapp_number?.includes(q) ||
+                  phone.includes(q)
+
+                const matchesStatus =
+                  resFilterStatus === 'all' ||
+                  (resFilterStatus === 'active' && r.is_subscription_active !== false) ||
+                  (resFilterStatus === 'inactive' && r.is_subscription_active === false)
+
+                const matchesType =
+                  resFilterType === 'all' || r.store_type === resFilterType
+
+                return matchesQuery && matchesStatus && matchesType
+              })
+
+              if (filteredRestaurants.length === 0) {
+                return (
+                  <div className="c-card text-center py-16 bg-white rounded-3xl border border-slate-200/80">
+                    <p className="text-4xl mb-2">🏪</p>
+                    <p className="font-black text-slate-700 text-base">لا توجد متاجر مطابقة للبحث أو الفلتر</p>
+                    <p className="text-xs text-slate-400 mt-1">جرّب مسح كلمات البحث أو تغيير الفلتر</p>
+                    {resSearchQuery && (
+                      <button
+                        onClick={() => { setResSearchQuery(''); setResFilterStatus('all'); setResFilterType('all') }}
+                        className="mt-3 text-xs font-bold text-orange-600 bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 hover:bg-orange-100 transition cursor-pointer"
+                      >
+                        مسح الفلاتر ✕
+                      </button>
+                    )}
+                  </div>
+                )
+              }
+
+              if (resViewMode === 'table') {
+                return (
+                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="data-table w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold">
+                            <th className="py-3 px-4 text-right">المتجر</th>
+                            <th className="py-3 px-3 text-center">النشاط</th>
+                            <th className="py-3 px-3 text-right">هاتف الدخول / واتساب</th>
+                            <th className="py-3 px-3 text-center">اشتراك اللوحة</th>
+                            <th className="py-3 px-3 text-center">منيو الزبائن</th>
+                            <th className="py-3 px-3 text-center">حالة العمل</th>
+                            <th className="py-3 px-4 text-center">الإجراءات</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredRestaurants.map(r => {
+                            const status = getStoreStatus(r)
+                            const bt = businessTypes.find(b => b.slug === r.store_type)
+                            const storeTypeLabel = bt ? `${bt.icon} ${bt.name}` : (r.store_type === 'supermarket' ? '🛒 سوبرماركت' : r.store_type === 'clothing' ? '👗 ألبسة' : r.store_type === 'other' ? '🎁 متجر' : '🍔 مطعم')
+
+                            return (
+                              <tr key={r.id} className="hover:bg-slate-50/60 transition">
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-lg shrink-0 overflow-hidden">
+                                      {r.logo_url ? (
+                                        <img src={r.logo_url} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span>{r.store_type === 'supermarket' ? '🛒' : r.store_type === 'clothing' ? '👗' : '🍔'}</span>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <h4 className="font-black text-slate-900 text-sm truncate">{r.name}</h4>
+                                      <Link
+                                        href={`/m/${r.slug}`}
+                                        target="_blank"
+                                        className="text-[11px] font-mono text-slate-400 hover:text-orange-600 inline-flex items-center gap-0.5 dir-ltr"
+                                      >
+                                        <span>/m/{r.slug}</span>
+                                        <ExternalLink size={10} />
+                                      </Link>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3 text-center">
+                                  <span className="badge badge-gray font-bold text-[10px]">
+                                    {storeTypeLabel}
+                                  </span>
+                                </td>
+
+                                <td className="py-3 px-3">
+                                  <div className="space-y-0.5 text-[11px]">
+                                    <div className="font-mono text-slate-800 font-bold dir-ltr flex items-center gap-1 justify-end">
+                                      <span>{ownerPhoneMap[r.id] || r.owner_phone || '-'}</span>
+                                      <Phone size={11} className="text-amber-500" />
+                                    </div>
+                                    {r.whatsapp_number && (
+                                      <div className="font-mono text-slate-400 text-[10px] dir-ltr flex items-center gap-1 justify-end">
+                                        <span>{r.whatsapp_number}</span>
+                                        <span className="text-emerald-500 text-[9px] font-bold">WA</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleRestaurantSubscription(r)}
+                                    className={`px-2.5 py-1 rounded-xl text-[10px] font-black border transition cursor-pointer active:scale-95 ${
+                                      r.is_subscription_active !== false
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                        : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                    }`}
+                                  >
+                                    {r.is_subscription_active !== false ? 'نشط ✅' : 'معلق ⛔'}
+                                  </button>
+                                </td>
+
+                                <td className="py-3 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleRestaurantMenu(r)}
+                                    className={`px-2.5 py-1 rounded-xl text-[10px] font-black border transition cursor-pointer active:scale-95 ${
+                                      r.is_menu_active !== false
+                                        ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                        : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                    }`}
+                                  >
+                                    {r.is_menu_active !== false ? 'منشور 🟢' : 'معلق 🔴'}
+                                  </button>
+                                </td>
+
+                                <td className="py-3 px-3 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                                    <span>{status.statusText}</span>
+                                  </span>
+                                </td>
+
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <Link
+                                      href={`/admin/restaurant/${r.id}`}
+                                      className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-black rounded-xl text-xs flex items-center gap-1 transition"
+                                      title="إدارة المنيو والعروض"
+                                    >
+                                      <Utensils size={13} />
+                                      <span>المنيو</span>
+                                    </Link>
+                                    <button
+                                      onClick={() => handleImpersonateOwner(r)}
+                                      className="p-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition"
+                                      title="دخول كصاحب متجر"
+                                    >
+                                      <Store size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => setSelectedStoreForSettings(r)}
+                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+                                      title="ساعات الدوام والعطلات"
+                                    >
+                                      <Settings size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleEditRes(r)}
+                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-blue-600 rounded-xl transition"
+                                      title="تعديل البيانات"
+                                    >
+                                      <Edit size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteRes(r.id, r.name)}
+                                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition"
+                                      title="حذف المتجر"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredRestaurants.map(r => {
+                    const status = getStoreStatus(r)
+                    const bt = businessTypes.find(b => b.slug === r.store_type)
+                    const storeTypeLabel = bt ? `${bt.icon} ${bt.name}` : (r.store_type === 'supermarket' ? '🛒 سوبرماركت' : r.store_type === 'clothing' ? '👗 ألبسة' : r.store_type === 'other' ? '🎁 متجر' : '🍔 مطعم')
+
+                    return (
+                      <div
+                        key={r.id}
+                        className="bg-white rounded-3xl p-4 border border-slate-200/90 hover:border-orange-300 hover:shadow-md transition-all flex flex-col justify-between gap-3 group"
+                      >
+                        {/* Header: Logo + Name + Slug + Status */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-xl shrink-0 overflow-hidden shadow-2xs">
+                              {r.logo_url ? (
+                                <img src={r.logo_url} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{r.store_type === 'supermarket' ? '🛒' : r.store_type === 'clothing' ? '👗' : '🍔'}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="font-black text-sm text-slate-900 truncate leading-tight group-hover:text-orange-600 transition-colors">
+                                {r.name}
+                              </h3>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <Link
+                                  href={`/m/${r.slug}`}
+                                  target="_blank"
+                                  className="text-[11px] font-mono text-slate-400 hover:text-orange-600 truncate inline-flex items-center gap-0.5 dir-ltr"
+                                >
+                                  <span>/m/{r.slug}</span>
+                                  <ExternalLink size={10} className="shrink-0" />
+                                </Link>
+                              </div>
+                            </div>
                           </div>
+
                           <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="badge badge-gray font-bold">
-                              {(() => {
-                                const bt = businessTypes.find(b => b.slug === r.store_type)
-                                return bt ? `${bt.icon} ${bt.name}` : (r.store_type === 'supermarket' ? '🛒 سوبرماركت' : r.store_type === 'clothing' ? '👗 ألبسة' : r.store_type === 'other' ? '🎁 متجر' : '🍔 مطعم')
-                              })()}
+                            <span className={`px-2 py-0.5 rounded-full border text-[9px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                              <span>{status.statusText}</span>
                             </span>
-                            {(() => {
-                              const status = getStoreStatus(r)
-                              return (
-                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
-                                  <span>{status.statusText}</span>
-                                </span>
-                              )
-                            })()}
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
+                              {storeTypeLabel}
+                            </span>
                           </div>
                         </div>
-                        {cats.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {cats.map((c: any) => (
-                              <span key={c.id} className="badge badge-gray">{c.icon} {c.name}</span>
-                            ))}
-                          </div>
-                        )}
-                        {/* Login Phone & WhatsApp Details */}
-                        <div className="space-y-1.5 mb-3 bg-slate-50 border border-slate-100 p-2.5 rounded-2xl text-xs">
-                          <div className="flex items-center justify-between gap-1 text-slate-800 font-bold">
-                            <span className="flex items-center gap-1">
-                              <Phone size={11} className="text-amber-600 shrink-0" />
-                              هاتف دخول اللوحة:
-                            </span>
-                            <span dir="ltr" className="font-mono text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md text-[11px]">
-                              {ownerPhoneMap[r.id] || r.owner_phone || 'غير مسجّل'}
-                            </span>
-                          </div>
+
+                        {/* Contact details */}
+                        <div className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-slate-600">
+                          <span className="flex items-center gap-1 font-bold truncate">
+                            <Phone size={11} className="text-amber-500 shrink-0" />
+                            <span dir="ltr" className="font-mono text-slate-800">{ownerPhoneMap[r.id] || r.owner_phone || 'لا يوجد هاتف'}</span>
+                          </span>
                           {r.whatsapp_number && (
-                            <div className="flex items-center justify-between gap-1 text-slate-500 font-medium">
-                              <span className="flex items-center gap-1">
-                                <Phone size={11} className="text-emerald-500 shrink-0" />
-                                واتساب الزبائن:
-                              </span>
-                              <span dir="ltr" className="font-mono text-slate-700">
-                                {r.whatsapp_number}
-                              </span>
-                            </div>
+                            <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold shrink-0">
+                              <Phone size={10} className="text-emerald-500" />
+                              <span>واتساب ✅</span>
+                            </span>
                           )}
                         </div>
 
-                        {/* Subscription & Menu Status Quick Controls */}
-                        <div className="grid grid-cols-2 gap-1.5 mb-3 bg-slate-50 border border-slate-200/80 p-2 rounded-2xl">
-                          {/* Subscription Status Toggle */}
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                              <span>💳</span> اشتراك اللوحة:
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleRestaurantSubscription(r)}
-                              className={`px-2 py-1 rounded-xl text-[11px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
-                                r.is_subscription_active !== false
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                              }`}
-                              title="اضغط للتبديل الفوري لحالة الاشتراك"
-                            >
-                              <span>{r.is_subscription_active !== false ? 'نشط ✅' : 'معلق ⛔'}</span>
-                              <span className="text-[9px] opacity-60">تبديل</span>
-                            </button>
-                          </div>
-
-                          {/* Menu Status Toggle */}
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                              <span>🍽️</span> منيو الزبائن:
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleRestaurantMenu(r)}
-                              className={`px-2 py-1 rounded-xl text-[11px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
-                                r.is_menu_active !== false
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                              }`}
-                              title="اضغط للتبديل الفوري لإتاحة المنيو للزبائن"
-                            >
-                              <span>{r.is_menu_active !== false ? 'منشور 🟢' : 'معلق 🔴'}</span>
-                              <span className="text-[9px] opacity-60">تبديل</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-auto flex flex-col gap-2">
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button onClick={() => handleEditRes(r)} className="btn btn-ghost btn-sm text-slate-700 bg-slate-100 hover:bg-slate-200 font-bold">
-                              <Edit size={13} /> تعديل البيانات ✏️
-                            </button>
-                            <button onClick={() => setSelectedStoreForSettings(r)} className="btn btn-ghost btn-sm text-orange-700 bg-orange-50 border border-orange-100 hover:bg-orange-100 font-bold">
-                              <Settings size={13} /> الدوام والعطلات ⚙️
-                            </button>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <Link href={`/admin/restaurant/${r.id}`} className="btn btn-sm flex-1 bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 font-bold">
-                              <Utensils size={14} /> إدارة عناصر المنيو والعروض
-                            </Link>
-                            <button onClick={() => handleDeleteRes(r.id, r.name)} className="btn btn-danger btn-sm shrink-0">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                        {/* Quick interactive switches */}
+                        <div className="grid grid-cols-2 gap-1.5">
                           <button
-                            onClick={() => handleImpersonateOwner(r)}
-                            className="btn btn-sm bg-slate-900 text-slate-200 hover:bg-slate-800 w-full text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+                            type="button"
+                            onClick={() => toggleRestaurantSubscription(r)}
+                            className={`px-2 py-1 rounded-xl text-[10px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
+                              r.is_subscription_active !== false
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                            }`}
+                            title="تبديل حالة اشتراك لوحة التحكم"
                           >
-                            <span>🏪 دخول كصاحب متجر</span>
-                            <ExternalLink size={13} className="text-slate-400" />
+                            <span>اشتراك: {r.is_subscription_active !== false ? 'نشط ✅' : 'معلق ⛔'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleRestaurantMenu(r)}
+                            className={`px-2 py-1 rounded-xl text-[10px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
+                              r.is_menu_active !== false
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                            }`}
+                            title="تبديل إتاحة منيو الزبائن"
+                          >
+                            <span>المنيو: {r.is_menu_active !== false ? 'منشور 🟢' : 'معلق 🔴'}</span>
                           </button>
                         </div>
+
+                        {/* Action buttons */}
+                        <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Link
+                              href={`/admin/restaurant/${r.id}`}
+                              className="flex-1 py-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200/80 font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                            >
+                              <Utensils size={13} />
+                              <span>المنيو والعروض</span>
+                            </Link>
+                            <button
+                              onClick={() => handleImpersonateOwner(r)}
+                              className="py-2 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1 transition active:scale-95"
+                              title="دخول كصاحب متجر"
+                            >
+                              <Store size={13} />
+                              <span>دخول</span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1">
+                            <button
+                              onClick={() => setSelectedStoreForSettings(r)}
+                              className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                              title="ساعات الدوام والعطلات"
+                            >
+                              <Settings size={12} className="text-slate-500" />
+                              <span>الدوام</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleEditRes(r)}
+                              className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                              title="تعديل بيانات المتجر"
+                            >
+                              <Edit size={12} className="text-blue-500" />
+                              <span>تعديل</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteRes(r.id, r.name)}
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold transition cursor-pointer"
+                              title="حذف المتجر"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
         )}
 
