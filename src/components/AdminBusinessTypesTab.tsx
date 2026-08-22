@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Tag, Plus, Edit, Trash2, CheckCircle, XCircle, Sparkles, Loader2 } from 'lucide-react'
+import { triggerRevalidate } from '@/utils/revalidate'
+import { Tag, Plus, Edit, Trash2, CheckCircle2, XCircle, Sparkles, Loader2 } from 'lucide-react'
 
 export interface BusinessType {
   id: string
@@ -84,6 +85,7 @@ export default function AdminBusinessTypesTab({
       } else {
         setShowForm(false)
         onRefresh()
+        triggerRevalidate(null, 'home')
       }
     } else {
       const { error } = await supabase.from('business_types').insert([payload])
@@ -92,6 +94,7 @@ export default function AdminBusinessTypesTab({
       } else {
         setShowForm(false)
         onRefresh()
+        triggerRevalidate(null, 'home')
       }
     }
     setSaving(false)
@@ -99,14 +102,21 @@ export default function AdminBusinessTypesTab({
 
   const toggleActive = async (bt: BusinessType) => {
     const { error } = await supabase.from('business_types').update({ is_active: !bt.is_active }).eq('id', bt.id)
-    if (!error) onRefresh()
+    if (!error) {
+      onRefresh()
+      triggerRevalidate(null, 'home')
+    }
   }
 
   const handleDelete = async (bt: BusinessType) => {
     if (confirm(`هل أنت متأكد من حذف نوع النشاط "${bt.icon} ${bt.name}"؟`)) {
       const { error } = await supabase.from('business_types').delete().eq('id', bt.id)
-      if (!error) onRefresh()
-      else alert('حدث خطأ أثناء الحذف: ' + error.message)
+      if (!error) {
+        onRefresh()
+        triggerRevalidate(null, 'home')
+      } else {
+        alert('حدث خطأ أثناء الحذف: ' + error.message)
+      }
     }
   }
 

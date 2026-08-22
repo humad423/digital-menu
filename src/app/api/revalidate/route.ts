@@ -4,17 +4,19 @@ import { clearMemoryCache } from '@/utils/menuCache'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { slug, type = 'menu' } = body as {
+    const { slug, restaurantId, type = 'menu' } = body as {
       slug?: string
+      restaurantId?: string
       type?: 'menu' | 'offers' | 'home' | 'all'
     }
 
-    // All public pages are force-dynamic — the ONLY effective cache is memoryCache.
-    // revalidatePath() does nothing for force-dynamic pages, so we skip it entirely.
-
-    // Clear specific slug cache for menu/restaurant updates
+    // Clear specific slug/id cache for menu/restaurant updates
     if (slug) {
       clearMemoryCache(slug)
+    }
+
+    if (restaurantId) {
+      clearMemoryCache(restaurantId)
     }
 
     // Clear home + offers caches when relevant data changes
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest) {
       revalidated: true,
       type,
       slug: slug ?? null,
+      restaurantId: restaurantId ?? null,
       timestamp: new Date().toISOString(),
     })
   } catch (err: any) {

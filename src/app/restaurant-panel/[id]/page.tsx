@@ -451,6 +451,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setSavingTiers(true)
     await supabase.from('restaurants').update({ delivery_tiers: tiers }).eq('id', id)
     setSavingTiers(false)
+    triggerRevalidate(restaurant?.slug, 'menu', id)
   }
 
   const toggleDelivery = async () => {
@@ -460,6 +461,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setRestaurant((prev: any) => ({ ...prev, has_delivery: newVal }))
     await supabase.from('restaurants').update({ has_delivery: newVal }).eq('id', id)
     setSavingDelivery(false)
+    triggerRevalidate(restaurant?.slug, 'menu', id)
   }
 
   const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false)
@@ -470,6 +472,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setRestaurant((prev: any) => ({ ...prev, enable_whatsapp_orders: newVal }))
     await supabase.from('restaurants').update({ enable_whatsapp_orders: newVal }).eq('id', id)
     setSavingWhatsappToggle(false)
+    triggerRevalidate(restaurant?.slug, 'menu', id)
   }
 
   // ── Items CRUD ──────────────────────────────────────────────────

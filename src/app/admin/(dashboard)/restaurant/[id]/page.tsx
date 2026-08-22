@@ -263,6 +263,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     setSavingTiers(true)
     await supabase.from('restaurants').update({ delivery_tiers: tiers }).eq('id', id)
     setSavingTiers(false)
+    triggerRevalidate(restaurant?.slug, 'menu', id)
   }
 
   // ── Items CRUD ──────────────────────────────────────────────────

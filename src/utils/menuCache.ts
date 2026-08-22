@@ -8,16 +8,40 @@ interface CacheEntry<T> {
 
 // In-memory cache store (shared across requests in warm serverless lambdas)
 const memoryCache = new Map<string, CacheEntry<any>>()
-const DEFAULT_TTL_MS = 5 * 60 * 1000 // 5 minutes TTL
+const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours TTL (Permanent cache until mutation)
+
+// Bidirectional mappings to guarantee invalidating by slug also invalidates by restaurantId and vice-versa
+const slugToIdMap = new Map<string, string>()
+const idToSlugMap = new Map<string, string>()
 
 export function clearMemoryCache(pattern?: string) {
   if (!pattern) {
     memoryCache.clear()
+    slugToIdMap.clear()
+    idToSlugMap.clear()
     return
   }
-  for (const key of memoryCache.keys()) {
-    if (key.includes(pattern)) {
-      memoryCache.delete(key)
+
+  const patternsToClear = new Set<string>([pattern])
+
+  // If pattern is a known slug, also clear its restaurantId
+  if (slugToIdMap.has(pattern)) {
+    const associatedId = slugToIdMap.get(pattern)!
+    patternsToClear.add(associatedId)
+  }
+
+  // If pattern is a known restaurantId, also clear its slug
+  if (idToSlugMap.has(pattern)) {
+    const associatedSlug = idToSlugMap.get(pattern)!
+    patternsToClear.add(associatedSlug)
+  }
+
+  for (const key of Array.from(memoryCache.keys())) {
+    for (const pat of patternsToClear) {
+      if (key.includes(pat)) {
+        memoryCache.delete(key)
+        break
+      }
     }
   }
 }
@@ -46,6 +70,11 @@ export const getRestaurantBySlug = cache(async (slug: string): Promise<any> => {
 
   if (data) {
     memoryCache.set(cacheKey, { data, timestamp: Date.now() })
+    const typed = data as any
+    if (typed.id && typed.slug) {
+      slugToIdMap.set(typed.slug, typed.id)
+      idToSlugMap.set(typed.id, typed.slug)
+    }
   }
   return data
 })

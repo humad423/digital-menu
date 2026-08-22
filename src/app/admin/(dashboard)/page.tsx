@@ -132,12 +132,17 @@ export default function AdminDashboard() {
     const newStatus = !offer.is_active
     setAllOffers(prev => prev.map(o => o.id === offer.id ? { ...o, is_active: newStatus } : o))
     await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id)
+    triggerRevalidate(offer.restaurants?.slug, 'offers')
+    triggerRevalidate(null, 'home')
   }
 
   const deletePlatformOffer = async (offerId: string, title: string) => {
     if (confirm(`هل أنت متأكد من حذف العرض "${title}" من المنصة بالكامل؟`)) {
+      const target = allOffers.find(o => o.id === offerId)
       setAllOffers(prev => prev.filter(o => o.id !== offerId))
       await supabase.from('offers').delete().eq('id', offerId)
+      triggerRevalidate(target?.restaurants?.slug, 'offers')
+      triggerRevalidate(null, 'home')
     }
   }
 
@@ -279,10 +284,15 @@ export default function AdminDashboard() {
     if (editCatId) await supabase.from('platform_categories').update(catForm).eq('id', editCatId)
     else await supabase.from('platform_categories').insert([catForm])
     setShowCatForm(false); setEditCatId(null); setCatForm({ name: '', icon: '' }); fetchData()
+    triggerRevalidate(null, 'home')
   }
 
   const deleteCat = async (id: string) => {
-    if (confirm('حذف التصنيف؟')) { await supabase.from('platform_categories').delete().eq('id', id); fetchData() }
+    if (confirm('حذف التصنيف؟')) {
+      await supabase.from('platform_categories').delete().eq('id', id)
+      fetchData()
+      triggerRevalidate(null, 'home')
+    }
   }
 
   // ── Service Zones ────────────────────────────────────────────────
@@ -312,6 +322,7 @@ export default function AdminDashboard() {
     setEditZoneId(null)
     setZoneForm(emptyZone)
     fetchData()
+    triggerRevalidate(null, 'home')
   }
 
   const handleEditZone = (z: any) => {
@@ -331,12 +342,14 @@ export default function AdminDashboard() {
     if (confirm(`هل أنت متأكد من حذف المنطقة الجغرافية "${name}"؟`)) {
       await supabase.from('service_zones').delete().eq('id', id)
       fetchData()
+      triggerRevalidate(null, 'home')
     }
   }
 
   const toggleZoneActive = async (z: any) => {
     await supabase.from('service_zones').update({ is_active: !z.is_active }).eq('id', z.id)
     fetchData()
+    triggerRevalidate(null, 'home')
   }
 
   // ── Platform Ads ────────────────────────────────────────────────
@@ -386,6 +399,7 @@ export default function AdminDashboard() {
     setEditAdId(null)
     setAdForm(emptyAdForm)
     fetchData()
+    triggerRevalidate(null, 'home')
   }
 
   const handleEditAd = (ad: any) => {
@@ -404,7 +418,11 @@ export default function AdminDashboard() {
   }
 
   const deleteAd = async (id: string) => {
-    if (confirm('حذف هذا الإعلان؟')) { await supabase.from('platform_ads').delete().eq('id', id); fetchData() }
+    if (confirm('حذف هذا الإعلان؟')) {
+      await supabase.from('platform_ads').delete().eq('id', id)
+      fetchData()
+      triggerRevalidate(null, 'home')
+    }
   }
 
   const handleImpersonateOwner = (r: any) => {
