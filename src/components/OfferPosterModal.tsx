@@ -205,6 +205,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
   const [marketingIndex, setMarketingIndex] = useState(0)
   const [badgeStyle, setBadgeStyle] = useState<MarketingBadgeStyle>('neon_pill')
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>('punchy_short')
+  const [quantityStyleIndex, setQuantityStyleIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [copiedCaption, setCopiedCaption] = useState(false)
@@ -245,6 +246,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
     setMarketingIndex(randomMIndex)
     setBadgeStyle(randomBadge)
     setCaptionStyle(randomCaption)
+    setQuantityStyleIndex(prev => prev + 1)
   }
 
   // Automatically randomize everything when opening for an offer
@@ -371,7 +373,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
           ctx, width, height, accent, accentSec,
           theme: selectedTheme, offer, restaurant, savings, discountPct,
           priceStyle, productImgs, logoImg, deliveryText, qrTargetUrl,
-          marketingPhrase, badgeStyle
+          marketingPhrase, badgeStyle, quantityStyleIndex
         }
 
         await renderModularShape(posterShape, c)
@@ -392,7 +394,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
 
     renderPoster()
     return () => { isMounted = false }
-  }, [isOpen, offer, restaurant, posterShape, theme, priceStyle, marketingIndex, badgeStyle])
+  }, [isOpen, offer, restaurant, posterShape, theme, priceStyle, marketingIndex, badgeStyle, quantityStyleIndex])
 
   if (!isOpen || !offer) return null
 
@@ -592,6 +594,7 @@ interface RenderContext {
   qrTargetUrl: string
   marketingPhrase: string
   badgeStyle: MarketingBadgeStyle
+  quantityStyleIndex: number
 }
 
 // ── 1. Gourmet Food Studio Light & Bright Backgrounds ───────────────────
@@ -996,8 +999,7 @@ function drawOfferDetails(c: RenderContext, startY: number) {
 
   // If there's a specific quantity (e.g. 10), render a distinctive, stylish quantity badge!
   if (quantity && quantity > 1) {
-    const styleIdx = Math.abs((offer.title || '').length + Math.round(Number(offer.offer_price || 0)))
-    currentY = drawDynamicQuantityBadge(ctx, w, currentY, quantity, accent, styleIdx)
+    currentY = drawDynamicQuantityBadge(ctx, w, currentY, quantity, accent, c.quantityStyleIndex)
   }
 
   // Title in Dark Slate for Maximum Contrast

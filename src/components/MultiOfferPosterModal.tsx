@@ -181,6 +181,7 @@ export default function MultiOfferPosterModal({
   const [selectedOffers, setSelectedOffers] = useState<any[]>([])
   const [theme, setTheme] = useState<MultiPosterTheme>('warm_cream')
   const [captionStyle, setCaptionStyle] = useState<MultiCaptionStyle>('punchy_deals')
+  const [quantityStyleIndex, setQuantityStyleIndex] = useState(0)
   const [bannerIndex, setBannerIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -224,6 +225,7 @@ export default function MultiOfferPosterModal({
     setTheme(randomTheme)
     setBannerIndex(randomBanner)
     setCaptionStyle(randomCaption)
+    setQuantityStyleIndex(prev => prev + 1)
   }
 
   // Auto shuffle on open
@@ -306,7 +308,7 @@ export default function MultiOfferPosterModal({
         // 4. Render Deal Cards based on count (2, 3, or 4)
         const contentStartY = 200
         const contentMaxH = 910 // Available height between header and QR footer
-        await renderFlyerCards(ctx, width, contentStartY, contentMaxH, loadedOfferCards, accent)
+        await renderFlyerCards(ctx, width, contentStartY, contentMaxH, loadedOfferCards, accent, quantityStyleIndex)
 
         // 5. Render Stealth QR Footer
         await drawFlyerQRFooter(ctx, width, height, restaurant, accent, qrTargetUrl)
@@ -324,7 +326,7 @@ export default function MultiOfferPosterModal({
 
     renderMultiPoster()
     return () => { isMounted = false }
-  }, [isOpen, selectedOffers, theme, bannerIndex, restaurant, menuItems])
+  }, [isOpen, selectedOffers, theme, bannerIndex, restaurant, menuItems, quantityStyleIndex])
 
   if (!isOpen || !offers || offers.length === 0) return null
 
@@ -650,7 +652,8 @@ async function renderFlyerCards(
   startY: number,
   maxH: number,
   cards: Array<{ offer: any; image: HTMLImageElement | null; savings: number; discountPct: number }>,
-  accent: string
+  accent: string,
+  quantityStyleIndex: number = 0
 ) {
   const marginX = 50
   const availableW = w - marginX * 2
@@ -659,7 +662,7 @@ async function renderFlyerCards(
     const cardH = (maxH - 26) / 2
     for (let i = 0; i < 2; i++) {
       const cardY = startY + i * (cardH + 26)
-      drawHorizontalDealCard(ctx, marginX, cardY, availableW, cardH, cards[i], accent)
+      drawHorizontalDealCard(ctx, marginX, cardY, availableW, cardH, cards[i], accent, quantityStyleIndex + i)
     }
   } else if (cards.length === 3) {
     const heroH = maxH * 0.47
@@ -667,12 +670,12 @@ async function renderFlyerCards(
     const bottomW = (availableW - 20) / 2
 
     // Top Hero Card
-    drawHorizontalDealCard(ctx, marginX, startY, availableW, heroH, cards[0], accent)
+    drawHorizontalDealCard(ctx, marginX, startY, availableW, heroH, cards[0], accent, quantityStyleIndex)
 
     // Bottom 2 Grid Cards
     const bottomY = startY + heroH + 22
-    drawVerticalDealCard(ctx, marginX, bottomY, bottomW, bottomH, cards[1], accent)
-    drawVerticalDealCard(ctx, marginX + bottomW + 20, bottomY, bottomW, bottomH, cards[2], accent)
+    drawVerticalDealCard(ctx, marginX, bottomY, bottomW, bottomH, cards[1], accent, quantityStyleIndex + 1)
+    drawVerticalDealCard(ctx, marginX + bottomW + 20, bottomY, bottomW, bottomH, cards[2], accent, quantityStyleIndex + 2)
   } else {
     // 4 Offers: 2x2 Grid Cards
     const gridW = (availableW - 20) / 2
@@ -686,7 +689,7 @@ async function renderFlyerCards(
     ]
 
     for (let i = 0; i < Math.min(4, cards.length); i++) {
-      drawVerticalDealCard(ctx, coords[i].x, coords[i].y, gridW, gridH, cards[i], accent)
+      drawVerticalDealCard(ctx, coords[i].x, coords[i].y, gridW, gridH, cards[i], accent, quantityStyleIndex + i)
     }
   }
 }
@@ -699,7 +702,8 @@ function drawHorizontalDealCard(
   w: number,
   h: number,
   item: { offer: any; image: HTMLImageElement | null; savings: number; discountPct: number },
-  accent: string
+  accent: string,
+  styleIndex: number = 0
 ) {
   const { offer, image, discountPct, savings } = item
 
@@ -758,21 +762,23 @@ function drawHorizontalDealCard(
 
   let textStartY = y + 26
 
-  // Distinct Quantity Badge for multi deal horizontal card
+  // Distinct Quantity Badge for multi deal horizontal card (Alternates strictly between عدد X and XX)
   if (quantity && quantity > 1) {
+    const isXFormat = styleIndex % 2 === 1
+    const qText = isXFormat ? `${quantity}X` : `عدد ${quantity}`
+
     ctx.save()
     ctx.font = '900 20px "Segoe UI", Tahoma, Arial, sans-serif'
-    const qText = `${quantity} × قطع`
     const qtm = ctx.measureText(qText)
-    const qW = qtm.width + 28
+    const qW = qtm.width + 30
     const qH = 34
 
     ctx.beginPath()
     roundRect(ctx, textX - qW, textStartY, qW, qH, 12)
-    ctx.fillStyle = '#0f172a'
+    ctx.fillStyle = isXFormat ? accent : '#0f172a'
     ctx.fill()
     ctx.lineWidth = 1.5
-    ctx.strokeStyle = accent
+    ctx.strokeStyle = isXFormat ? '#ffffff' : accent
     ctx.stroke()
 
     ctx.textAlign = 'center'
@@ -825,7 +831,8 @@ function drawVerticalDealCard(
   w: number,
   h: number,
   item: { offer: any; image: HTMLImageElement | null; savings: number; discountPct: number },
-  accent: string
+  accent: string,
+  styleIndex: number = 0
 ) {
   const { offer, image, discountPct } = item
   const { quantity, cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
@@ -871,28 +878,31 @@ function drawVerticalDealCard(
     drawMiniDiscountBadge(ctx, imgX + 14, imgY + 14, discountPct, accent)
   }
 
-  // Quantity Badge on top-right of image
+  // Quantity Badge on top-right of image (Alternates strictly between عدد X and XX)
   if (quantity && quantity > 1) {
+    const isXFormat = styleIndex % 2 === 1
+    const qText = isXFormat ? `${quantity}X` : `عدد ${quantity}`
+
     ctx.save()
-    const qText = `${quantity} ×`
-    const qW = 68
-    const qH = 34
+    ctx.font = '900 18px "Segoe UI", Tahoma, Arial, sans-serif'
+    const qtm = ctx.measureText(qText)
+    const qW = qtm.width + 24
+    const qH = 32
     const qX = imgX + imgW - qW - 10
     const qY = imgY + 10
 
     ctx.beginPath()
     roundRect(ctx, qX, qY, qW, qH, 10)
-    ctx.fillStyle = '#0f172a'
+    ctx.fillStyle = isXFormat ? accent : '#0f172a'
     ctx.fill()
     ctx.lineWidth = 1.5
-    ctx.strokeStyle = accent
+    ctx.strokeStyle = isXFormat ? '#ffffff' : accent
     ctx.stroke()
 
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.direction = 'rtl'
     ctx.fillStyle = '#ffffff'
-    ctx.font = '900 18px "Segoe UI", Tahoma, Arial, sans-serif'
     ctx.fillText(qText, qX + qW / 2, qY + qH / 2 + 1)
     ctx.restore()
   }
