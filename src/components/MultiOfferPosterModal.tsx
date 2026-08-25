@@ -752,8 +752,8 @@ function drawHorizontalDealCard(
   const textX = imgX - 25
   const textMaxW = w * 0.49
 
-  // Parse Quantity and Clean Title
-  const { quantity, cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
+  // Parse Quantity and Formatted Title (Guarantees number is placed at the front/right in RTL)
+  const { quantity, displayTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
 
   ctx.save()
   ctx.textAlign = 'right'
@@ -793,7 +793,7 @@ function drawHorizontalDealCard(
   // Title in Dark Slate
   ctx.font = '900 34px "Segoe UI", Tahoma, Arial, sans-serif'
   ctx.fillStyle = '#0f172a'
-  const nextY = wrapText(ctx, cleanTitle, textX, textStartY, textMaxW, 42, 2)
+  const nextY = wrapText(ctx, displayTitle, textX, textStartY, textMaxW, 42, 2)
 
   // Price Block
   const priceY = Math.max(nextY + 14, y + h * 0.52)
@@ -835,7 +835,7 @@ function drawVerticalDealCard(
   styleIndex: number = 0
 ) {
   const { offer, image, discountPct } = item
-  const { quantity, cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
+  const { quantity, displayTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
 
   ctx.save()
   ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 24
@@ -917,7 +917,7 @@ function drawVerticalDealCard(
   // Title
   ctx.font = '900 26px "Segoe UI", Tahoma, Arial, sans-serif'
   ctx.fillStyle = '#0f172a'
-  wrapText(ctx, cleanTitle, x + w / 2, detailsY, w - 24, 32, 2)
+  wrapText(ctx, displayTitle, x + w / 2, detailsY, w - 24, 32, 2)
 
   // Price Pill
   const pillY = y + h - 66
@@ -1066,10 +1066,11 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x:
 interface ParsedOfferInfo {
   quantity: number | null
   cleanTitle: string
+  displayTitle: string
 }
 
 function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | string): ParsedOfferInfo {
-  if (!rawTitle) return { quantity: null, cleanTitle: '' }
+  if (!rawTitle) return { quantity: null, cleanTitle: '', displayTitle: '' }
   let title = rawTitle.trim()
   let qty: number | null = null
 
@@ -1082,10 +1083,14 @@ function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | str
   const leadingNumMatch = title.match(/^(\d+)\s*(×|x|X|قطعة|قطع|وجبة|وجبات|سندويش|سندويشات|ساندوتش|حبة|حبات|علبة|علب|-)?\s*(.+)$/i)
   if (leadingNumMatch) {
     qty = parseInt(leadingNumMatch[1], 10)
-    title = leadingNumMatch[3].trim()
+    const clean = leadingNumMatch[3].trim()
+    const sep = leadingNumMatch[2] ? ` ${leadingNumMatch[2]} ` : ' '
+    const displayTitle = `\u200F${qty}${sep}${clean}`
+    return { quantity: qty, cleanTitle: clean, displayTitle }
   }
 
-  return { quantity: qty, cleanTitle: title }
+  const displayTitle = qty && qty > 1 ? `\u200F${qty} ${title}` : title
+  return { quantity: qty, cleanTitle: title, displayTitle }
 }
 
 function wrapText(

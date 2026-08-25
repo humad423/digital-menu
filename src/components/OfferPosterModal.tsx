@@ -1006,12 +1006,12 @@ function drawOfferDetails(c: RenderContext, startY: number) {
   }
   ctx.restore()
 
-  // Parse Quantity and Clean Title to fix RTL Canvas reversal
-  const { cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
+  // Parse Quantity and Formatted Title (Guarantees number is placed at the front/right in RTL)
+  const { displayTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
   const currentY = startY + tagH + 16
 
   // Title in Dark Slate for Maximum Contrast
-  const isLongTitle = cleanTitle.length > 32
+  const isLongTitle = displayTitle.length > 32
   const titleFontSize = isLongTitle ? 38 : 46
   const titleLineHeight = isLongTitle ? 50 : 58
 
@@ -1023,7 +1023,7 @@ function drawOfferDetails(c: RenderContext, startY: number) {
   ctx.fillStyle = '#0f172a'
   ctx.shadowColor = 'rgba(0,0,0,0.06)'
   ctx.shadowBlur = 8
-  const titleBottomY = wrapText(ctx, cleanTitle, w / 2, currentY, w - 160, titleLineHeight)
+  const titleBottomY = wrapText(ctx, displayTitle, w / 2, currentY, w - 160, titleLineHeight)
   ctx.restore()
 
   // Dynamic Price Block
@@ -1496,10 +1496,11 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x:
 interface ParsedOfferInfo {
   quantity: number | null
   cleanTitle: string
+  displayTitle: string
 }
 
 function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | string): ParsedOfferInfo {
-  if (!rawTitle) return { quantity: null, cleanTitle: '' }
+  if (!rawTitle) return { quantity: null, cleanTitle: '', displayTitle: '' }
   let title = rawTitle.trim()
   let qty: number | null = null
 
@@ -1512,10 +1513,14 @@ function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | str
   const leadingNumMatch = title.match(/^(\d+)\s*(×|x|X|قطعة|قطع|وجبة|وجبات|سندويش|سندويشات|ساندوتش|حبة|حبات|علبة|علب|-)?\s*(.+)$/i)
   if (leadingNumMatch) {
     qty = parseInt(leadingNumMatch[1], 10)
-    title = leadingNumMatch[3].trim()
+    const clean = leadingNumMatch[3].trim()
+    const sep = leadingNumMatch[2] ? ` ${leadingNumMatch[2]} ` : ' '
+    const displayTitle = `\u200F${qty}${sep}${clean}`
+    return { quantity: qty, cleanTitle: clean, displayTitle }
   }
 
-  return { quantity: qty, cleanTitle: title }
+  const displayTitle = qty && qty > 1 ? `\u200F${qty} ${title}` : title
+  return { quantity: qty, cleanTitle: title, displayTitle }
 }
 
 function drawProminentImageQuantityBadge(
