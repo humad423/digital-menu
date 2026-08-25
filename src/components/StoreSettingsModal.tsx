@@ -6,6 +6,7 @@ import ImageUpload from '@/components/ImageUpload'
 import { Settings, X, Clock, Calendar, Phone, Image, Store, Save, AlertCircle, Bike, Plus, Trash2, CheckCircle2, ChevronDown } from 'lucide-react'
 import { DAYS_OF_WEEK } from '@/utils/storeStatus'
 import { triggerRevalidate } from '@/utils/revalidate'
+import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
 
 interface StoreSettingsModalProps {
   restaurant: any
@@ -37,6 +38,7 @@ export default function StoreSettingsModal({
   const [holidayMessage, setHolidayMessage] = useState(restaurant?.holiday_message || '')
   const [menuNote, setMenuNote] = useState(restaurant?.menu_note || '')
   const [enableWhatsappOrders, setEnableWhatsappOrders] = useState<boolean>(restaurant?.enable_whatsapp_orders !== false)
+  const [hasDelivery, setHasDelivery] = useState<boolean>(restaurant?.has_delivery !== false)
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(Number(restaurant?.delivery_radius_km) || 15)
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>(
     Array.isArray(restaurant?.delivery_tiers) ? restaurant.delivery_tiers : []
@@ -50,8 +52,8 @@ export default function StoreSettingsModal({
   useEffect(() => {
     if (isOpen && restaurant) {
       setName(restaurant.name || '')
-      setPhone(restaurant.phone || restaurant.whatsapp_number || '')
-      setWhatsappNumber(restaurant.whatsapp_number || '')
+      setPhone(formatPhoneDisplay(restaurant.phone || restaurant.whatsapp_number) || '')
+      setWhatsappNumber(formatPhoneDisplay(restaurant.whatsapp_number) || '')
       setLogoUrl(restaurant.logo_url || '')
       setCoverUrl(restaurant.cover_url || '')
       setOpeningTime(restaurant.opening_time || '09:00')
@@ -61,6 +63,7 @@ export default function StoreSettingsModal({
       setHolidayMessage(restaurant.holiday_message || '')
       setMenuNote(restaurant.menu_note || '')
       setEnableWhatsappOrders(restaurant.enable_whatsapp_orders !== false)
+      setHasDelivery(restaurant.has_delivery !== false)
       setDeliveryRadiusKm(Number(restaurant.delivery_radius_km) || 15)
       setDeliveryTiers(Array.isArray(restaurant.delivery_tiers) ? restaurant.delivery_tiers : [])
       setErrorMsg('')
@@ -122,10 +125,13 @@ export default function StoreSettingsModal({
     setSaving(true)
     setErrorMsg('')
 
+    const cleanPhone = normalizePhoneNumber(phone)
+    const cleanWhatsapp = normalizePhoneNumber(whatsappNumber)
+
     const payload = {
       name: name.trim(),
-      phone: phone.trim() || null,
-      whatsapp_number: whatsappNumber.trim() || phone.trim() || null,
+      phone: cleanPhone || phone.trim() || null,
+      whatsapp_number: cleanWhatsapp || cleanPhone || null,
       logo_url: logoUrl || null,
       cover_url: coverUrl || null,
       opening_time: openingTime,
@@ -135,6 +141,7 @@ export default function StoreSettingsModal({
       holiday_message: holidayMessage.trim() || null,
       menu_note: menuNote.trim() || null,
       enable_whatsapp_orders: enableWhatsappOrders,
+      has_delivery: hasDelivery,
       delivery_radius_km: deliveryRadiusKm,
       delivery_tiers: deliveryTiers
     }
@@ -148,8 +155,8 @@ export default function StoreSettingsModal({
       if (error) {
         setErrorMsg('حدث خطأ أثناء حفظ الإعدادات: ' + error.message)
       } else {
-        // Invalidate the public ISR cache so visitors see updated settings immediately
-        triggerRevalidate(restaurantSlug ?? restaurant?.slug, 'menu')
+        // Invalidate all caches (menu, home, offers) so visitors see updated settings immediately
+        triggerRevalidate(restaurantSlug ?? restaurant?.slug, 'all', restaurant.id)
         onSaveSuccess()
         onClose()
       }
@@ -312,22 +319,53 @@ export default function StoreSettingsModal({
 
           {/* Delivery Radius & Tiers Section */}
           <div className="p-4 bg-orange-50/60 border border-orange-200/80 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-black text-xs text-slate-900 flex items-center gap-1.5">
-                <Bike size={16} className="text-orange-500" />
-                <span>إدارة شرائح التوصيل والتغطية 🛵</span>
-              </h4>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-slate-500">أقصى نطاق:</span>
-                <input
-                  type="number"
-                  value={deliveryRadiusKm}
-                  onChange={e => setDeliveryRadiusKm(Number(e.target.value))}
-                  className="w-16 p-1 text-center bg-white border border-slate-300 rounded-lg text-xs font-black text-orange-600 outline-none"
-                />
-                <span className="text-xs font-bold text-slate-600">كم</span>
+            
+            {/* Delivery Active Toggle */}
+            <div className="flex items-center justify-between p-3 bg-white border border-orange-200 rounded-xl shadow-2xs">
+              <div>
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <Bike size={16} className="text-orange-500" />
+                  <span>خدمة التوصيل (الدليفري)</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${hasDelivery ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {hasDelivery ? 'مفعلة ✅' : 'معطلة 🚫'}
+                  </span>
+                </span>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                  {hasDelivery ? 'تظهر شارة وخدمة التوصيل للزبائن في المنيو' : 'إخفاء التوصيل والاعتماد على الاستلام من المحل فقط'}
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setHasDelivery(!hasDelivery)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  hasDelivery ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    hasDelivery ? 'translate-x-0' : '-translate-x-5'
+                  }`}
+                />
+              </button>
             </div>
+
+            {hasDelivery && (
+              <>
+                <div className="flex items-center justify-between pt-1">
+                  <h4 className="font-black text-xs text-slate-900 flex items-center gap-1.5">
+                    <span>شرائح ونطاق التغطية 🗺️</span>
+                  </h4>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-500">أقصى نطاق:</span>
+                    <input
+                      type="number"
+                      value={deliveryRadiusKm}
+                      onChange={e => setDeliveryRadiusKm(Number(e.target.value))}
+                      className="w-16 p-1 text-center bg-white border border-slate-300 rounded-lg text-xs font-black text-orange-600 outline-none"
+                    />
+                    <span className="text-xs font-bold text-slate-600">كم</span>
+                  </div>
+                </div>
 
             {/* Add Tier Form */}
             <div className="p-3 bg-white border border-orange-200 rounded-xl space-y-2">
@@ -418,6 +456,8 @@ export default function StoreSettingsModal({
               </div>
             ) : (
               <p className="text-center text-xs text-slate-400 font-bold py-2">لا توجد شرائح توصيل مضافة بعد</p>
+            )}
+            </>
             )}
           </div>
 

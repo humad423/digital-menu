@@ -7,14 +7,16 @@ import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
+import OfferPosterModal from '@/components/OfferPosterModal'
 import AdminBusinessTypesTab, { BusinessType } from '@/components/AdminBusinessTypesTab'
 import AdminLegalPagesTab from '@/components/AdminLegalPagesTab'
 import AdminQrAnalyticsTab from '@/components/AdminQrAnalyticsTab'
 import TabErrorBoundary from '@/components/TabErrorBoundary'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon } from 'lucide-react'
+import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, Share2 } from 'lucide-react'
 import { parseRestaurantMultiplier, encodeRestaurantMultiplier, MULTIPLIER_PRESETS } from '@/utils/visitsHelper'
+import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
@@ -52,6 +54,8 @@ export default function AdminDashboard() {
 
   const [allOffers, setAllOffers] = useState<any[]>([])
   const [offerSearchQuery, setOfferSearchQuery] = useState('')
+  const [selectedPosterOffer, setSelectedPosterOffer] = useState<any | null>(null)
+  const [selectedPosterRestaurant, setSelectedPosterRestaurant] = useState<any | null>(null)
 
   const supabase = createClient()
 
@@ -187,9 +191,11 @@ export default function AdminDashboard() {
   const handleResSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSavingRes(true)
+    const cleanWhatsapp = normalizePhoneNumber(resForm.whatsapp_number)
     const payload = {
       name: resForm.name, slug: resForm.slug, primary_color: resForm.primary_color,
-      whatsapp_number: resForm.whatsapp_number, logo_url: resForm.logo_url || null,
+      whatsapp_number: cleanWhatsapp || resForm.whatsapp_number.trim() || null,
+      logo_url: resForm.logo_url || null,
       cover_url: resForm.cover_url || null,
       latitude: resForm.latitude ? parseFloat(resForm.latitude) : null,
       longitude: resForm.longitude ? parseFloat(resForm.longitude) : null,
@@ -223,15 +229,20 @@ export default function AdminDashboard() {
         )
       }
       if (resForm.owner_phone.trim()) {
-        let rawPhone = resForm.owner_phone.trim().replace(/\s+/g, '')
-        if (rawPhone.startsWith('0')) rawPhone = rawPhone.replace(/^0+/, '')
-        const formattedPhone = rawPhone.startsWith('+') ? rawPhone : '+90' + rawPhone
-        const { data: existingProf } = await supabase.from('profiles').select('*').eq('phone', formattedPhone).limit(1)
-        if (existingProf && existingProf.length > 0) {
-          await supabase.from('profiles').update({ role: 'restaurant_owner', restaurant_id: restaurantId }).eq('id', existingProf[0].id)
-        } else {
-          const fakeUid = 'owner-uid-' + formattedPhone.replace(/[^0-9]/g, '')
-          await supabase.from('profiles').insert([{ id: fakeUid, phone: formattedPhone, full_name: 'صاحب مطعم ' + resForm.name, role: 'restaurant_owner', restaurant_id: restaurantId }])
+        const formattedPhone = normalizePhoneNumber(resForm.owner_phone)
+        if (formattedPhone) {
+          const { data: existingProfByPhone } = await supabase.from('profiles').select('*').eq('phone', formattedPhone).limit(1)
+          if (existingProfByPhone && existingProfByPhone.length > 0) {
+            await supabase.from('profiles').update({ role: 'restaurant_owner', restaurant_id: restaurantId }).eq('id', existingProfByPhone[0].id)
+          } else {
+            const { data: existingProfByRes } = await supabase.from('profiles').select('*').eq('restaurant_id', restaurantId).eq('role', 'restaurant_owner').limit(1)
+            if (existingProfByRes && existingProfByRes.length > 0) {
+              await supabase.from('profiles').update({ phone: formattedPhone }).eq('id', existingProfByRes[0].id)
+            } else {
+              const fakeUid = 'owner-uid-' + formattedPhone.replace(/[^0-9]/g, '')
+              await supabase.from('profiles').insert([{ id: fakeUid, phone: formattedPhone, full_name: 'صاحب متجر ' + resForm.name, role: 'restaurant_owner', restaurant_id: restaurantId }])
+            }
+          }
         }
       }
     }
@@ -248,7 +259,8 @@ export default function AdminDashboard() {
     const { note: cleanNote, multiplier: parsedMult } = parseRestaurantMultiplier(r.subscription_notes)
     setResForm({
       name: r.name, slug: r.slug, primary_color: r.primary_color || '#ea580c',
-      whatsapp_number: r.whatsapp_number || '', owner_phone: currentOwnerPhone,
+      whatsapp_number: formatPhoneDisplay(r.whatsapp_number) || '',
+      owner_phone: formatPhoneDisplay(currentOwnerPhone) || '',
       logo_url: r.logo_url || '', cover_url: r.cover_url || '',
       latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '',
       delivery_radius_km: r.delivery_radius_km?.toString() || '5',
@@ -1082,12 +1094,12 @@ export default function AdminDashboard() {
                                 <td className="py-3 px-3">
                                   <div className="space-y-0.5 text-[11px]">
                                     <div className="font-mono text-slate-800 font-bold dir-ltr flex items-center gap-1 justify-end">
-                                      <span>{ownerPhoneMap[r.id] || r.owner_phone || '-'}</span>
+                                      <span>{formatPhoneDisplay(ownerPhoneMap[r.id] || r.owner_phone) || '-'}</span>
                                       <Phone size={11} className="text-amber-500" />
                                     </div>
                                     {r.whatsapp_number && (
                                       <div className="font-mono text-slate-400 text-[10px] dir-ltr flex items-center gap-1 justify-end">
-                                        <span>{r.whatsapp_number}</span>
+                                        <span>{formatPhoneDisplay(r.whatsapp_number)}</span>
                                         <span className="text-emerald-500 text-[9px] font-bold">WA</span>
                                       </div>
                                     )}
@@ -1233,7 +1245,7 @@ export default function AdminDashboard() {
                         <div className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-slate-600">
                           <span className="flex items-center gap-1 font-bold truncate">
                             <Phone size={11} className="text-amber-500 shrink-0" />
-                            <span dir="ltr" className="font-mono text-slate-800">{ownerPhoneMap[r.id] || r.owner_phone || 'لا يوجد هاتف'}</span>
+                            <span dir="ltr" className="font-mono text-slate-800">{formatPhoneDisplay(ownerPhoneMap[r.id] || r.owner_phone) || 'لا يوجد هاتف'}</span>
                           </span>
                           {r.whatsapp_number && (
                             <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold shrink-0">
@@ -1903,6 +1915,29 @@ export default function AdminDashboard() {
                               </td>
                               <td>
                                 <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const matchedRes = restaurants.find(r => r.id === offer.restaurant_id) || store
+                                      setSelectedPosterRestaurant(matchedRes)
+                                      const itemImgs = [
+                                        offer.image_url,
+                                        offer.primary_item?.image_url,
+                                        offer.bonus_item?.image_url,
+                                        offer.item3?.image_url,
+                                        offer.item4?.image_url,
+                                      ].filter((u): u is string => typeof u === 'string' && u.trim() !== '')
+
+                                      setSelectedPosterOffer({
+                                        ...offer,
+                                        item_images: itemImgs,
+                                      })
+                                    }}
+                                    className="btn btn-ghost btn-sm text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 p-1.5"
+                                    title="إنشاء ومشاركة بوستر العرض"
+                                  >
+                                    <Share2 size={14} />
+                                  </button>
                                   {store?.slug && (
                                     <a
                                       href={`/m/${store.slug}`}
@@ -2044,6 +2079,17 @@ export default function AdminDashboard() {
         onClose={() => setSelectedStoreForSettings(null)}
         onSaveSuccess={fetchData}
       />
+      {selectedPosterOffer && selectedPosterRestaurant && (
+        <OfferPosterModal
+          isOpen={!!selectedPosterOffer}
+          onClose={() => {
+            setSelectedPosterOffer(null)
+            setSelectedPosterRestaurant(null)
+          }}
+          offer={selectedPosterOffer}
+          restaurant={selectedPosterRestaurant}
+        />
+      )}
     </div>
   )
 }

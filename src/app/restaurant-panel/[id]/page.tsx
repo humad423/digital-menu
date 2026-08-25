@@ -8,7 +8,9 @@ import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import StoreSettingsModal from '@/components/StoreSettingsModal'
 import StoreQrModal from '@/components/StoreQrModal'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
+import OfferPosterModal from '@/components/OfferPosterModal'
+import MultiOfferPosterModal from '@/components/MultiOfferPosterModal'
+import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share, Share2, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -163,6 +165,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [offers, setOffers] = useState<any[]>([])
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editOfferId, setEditOfferId] = useState<string | null>(null)
+  const [selectedPosterOffer, setSelectedPosterOffer] = useState<any | null>(null)
+  const [showMultiOfferPoster, setShowMultiOfferPoster] = useState(false)
   const [offerForm, setOfferForm] = useState({
     primary_item_id: '',
     min_quantity: '1',
@@ -1095,28 +1099,43 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
               {/* 1. OFFERS SECTION */}
               <div className="c-card border-t-4 border-t-orange-400">
-                <div className="c-card-header">
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
                   <div>
-                    <h3 className="font-black text-slate-800 flex items-center gap-2">
-                      <span>🔥</span> {terms.offersHeader}
-                      <span className="text-xs text-orange-600 font-bold bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
+                    <h3 className="font-black text-slate-800 flex items-center gap-2 flex-wrap">
+                      <span className="flex items-center gap-1.5">
+                        <span>🔥</span> {terms.offersHeader}
+                      </span>
+                      <span className="text-xs text-orange-600 font-bold bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">
                         {offers.length} / {restaurant?.max_offers_limit || 5} متاح
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 font-medium mt-0.5">{terms.offersDesc}</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      if (!checkSubscriptionGuard()) return
-                      setEditOfferId(null)
-                      setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true })
-                      setShowOfferForm(!showOfferForm)
-                    }}
-                    disabled={offers.length >= (restaurant?.max_offers_limit || 5) && !editOfferId}
-                    className="btn btn-primary btn-sm disabled:opacity-40"
-                  >
-                    <Plus size={15} /> {terms.newOfferBtn}
-                  </button>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {offers.length >= 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowMultiOfferPoster(true)}
+                        className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition cursor-pointer whitespace-nowrap"
+                        title="مشاركة جميع العروض في بوستر ونشرة موحدة"
+                      >
+                        <Share2 size={14} />
+                        <span>نشرة العروض 📲</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (!checkSubscriptionGuard()) return
+                        setEditOfferId(null)
+                        setOfferForm({ primary_item_id: '', min_quantity: '1', bonus_item_id: '', bonus_quantity: '1', item3_id: '', item3_quantity: '1', item4_id: '', item4_quantity: '1', title: '', description: '', original_price: '', offer_price: '', image_url: '', images: [], is_active: true })
+                        setShowOfferForm(!showOfferForm)
+                      }}
+                      disabled={offers.length >= (restaurant?.max_offers_limit || 5) && !editOfferId}
+                      className="flex-1 sm:flex-none btn btn-primary btn-sm disabled:opacity-40 whitespace-nowrap justify-center py-2 text-xs"
+                    >
+                      <Plus size={15} /> {terms.newOfferBtn}
+                    </button>
+                  </div>
                 </div>
 
                 {offers.length >= (restaurant?.max_offers_limit || 5) && !showOfferForm && (
@@ -1440,9 +1459,36 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                                 </button>
                               </div>
                             </div>
-                            <div className="flex flex-col gap-1 shrink-0">
-                              <button onClick={() => handleEditOffer(offer)} className="btn btn-ghost btn-sm text-blue-600 p-1.5"><Edit size={14} /></button>
-                              <button onClick={() => deleteOffer(offer.id)} className="btn btn-danger btn-sm p-1.5"><Trash2 size={14} /></button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const isMulti = !!(offer.bonus_item_id || offer.item3_id || offer.item4_id)
+                                  const itemImgs = isMulti
+                                    ? [
+                                        primaryItem?.image_url,
+                                        bonusItem?.image_url,
+                                        item3?.image_url,
+                                        item4?.image_url,
+                                      ].filter((u): u is string => typeof u === 'string' && u.trim() !== '')
+                                    : [offer.image_url || primaryItem?.image_url].filter((u): u is string => typeof u === 'string' && u.trim() !== '')
+
+                                  setSelectedPosterOffer({
+                                    ...offer,
+                                    item_images: itemImgs,
+                                    primary_item: primaryItem,
+                                    bonus_item: bonusItem,
+                                    item3: item3,
+                                    item4: item4,
+                                  })
+                                }}
+                                className="btn btn-ghost btn-sm text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 p-1.5"
+                                title="إنشاء ومشاركة بوستر العرض"
+                              >
+                                <Share2 size={14} />
+                              </button>
+                              <button onClick={() => handleEditOffer(offer)} className="btn btn-ghost btn-sm text-blue-600 p-1.5" title="تعديل"><Edit size={14} /></button>
+                              <button onClick={() => deleteOffer(offer.id)} className="btn btn-danger btn-sm p-1.5" title="حذف"><Trash2 size={14} /></button>
                             </div>
                           </div>
                         )
@@ -2106,6 +2152,25 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
             </div>
           </div>
         </div>
+      )}
+
+      {selectedPosterOffer && restaurant && (
+        <OfferPosterModal
+          isOpen={!!selectedPosterOffer}
+          onClose={() => setSelectedPosterOffer(null)}
+          offer={selectedPosterOffer}
+          restaurant={restaurant}
+        />
+      )}
+
+      {showMultiOfferPoster && restaurant && (
+        <MultiOfferPosterModal
+          isOpen={showMultiOfferPoster}
+          onClose={() => setShowMultiOfferPoster(false)}
+          offers={offers.filter(o => o.is_active !== false).length >= 2 ? offers.filter(o => o.is_active !== false) : offers}
+          restaurant={restaurant}
+          menuItems={menuItems}
+        />
       )}
     </div>
   )

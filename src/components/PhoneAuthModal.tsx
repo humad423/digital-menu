@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Phone, Lock, X, CheckCircle, AlertCircle, MessageSquare, Smartphone } from 'lucide-react'
 import { auth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from '@/lib/firebase'
 import { trackGALogin } from '@/utils/analytics'
+import { normalizePhoneNumber } from '@/utils/phone'
 
 export default function PhoneAuthModal() {
   const { isAuthModalOpen, closeAuthModal, onSuccessCallback, loginWithTestPhone } = useAuth()
@@ -67,10 +68,7 @@ export default function PhoneAuthModal() {
     setError(null)
     setInfoMessage(null)
     setLoading(true)
-
-    let raw = phoneNumber.trim().replace(/\s+/g, '')
-    if (raw.startsWith('0')) raw = raw.replace(/^0+/, '')
-    let formattedPhone = raw.startsWith('+') ? raw : countryCode + raw
+    const formattedPhone = normalizePhoneNumber(phoneNumber, countryCode)
     setFormattedPhoneState(formattedPhone)
 
     try {

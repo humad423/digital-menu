@@ -8,6 +8,7 @@ import Link from 'next/link'
 import BrandLogo from '@/components/BrandLogo'
 
 import { auth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from '@/lib/firebase'
+import { normalizePhoneNumber } from '@/utils/phone'
 
 export default function CompletelyStandaloneDashboardPage() {
   const router = useRouter()
@@ -91,9 +92,7 @@ export default function CompletelyStandaloneDashboardPage() {
     }
 
     setIsSubmitting(true)
-    let raw = phoneNumber.trim().replace(/\s+/g, '')
-    if (raw.startsWith('0')) raw = raw.replace(/^0+/, '')
-    let formatted = raw.startsWith('+') ? raw : countryCode + raw
+    const formatted = normalizePhoneNumber(phoneNumber, countryCode)
     setFormattedPhoneState(formatted)
 
     try {
@@ -166,7 +165,7 @@ export default function CompletelyStandaloneDashboardPage() {
         }
       }
 
-      const verifiedPhone = targetPhone
+      const verifiedPhone = normalizePhoneNumber(targetPhone, countryCode)
 
       // 1. Check in profiles table for a profile linked to a restaurant
       const { data: profs } = await supabase

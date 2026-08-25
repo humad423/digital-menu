@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { clearMemoryCache } from '@/utils/menuCache'
 
 export async function POST(request: NextRequest) {
@@ -13,6 +14,10 @@ export async function POST(request: NextRequest) {
     // Clear specific slug/id cache for menu/restaurant updates
     if (slug) {
       clearMemoryCache(slug)
+      try {
+        revalidatePath(`/m/${slug}`, 'layout')
+        revalidatePath(`/m/${slug}`, 'page')
+      } catch (e) {}
     }
 
     if (restaurantId) {
@@ -23,11 +28,18 @@ export async function POST(request: NextRequest) {
     if (type === 'offers' || type === 'home' || type === 'all') {
       clearMemoryCache('home:all')
       clearMemoryCache('offers:page')
+      try {
+        revalidatePath('/', 'page')
+        revalidatePath('/offers', 'page')
+      } catch (e) {}
     }
 
     // Nuclear option: clear everything
     if (type === 'all') {
       clearMemoryCache()
+      try {
+        revalidatePath('/', 'layout')
+      } catch (e) {}
     }
 
     return NextResponse.json({

@@ -6,13 +6,22 @@ interface CacheEntry<T> {
   timestamp: number
 }
 
-// In-memory cache store (shared across requests in warm serverless lambdas)
-const memoryCache = new Map<string, CacheEntry<any>>()
-const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours TTL (Permanent cache until mutation)
+const globalForCache = globalThis as unknown as {
+  memoryCache?: Map<string, CacheEntry<any>>
+  slugToIdMap?: Map<string, string>
+  idToSlugMap?: Map<string, string>
+}
 
-// Bidirectional mappings to guarantee invalidating by slug also invalidates by restaurantId and vice-versa
-const slugToIdMap = new Map<string, string>()
-const idToSlugMap = new Map<string, string>()
+// In-memory cache store (shared across requests and API routes)
+const memoryCache = globalForCache.memoryCache || new Map<string, CacheEntry<any>>()
+const slugToIdMap = globalForCache.slugToIdMap || new Map<string, string>()
+const idToSlugMap = globalForCache.idToSlugMap || new Map<string, string>()
+
+globalForCache.memoryCache = memoryCache
+globalForCache.slugToIdMap = slugToIdMap
+globalForCache.idToSlugMap = idToSlugMap
+
+const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours TTL (Permanent cache until mutation)
 
 export function clearMemoryCache(pattern?: string) {
   if (!pattern) {
