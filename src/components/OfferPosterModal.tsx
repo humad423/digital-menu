@@ -754,6 +754,12 @@ async function renderModularShape(shape: PosterShape, c: RenderContext) {
       const styleIdx = Math.abs(c.theme.name.length + 2)
       drawDiscountBadge(ctx, imgX + 35, imgY + 35, discountPct, accent, styleIdx)
     }
+
+    const { quantity: bottomQty } = parseOfferTitleAndQuantity(c.offer.title, c.offer.min_quantity)
+    if (bottomQty && bottomQty > 1) {
+      drawProminentImageQuantityBadge(ctx, imgX + imgW - 195, imgY + 35, bottomQty, accent, c.quantityStyleIndex)
+    }
+
     const delY = imgY + imgH - 55
     drawDeliveryBadge(ctx, w, delY, accent, c.deliveryText)
     return
@@ -844,12 +850,20 @@ async function renderModularShape(shape: PosterShape, c: RenderContext) {
   }
   ctx.restore()
 
-  // Dynamic Discount Badge
+  // Dynamic Discount Badge (Top-Left of Image)
   if (discountPct > 0) {
     const styleIdx = Math.abs(shape.length + c.theme.name.length)
     const badgeX = shape === 'circle_orbit' ? cx - 240 : cardX + 25
     const badgeY = shape === 'circle_orbit' ? cy - 230 : cardY + 25
     drawDiscountBadge(ctx, badgeX, badgeY, discountPct, accent, styleIdx)
+  }
+
+  // Dynamic Prominent Quantity Badge (Top-Right of Image)
+  const { quantity: stdQty } = parseOfferTitleAndQuantity(c.offer.title, c.offer.min_quantity)
+  if (stdQty && stdQty > 1) {
+    const qBadgeX = shape === 'circle_orbit' ? cx + 75 : cardX + cardW - 190
+    const qBadgeY = shape === 'circle_orbit' ? cy - 230 : cardY + 25
+    drawProminentImageQuantityBadge(ctx, qBadgeX, qBadgeY, stdQty, accent, c.quantityStyleIndex)
   }
 
   // Draw Offer Details
@@ -993,14 +1007,8 @@ function drawOfferDetails(c: RenderContext, startY: number) {
   ctx.restore()
 
   // Parse Quantity and Clean Title to fix RTL Canvas reversal
-  const { quantity, cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
-
-  let currentY = startY + tagH + 16
-
-  // If there's a specific quantity (e.g. 10), render a distinctive, stylish quantity badge!
-  if (quantity && quantity > 1) {
-    currentY = drawDynamicQuantityBadge(ctx, w, currentY, quantity, accent, c.quantityStyleIndex)
-  }
+  const { cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
+  const currentY = startY + tagH + 16
 
   // Title in Dark Slate for Maximum Contrast
   const isLongTitle = cleanTitle.length > 32
@@ -1507,36 +1515,32 @@ function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | str
   return { quantity: qty, cleanTitle: title }
 }
 
-function drawDynamicQuantityBadge(
+function drawProminentImageQuantityBadge(
   ctx: CanvasRenderingContext2D,
-  w: number,
+  x: number,
   y: number,
   quantity: number,
   accent: string,
   styleIndex: number
-): number {
-  // Rotate strictly between "عدد X" and "XX"
+) {
   const isXFormat = styleIndex % 2 === 1
   const rawText = isXFormat ? `${quantity}X` : `عدد ${quantity}`
-  const visualStyle = Math.floor(styleIndex / 2) % 4
+  const visualStyle = Math.floor(styleIndex / 2) % 3
+
+  const badgeW = 165
+  const badgeH = 54
 
   ctx.save()
-  const badgeH = 44
 
   if (visualStyle === 0) {
-    // Style A: Glowing Dark Slate Capsule
-    const textWithEmoji = isXFormat ? `🔥 ${rawText}` : `🍱 ${rawText}`
-    ctx.font = '900 24px "Segoe UI", Tahoma, Arial, sans-serif'
-    const qtm = ctx.measureText(textWithEmoji)
-    const qW = qtm.width + 48
-
+    // Style 1: Luxury Dark Slate & Glowing Accent Border
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'
+    ctx.shadowBlur = 18
     ctx.beginPath()
-    roundRect(ctx, (w - qW) / 2, y, qW, badgeH, 18)
+    roundRect(ctx, x, y, badgeW, badgeH, 16)
     ctx.fillStyle = '#0f172a'
-    ctx.shadowColor = 'rgba(0,0,0,0.12)'
-    ctx.shadowBlur = 12
     ctx.fill()
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2.5
     ctx.strokeStyle = accent
     ctx.stroke()
 
@@ -1544,22 +1548,18 @@ function drawDynamicQuantityBadge(
     ctx.textBaseline = 'middle'
     ctx.direction = 'rtl'
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(textWithEmoji, w / 2, y + badgeH / 2 + 1)
+    ctx.font = '900 24px "Segoe UI", Tahoma, Arial, sans-serif'
+    ctx.fillText(`${isXFormat ? '🔥 ' : '🍱 '}${rawText}`, x + badgeW / 2, y + badgeH / 2 + 1)
 
   } else if (visualStyle === 1) {
-    // Style B: Radiant Accent Badge with White Text
-    const textWithEmoji = isXFormat ? `⚡ ${rawText} ⚡` : `✨ ${rawText} ✨`
-    ctx.font = '900 23px "Segoe UI", Tahoma, Arial, sans-serif'
-    const qtm = ctx.measureText(textWithEmoji)
-    const qW = qtm.width + 44
-
+    // Style 2: Radiant Accent Badge with White Border
+    ctx.shadowColor = `${accent}66`
+    ctx.shadowBlur = 18
     ctx.beginPath()
-    roundRect(ctx, (w - qW) / 2, y, qW, badgeH, 16)
+    roundRect(ctx, x, y, badgeW, badgeH, 16)
     ctx.fillStyle = accent
-    ctx.shadowColor = `${accent}40`
-    ctx.shadowBlur = 14
     ctx.fill()
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2.5
     ctx.strokeStyle = '#ffffff'
     ctx.stroke()
 
@@ -1567,20 +1567,16 @@ function drawDynamicQuantityBadge(
     ctx.textBaseline = 'middle'
     ctx.direction = 'rtl'
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(textWithEmoji, w / 2, y + badgeH / 2 + 1)
+    ctx.font = '900 24px "Segoe UI", Tahoma, Arial, sans-serif'
+    ctx.fillText(`${isXFormat ? '⚡ ' : '✨ '}${rawText}`, x + badgeW / 2, y + badgeH / 2 + 1)
 
-  } else if (visualStyle === 2) {
-    // Style C: Crisp White Framed Ticket with Accent Border
-    const textWithEmoji = isXFormat ? `🏷️ ${rawText}` : `📦 ${rawText}`
-    ctx.font = '900 23px "Segoe UI", Tahoma, Arial, sans-serif'
-    const qtm = ctx.measureText(textWithEmoji)
-    const qW = qtm.width + 50
-
+  } else {
+    // Style 3: Crisp Pure White Stamp Badge with Accent Border
+    ctx.shadowColor = 'rgba(0,0,0,0.25)'
+    ctx.shadowBlur = 16
     ctx.beginPath()
-    roundRect(ctx, (w - qW) / 2, y, qW, badgeH, 14)
+    roundRect(ctx, x, y, badgeW, badgeH, 16)
     ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = 'rgba(0,0,0,0.08)'
-    ctx.shadowBlur = 12
     ctx.fill()
     ctx.lineWidth = 2.5
     ctx.strokeStyle = accent
@@ -1590,39 +1586,11 @@ function drawDynamicQuantityBadge(
     ctx.textBaseline = 'middle'
     ctx.direction = 'rtl'
     ctx.fillStyle = '#0f172a'
-    ctx.fillText(textWithEmoji, w / 2, y + badgeH / 2 + 1)
-
-  } else {
-    // Style D: Flanked Wing Lines
-    const textWithEmoji = isXFormat ? `💥 ${rawText} 💥` : `👑 ${rawText} 👑`
-    ctx.font = '900 25px "Segoe UI", Tahoma, Arial, sans-serif'
-    const qtm = ctx.measureText(textWithEmoji)
-    const textW = qtm.width
-    const lineW = 60
-    const gap = 16
-    const cy = y + badgeH / 2
-
-    ctx.strokeStyle = accent
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(w / 2 - textW / 2 - gap - lineW, cy)
-    ctx.lineTo(w / 2 - textW / 2 - gap, cy)
-    ctx.stroke()
-
-    ctx.beginPath()
-    ctx.moveTo(w / 2 + textW / 2 + gap, cy)
-    ctx.lineTo(w / 2 + textW / 2 + gap + lineW, cy)
-    ctx.stroke()
-
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.direction = 'rtl'
-    ctx.fillStyle = accent
-    ctx.fillText(textWithEmoji, w / 2, cy)
+    ctx.font = '900 24px "Segoe UI", Tahoma, Arial, sans-serif'
+    ctx.fillText(`${isXFormat ? '🏷️ ' : '📦 '}${rawText}`, x + badgeW / 2, y + badgeH / 2 + 1)
   }
 
   ctx.restore()
-  return y + badgeH + 14
 }
 
 function wrapText(
