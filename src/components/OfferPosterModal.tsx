@@ -996,39 +996,8 @@ function drawOfferDetails(c: RenderContext, startY: number) {
 
   // If there's a specific quantity (e.g. 10), render a distinctive, stylish quantity badge!
   if (quantity && quantity > 1) {
-    const qtyPhrases = [
-      `عدد ${quantity} 🍱`,
-      `${quantity} × وجبات 🔥`,
-      `باقة ${quantity} قطع ✨`,
-      `عرض خاص ${quantity}X 💥`,
-      `${quantity} قطع كاملة 👑`,
-    ]
-    const qtyText = qtyPhrases[Math.abs((offer.title || '').length) % qtyPhrases.length]
-
-    ctx.save()
-    ctx.font = '900 24px "Segoe UI", Tahoma, Arial, sans-serif'
-    const qtm = ctx.measureText(qtyText)
-    const qW = qtm.width + 48
-    const qH = 42
-
-    ctx.beginPath()
-    roundRect(ctx, (w - qW) / 2, currentY, qW, qH, 16)
-    ctx.fillStyle = '#0f172a'
-    ctx.shadowColor = 'rgba(0,0,0,0.1)'
-    ctx.shadowBlur = 12
-    ctx.fill()
-    ctx.lineWidth = 2
-    ctx.strokeStyle = accent
-    ctx.stroke()
-
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.direction = 'rtl'
-    ctx.fillStyle = '#ffffff'
-    ctx.fillText(qtyText, w / 2, currentY + qH / 2 + 1)
-    ctx.restore()
-
-    currentY += qH + 14
+    const styleIdx = Math.abs((offer.title || '').length + Math.round(Number(offer.offer_price || 0)))
+    currentY = drawDynamicQuantityBadge(ctx, w, currentY, quantity, accent, styleIdx)
   }
 
   // Title in Dark Slate for Maximum Contrast
@@ -1534,6 +1503,124 @@ function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | str
   }
 
   return { quantity: qty, cleanTitle: title }
+}
+
+function drawDynamicQuantityBadge(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  y: number,
+  quantity: number,
+  accent: string,
+  styleIndex: number
+): number {
+  // Rotate strictly between "عدد X" and "XX"
+  const isXFormat = styleIndex % 2 === 1
+  const rawText = isXFormat ? `${quantity}X` : `عدد ${quantity}`
+  const visualStyle = Math.floor(styleIndex / 2) % 4
+
+  ctx.save()
+  const badgeH = 44
+
+  if (visualStyle === 0) {
+    // Style A: Glowing Dark Slate Capsule
+    const textWithEmoji = isXFormat ? `🔥 ${rawText}` : `🍱 ${rawText}`
+    ctx.font = '900 24px "Segoe UI", Tahoma, Arial, sans-serif'
+    const qtm = ctx.measureText(textWithEmoji)
+    const qW = qtm.width + 48
+
+    ctx.beginPath()
+    roundRect(ctx, (w - qW) / 2, y, qW, badgeH, 18)
+    ctx.fillStyle = '#0f172a'
+    ctx.shadowColor = 'rgba(0,0,0,0.12)'
+    ctx.shadowBlur = 12
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = accent
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.direction = 'rtl'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(textWithEmoji, w / 2, y + badgeH / 2 + 1)
+
+  } else if (visualStyle === 1) {
+    // Style B: Radiant Accent Badge with White Text
+    const textWithEmoji = isXFormat ? `⚡ ${rawText} ⚡` : `✨ ${rawText} ✨`
+    ctx.font = '900 23px "Segoe UI", Tahoma, Arial, sans-serif'
+    const qtm = ctx.measureText(textWithEmoji)
+    const qW = qtm.width + 44
+
+    ctx.beginPath()
+    roundRect(ctx, (w - qW) / 2, y, qW, badgeH, 16)
+    ctx.fillStyle = accent
+    ctx.shadowColor = `${accent}40`
+    ctx.shadowBlur = 14
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = '#ffffff'
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.direction = 'rtl'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(textWithEmoji, w / 2, y + badgeH / 2 + 1)
+
+  } else if (visualStyle === 2) {
+    // Style C: Crisp White Framed Ticket with Accent Border
+    const textWithEmoji = isXFormat ? `🏷️ ${rawText}` : `📦 ${rawText}`
+    ctx.font = '900 23px "Segoe UI", Tahoma, Arial, sans-serif'
+    const qtm = ctx.measureText(textWithEmoji)
+    const qW = qtm.width + 50
+
+    ctx.beginPath()
+    roundRect(ctx, (w - qW) / 2, y, qW, badgeH, 14)
+    ctx.fillStyle = '#ffffff'
+    ctx.shadowColor = 'rgba(0,0,0,0.08)'
+    ctx.shadowBlur = 12
+    ctx.fill()
+    ctx.lineWidth = 2.5
+    ctx.strokeStyle = accent
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.direction = 'rtl'
+    ctx.fillStyle = '#0f172a'
+    ctx.fillText(textWithEmoji, w / 2, y + badgeH / 2 + 1)
+
+  } else {
+    // Style D: Flanked Wing Lines
+    const textWithEmoji = isXFormat ? `💥 ${rawText} 💥` : `👑 ${rawText} 👑`
+    ctx.font = '900 25px "Segoe UI", Tahoma, Arial, sans-serif'
+    const qtm = ctx.measureText(textWithEmoji)
+    const textW = qtm.width
+    const lineW = 60
+    const gap = 16
+    const cy = y + badgeH / 2
+
+    ctx.strokeStyle = accent
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(w / 2 - textW / 2 - gap - lineW, cy)
+    ctx.lineTo(w / 2 - textW / 2 - gap, cy)
+    ctx.stroke()
+
+    ctx.beginPath()
+    ctx.moveTo(w / 2 + textW / 2 + gap, cy)
+    ctx.lineTo(w / 2 + textW / 2 + gap + lineW, cy)
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.direction = 'rtl'
+    ctx.fillStyle = accent
+    ctx.fillText(textWithEmoji, w / 2, cy)
+  }
+
+  ctx.restore()
+  return y + badgeH + 14
 }
 
 function wrapText(
