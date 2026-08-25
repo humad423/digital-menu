@@ -748,14 +748,46 @@ function drawHorizontalDealCard(
   const textX = imgX - 25
   const textMaxW = w * 0.49
 
+  // Parse Quantity and Clean Title
+  const { quantity, cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
+
   ctx.save()
   ctx.textAlign = 'right'
   ctx.textBaseline = 'top'
+  ctx.direction = 'rtl'
+
+  let textStartY = y + 26
+
+  // Distinct Quantity Badge for multi deal horizontal card
+  if (quantity && quantity > 1) {
+    ctx.save()
+    ctx.font = '900 20px "Segoe UI", Tahoma, Arial, sans-serif'
+    const qText = `${quantity} × قطع`
+    const qtm = ctx.measureText(qText)
+    const qW = qtm.width + 28
+    const qH = 34
+
+    ctx.beginPath()
+    roundRect(ctx, textX - qW, textStartY, qW, qH, 12)
+    ctx.fillStyle = '#0f172a'
+    ctx.fill()
+    ctx.lineWidth = 1.5
+    ctx.strokeStyle = accent
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(qText, textX - qW / 2, textStartY + qH / 2 + 1)
+    ctx.restore()
+
+    textStartY += qH + 10
+  }
 
   // Title in Dark Slate
   ctx.font = '900 34px "Segoe UI", Tahoma, Arial, sans-serif'
   ctx.fillStyle = '#0f172a'
-  const nextY = wrapText(ctx, offer.title, textX, y + 26, textMaxW, 42, 2)
+  const nextY = wrapText(ctx, cleanTitle, textX, textStartY, textMaxW, 42, 2)
 
   // Price Block
   const priceY = Math.max(nextY + 14, y + h * 0.52)
@@ -796,6 +828,7 @@ function drawVerticalDealCard(
   accent: string
 ) {
   const { offer, image, discountPct } = item
+  const { quantity, cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
 
   ctx.save()
   ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 24
@@ -838,16 +871,43 @@ function drawVerticalDealCard(
     drawMiniDiscountBadge(ctx, imgX + 14, imgY + 14, discountPct, accent)
   }
 
+  // Quantity Badge on top-right of image
+  if (quantity && quantity > 1) {
+    ctx.save()
+    const qText = `${quantity} ×`
+    const qW = 68
+    const qH = 34
+    const qX = imgX + imgW - qW - 10
+    const qY = imgY + 10
+
+    ctx.beginPath()
+    roundRect(ctx, qX, qY, qW, qH, 10)
+    ctx.fillStyle = '#0f172a'
+    ctx.fill()
+    ctx.lineWidth = 1.5
+    ctx.strokeStyle = accent
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.direction = 'rtl'
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '900 18px "Segoe UI", Tahoma, Arial, sans-serif'
+    ctx.fillText(qText, qX + qW / 2, qY + qH / 2 + 1)
+    ctx.restore()
+  }
+
   // Content Area
   const detailsY = imgY + imgH + 12
   ctx.save()
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
+  ctx.direction = 'rtl'
 
   // Title
   ctx.font = '900 26px "Segoe UI", Tahoma, Arial, sans-serif'
   ctx.fillStyle = '#0f172a'
-  wrapText(ctx, offer.title, x + w / 2, detailsY, w - 24, 32, 2)
+  wrapText(ctx, cleanTitle, x + w / 2, detailsY, w - 24, 32, 2)
 
   // Price Pill
   const pillY = y + h - 66
@@ -993,6 +1053,31 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x:
   ctx.drawImage(img, srcX, srcY, srcW, srcH, x, y, w, h)
 }
 
+interface ParsedOfferInfo {
+  quantity: number | null
+  cleanTitle: string
+}
+
+function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | string): ParsedOfferInfo {
+  if (!rawTitle) return { quantity: null, cleanTitle: '' }
+  let title = rawTitle.trim()
+  let qty: number | null = null
+
+  // 1. Check if minQuantity is specified and > 1
+  if (minQuantity && Number(minQuantity) > 1) {
+    qty = Number(minQuantity)
+  }
+
+  // 2. Check if title starts with number e.g. "10 سندويش", "10x", "3 وجبات", "5 قطع"
+  const leadingNumMatch = title.match(/^(\d+)\s*(×|x|X|قطعة|قطع|وجبة|وجبات|سندويش|سندويشات|ساندوتش|حبة|حبات|علبة|علب|-)?\s*(.+)$/i)
+  if (leadingNumMatch) {
+    qty = parseInt(leadingNumMatch[1], 10)
+    title = leadingNumMatch[3].trim()
+  }
+
+  return { quantity: qty, cleanTitle: title }
+}
+
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -1002,6 +1087,7 @@ function wrapText(
   lineHeight: number,
   maxLines: number = 2
 ): number {
+  ctx.direction = 'rtl'
   const words = text.split(' ')
   let line = '', currentY = y
   let lineCount = 0

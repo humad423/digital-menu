@@ -989,20 +989,62 @@ function drawOfferDetails(c: RenderContext, startY: number) {
   }
   ctx.restore()
 
+  // Parse Quantity and Clean Title to fix RTL Canvas reversal
+  const { quantity, cleanTitle } = parseOfferTitleAndQuantity(offer.title, offer.min_quantity)
+
+  let currentY = startY + tagH + 16
+
+  // If there's a specific quantity (e.g. 10), render a distinctive, stylish quantity badge!
+  if (quantity && quantity > 1) {
+    const qtyPhrases = [
+      `عدد ${quantity} 🍱`,
+      `${quantity} × وجبات 🔥`,
+      `باقة ${quantity} قطع ✨`,
+      `عرض خاص ${quantity}X 💥`,
+      `${quantity} قطع كاملة 👑`,
+    ]
+    const qtyText = qtyPhrases[Math.abs((offer.title || '').length) % qtyPhrases.length]
+
+    ctx.save()
+    ctx.font = '900 24px "Segoe UI", Tahoma, Arial, sans-serif'
+    const qtm = ctx.measureText(qtyText)
+    const qW = qtm.width + 48
+    const qH = 42
+
+    ctx.beginPath()
+    roundRect(ctx, (w - qW) / 2, currentY, qW, qH, 16)
+    ctx.fillStyle = '#0f172a'
+    ctx.shadowColor = 'rgba(0,0,0,0.1)'
+    ctx.shadowBlur = 12
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = accent
+    ctx.stroke()
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.direction = 'rtl'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(qtyText, w / 2, currentY + qH / 2 + 1)
+    ctx.restore()
+
+    currentY += qH + 14
+  }
+
   // Title in Dark Slate for Maximum Contrast
-  const titleY = startY + tagH + 16
-  const isLongTitle = (offer.title || '').length > 32
+  const isLongTitle = cleanTitle.length > 32
   const titleFontSize = isLongTitle ? 38 : 46
   const titleLineHeight = isLongTitle ? 50 : 58
 
   ctx.save()
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
+  ctx.direction = 'rtl'
   ctx.font = `900 ${titleFontSize}px "Segoe UI", Tahoma, Arial, sans-serif`
   ctx.fillStyle = '#0f172a'
   ctx.shadowColor = 'rgba(0,0,0,0.06)'
   ctx.shadowBlur = 8
-  const titleBottomY = wrapText(ctx, offer.title, w / 2, titleY, w - 160, titleLineHeight)
+  const titleBottomY = wrapText(ctx, cleanTitle, w / 2, currentY, w - 160, titleLineHeight)
   ctx.restore()
 
   // Dynamic Price Block
@@ -1469,6 +1511,31 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x:
   ctx.drawImage(img, srcX, srcY, srcW, srcH, x, y, w, h)
 }
 
+interface ParsedOfferInfo {
+  quantity: number | null
+  cleanTitle: string
+}
+
+function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | string): ParsedOfferInfo {
+  if (!rawTitle) return { quantity: null, cleanTitle: '' }
+  let title = rawTitle.trim()
+  let qty: number | null = null
+
+  // 1. Check if minQuantity is specified and > 1
+  if (minQuantity && Number(minQuantity) > 1) {
+    qty = Number(minQuantity)
+  }
+
+  // 2. Check if title starts with number e.g. "10 سندويش", "10x", "3 وجبات", "5 قطع"
+  const leadingNumMatch = title.match(/^(\d+)\s*(×|x|X|قطعة|قطع|وجبة|وجبات|سندويش|سندويشات|ساندوتش|حبة|حبات|علبة|علب|-)?\s*(.+)$/i)
+  if (leadingNumMatch) {
+    qty = parseInt(leadingNumMatch[1], 10)
+    title = leadingNumMatch[3].trim()
+  }
+
+  return { quantity: qty, cleanTitle: title }
+}
+
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -1477,6 +1544,7 @@ function wrapText(
   maxWidth: number,
   lineHeight: number
 ): number {
+  ctx.direction = 'rtl'
   const words = text.split(' ')
   let line = '', currentY = y
 
