@@ -912,23 +912,23 @@ function drawOfferDetails(c: RenderContext, startY: number) {
   const { ctx, width: w, offer, accent, deliveryText, marketingPhrase, badgeStyle } = c
 
   ctx.save()
-  let tagH = 44
+  let tagH = 52
 
   if (badgeStyle === 'stamp_seal') {
     ctx.save()
     ctx.translate(w / 2, startY + tagH / 2)
     ctx.rotate(-0.04)
-    ctx.font = '900 22px "Segoe UI", Tahoma, Arial, sans-serif'
+    ctx.font = '900 28px "Segoe UI", Tahoma, Arial, sans-serif'
     const tm = ctx.measureText(marketingPhrase)
-    const stampW = tm.width + 48
+    const stampW = tm.width + 56
     
     ctx.beginPath()
-    roundRect(ctx, -stampW / 2, -tagH / 2, stampW, tagH, 12)
+    roundRect(ctx, -stampW / 2, -tagH / 2, stampW, tagH, 14)
     ctx.fillStyle = '#ef4444'
     ctx.shadowColor = 'rgba(239, 68, 68, 0.35)'
-    ctx.shadowBlur = 12
+    ctx.shadowBlur = 14
     ctx.fill()
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2.5
     ctx.strokeStyle = '#ffffff'
     ctx.stroke()
 
@@ -938,34 +938,34 @@ function drawOfferDetails(c: RenderContext, startY: number) {
     ctx.fillText(marketingPhrase, 0, 1)
     ctx.restore()
   } else if (badgeStyle === 'ribbon_banner') {
-    const tm = ctx.measureText(marketingPhrase)
-    const ribW = Math.min(w - 120, tm.width + 80)
-    
     ctx.save()
+    ctx.font = '900 28px "Segoe UI", Tahoma, Arial, sans-serif'
+    const tm = ctx.measureText(marketingPhrase)
+    const ribW = Math.min(w - 120, tm.width + 90)
+    
     ctx.beginPath()
-    roundRect(ctx, (w - ribW) / 2, startY, ribW, tagH, 20)
+    roundRect(ctx, (w - ribW) / 2, startY, ribW, tagH, 22)
     ctx.fillStyle = accent
     ctx.shadowColor = `${accent}44`
-    ctx.shadowBlur = 14
+    ctx.shadowBlur = 16
     ctx.fill()
 
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#ffffff'
-    ctx.font = '900 22px "Segoe UI", Tahoma, Arial, sans-serif'
     ctx.fillText(`✨ ${marketingPhrase.replace(/[🔥⚡💥👑🎯🚀✨💰]/gu, '').trim()} ✨`, w / 2, startY + tagH / 2 + 1)
     ctx.restore()
   } else if (badgeStyle === 'flanked_lines') {
     ctx.save()
-    ctx.font = '900 26px "Segoe UI", Tahoma, Arial, sans-serif'
+    ctx.font = '900 32px "Segoe UI", Tahoma, Arial, sans-serif'
     const tm = ctx.measureText(marketingPhrase)
     const textW = tm.width
-    const lineW = 70
-    const gap = 20
+    const lineW = 75
+    const gap = 22
     const cy = startY + tagH / 2
 
     ctx.strokeStyle = accent
-    ctx.lineWidth = 3
+    ctx.lineWidth = 3.5
     ctx.beginPath()
     ctx.moveTo(w / 2 - textW / 2 - gap - lineW, cy)
     ctx.lineTo(w / 2 - textW / 2 - gap, cy)
@@ -984,18 +984,18 @@ function drawOfferDetails(c: RenderContext, startY: number) {
   } else {
     // Light Neon Capsule Pill
     ctx.save()
-    ctx.font = '900 22px "Segoe UI", Tahoma, Arial, sans-serif'
+    ctx.font = '900 28px "Segoe UI", Tahoma, Arial, sans-serif'
     const tm = ctx.measureText(marketingPhrase)
-    const tagW = tm.width + 46
+    const tagW = tm.width + 56
     
     ctx.beginPath()
-    roundRect(ctx, (w - tagW) / 2, startY, tagW, tagH, 18)
+    roundRect(ctx, (w - tagW) / 2, startY, tagW, tagH, 20)
     ctx.fillStyle = '#ffffff'
     ctx.fill()
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2.5
     ctx.strokeStyle = accent
     ctx.shadowColor = 'rgba(0,0,0,0.08)'
-    ctx.shadowBlur = 10
+    ctx.shadowBlur = 12
     ctx.stroke()
 
     ctx.textAlign = 'center'
@@ -1152,16 +1152,19 @@ function drawPriceBlock(c: RenderContext, priceY: number): number {
 function drawDeliveryBadge(ctx: CanvasRenderingContext2D, w: number, y: number, accent: string, text: string) {
   ctx.save()
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.font = 'bold 23px "Segoe UI", Tahoma, Arial, sans-serif'
+  ctx.direction = 'rtl'
+  ctx.font = '900 28px "Segoe UI", Tahoma, Arial, sans-serif'
   const metrics = ctx.measureText(text)
-  const pillW = metrics.width + 50
-  const pillH = 48
+  const pillW = metrics.width + 68
+  const pillH = 58
   const pillX = (w - pillW) / 2
 
-  ctx.beginPath(); roundRect(ctx, pillX, y - pillH / 2, pillW, pillH, 22)
+  ctx.shadowColor = 'rgba(16, 185, 129, 0.18)'
+  ctx.shadowBlur = 14
+  ctx.beginPath(); roundRect(ctx, pillX, y - pillH / 2, pillW, pillH, 24)
   ctx.fillStyle = '#ecfdf5'; ctx.fill()
-  ctx.lineWidth = 1.5; ctx.strokeStyle = '#10b981'; ctx.stroke()
-  ctx.fillStyle = '#059669'
+  ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; ctx.stroke()
+  ctx.fillStyle = '#047857'
   ctx.fillText(text, w / 2, y + 1)
   ctx.restore()
 }
