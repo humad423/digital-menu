@@ -44,7 +44,9 @@ export default function AdminDashboard() {
   const [serviceZones, setServiceZones] = useState<any[]>([])
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([])
   const [loading, setLoading] = useState(true)
+  const [tabLoading, setTabLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('restaurants')
+  const [loadedTabs, setLoadedTabs] = useState<Set<TabKey>>(new Set())
   const [selectedStoreForSettings, setSelectedStoreForSettings] = useState<any>(null)
 
   const [resSearchQuery, setResSearchQuery] = useState('')
@@ -61,9 +63,10 @@ export default function AdminDashboard() {
 
   const [ownerPhoneMap, setOwnerPhoneMap] = useState<Record<string, string>>({})
 
-  const fetchData = async () => {
+  // ── Per-tab fetchers (lazy loading) ────────────────────────────
+  const fetchRestaurantsTab = async () => {
     setLoading(true)
-    const [resRes, catRes, adsRes, relRes, ordRes, zonesRes, profRes, offersRes, bTypesRes] = await Promise.all([
+    const [resRes, catRes, relRes, profRes, bTypesRes] = await Promise.all([
       supabase
         .from('restaurants')
         .select(
@@ -74,28 +77,13 @@ export default function AdminDashboard() {
         )
         .order('created_at', { ascending: false }),
       supabase.from('platform_categories').select('id, name, icon, sort_order, created_at').order('created_at', { ascending: true }),
-      supabase.from('platform_ads').select('id, title, image_url, link_url, sort_order, is_active, created_at').order('sort_order', { ascending: true }),
       supabase.from('restaurant_platform_categories').select('restaurant_id, platform_category_id'),
-      supabase.from('orders').select('id, restaurant_id, total_price, status, created_at, items, location_url, restaurants(name)').order('created_at', { ascending: false }),
-      supabase.from('service_zones').select('id, name, polygon, is_active, created_at').order('created_at', { ascending: true }),
       supabase.from('profiles').select('restaurant_id, phone').eq('role', 'restaurant_owner'),
-      supabase.from('offers').select('id, title, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, restaurants(id, name, slug), primary_item:menu_items!primary_item_id(name, image_url), bonus_item:menu_items!bonus_item_id(name, image_url), item3:menu_items!item3_id(name, image_url), item4:menu_items!item4_id(name, image_url)').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
       supabase.from('business_types').select('id, name, slug, icon, sort_order, is_active').order('sort_order', { ascending: true })
     ])
     if (resRes.data) setRestaurants(resRes.data)
     if (catRes.data) setPlatformCategories(catRes.data)
-    if (adsRes.data) setPlatformAds(adsRes.data)
     if (bTypesRes.data && bTypesRes.data.length > 0) setBusinessTypes(bTypesRes.data)
-    if (offersRes.data) {
-      const sorted = [...offersRes.data].sort((a, b) => {
-        const orderA = (a.sort_order && a.sort_order > 0) ? a.sort_order : 999999
-        const orderB = (b.sort_order && b.sort_order > 0) ? b.sort_order : 999999
-        if (orderA !== orderB) return orderA - orderB
-        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-      })
-      const normalized = sorted.map((off, idx) => ({ ...off, sort_order: idx + 1 }))
-      setAllOffers(normalized)
-    }
     if (relRes.data) {
       const map: Record<string, string[]> = {}
       relRes.data.forEach(r => {
@@ -111,10 +99,113 @@ export default function AdminDashboard() {
       })
       setOwnerPhoneMap(pMap)
     }
-    if (ordRes.data) setOrders(ordRes.data)
-    if (zonesRes.data) setServiceZones(zonesRes.data)
     setLoading(false)
   }
+
+  const fetchOffersTab = async () => {
+    setTabLoading(true)
+    const offersRes = await supabase
+      .from('offers')
+      .select('id, title, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, offer_price, original_price, min_quantity, bonus_quantity, image_url, restaurants(id, name, slug), primary_item:menu_items!primary_item_id(name, image_url), bonus_item:menu_items!bonus_item_id(name, image_url), item3:menu_items!item3_id(name, image_url), item4:menu_items!item4_id(name, image_url)')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+    if (offersRes.data) {
+      const sorted = [...offersRes.data].sort((a, b) => {
+        const orderA = (a.sort_order && a.sort_order > 0) ? a.sort_order : 999999
+        const orderB = (b.sort_order && b.sort_order > 0) ? b.sort_order : 999999
+        if (orderA !== orderB) return orderA - orderB
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+      })
+      setAllOffers(sorted.map((off, idx) => ({ ...off, sort_order: idx + 1 })))
+    }
+    setTabLoading(false)
+  }
+
+  const fetchAdsTab = async () => {
+    setTabLoading(true)
+    const adsRes = await supabase
+      .from('platform_ads')
+      .select('id, title, image_url, link_url, sort_order, is_active, target_region, latitude, longitude, radius_km, created_at')
+      .order('sort_order', { ascending: true })
+    if (adsRes.data) setPlatformAds(adsRes.data)
+    setTabLoading(false)
+  }
+
+  const fetchCategoriesTab = async () => {
+    setTabLoading(true)
+    const [catRes, relRes] = await Promise.all([
+      supabase.from('platform_categories').select('id, name, icon, sort_order, created_at').order('created_at', { ascending: true }),
+      supabase.from('restaurant_platform_categories').select('restaurant_id, platform_category_id')
+    ])
+    if (catRes.data) setPlatformCategories(catRes.data)
+    if (relRes.data) {
+      const map: Record<string, string[]> = {}
+      relRes.data.forEach(r => {
+        if (!map[r.restaurant_id]) map[r.restaurant_id] = []
+        map[r.restaurant_id].push(r.platform_category_id)
+      })
+      setRestaurantCategoryMap(map)
+    }
+    setTabLoading(false)
+  }
+
+  const fetchZonesTab = async () => {
+    setTabLoading(true)
+    const zonesRes = await supabase
+      .from('service_zones')
+      .select('id, name, polygon, latitude, longitude, radius_km, is_active, created_at')
+      .order('created_at', { ascending: true })
+    if (zonesRes.data) setServiceZones(zonesRes.data)
+    setTabLoading(false)
+  }
+
+  const fetchOrdersTab = async () => {
+    setTabLoading(true)
+    const ordRes = await supabase
+      .from('orders')
+      .select('id, restaurant_id, total_price, status, created_at, items, location_url, restaurants(name)')
+      .order('created_at', { ascending: false })
+      .limit(500)
+    if (ordRes.data) setOrders(ordRes.data)
+    setTabLoading(false)
+  }
+
+  const fetchMapTab = async () => {
+    setTabLoading(true)
+    // restaurants already loaded from restaurants tab; just need zones
+    const zonesRes = await supabase
+      .from('service_zones')
+      .select('id, name, polygon, latitude, longitude, radius_km, is_active, created_at')
+      .order('created_at', { ascending: true })
+    if (zonesRes.data) setServiceZones(zonesRes.data)
+    // also ensure ads loaded
+    const adsRes = await supabase
+      .from('platform_ads')
+      .select('id, title, image_url, link_url, sort_order, is_active, target_region, latitude, longitude, radius_km, created_at')
+      .order('sort_order', { ascending: true })
+    if (adsRes.data) setPlatformAds(adsRes.data)
+    setTabLoading(false)
+  }
+
+  // switchTab: changes tab and lazy-fetches data if not yet loaded
+  const switchTab = (tab: TabKey) => {
+    setActiveTab(tab)
+    if (loadedTabs.has(tab)) return
+    setLoadedTabs(prev => new Set(prev).add(tab))
+    if (tab === 'offers') fetchOffersTab()
+    else if (tab === 'ads') fetchAdsTab()
+    else if (tab === 'categories') fetchCategoriesTab()
+    else if (tab === 'zones') fetchZonesTab()
+    else if (tab === 'orders') fetchOrdersTab()
+    else if (tab === 'map') fetchMapTab()
+    // restaurants, qr_analytics, business_types, legal: use data already loaded
+  }
+
+  // Legacy fetchData for CRUD refresh (restaurants tab only)
+  const fetchData = async () => {
+    await fetchRestaurantsTab()
+  }
+
 
   const movePlatformOfferToRank = async (targetOfferId: string, targetRank: number) => {
     let list = [...allOffers].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
@@ -169,7 +260,7 @@ export default function AdminDashboard() {
     triggerRevalidate(r.slug, 'all')
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchRestaurantsTab().then(() => setLoadedTabs(new Set(['restaurants' as TabKey]))) }, [])
 
   // ── Restaurants ─────────────────────────────────────────────────
   const [showResForm, setShowResForm] = useState(false)
@@ -300,14 +391,15 @@ export default function AdminDashboard() {
     e.preventDefault()
     if (editCatId) await supabase.from('platform_categories').update(catForm).eq('id', editCatId)
     else await supabase.from('platform_categories').insert([catForm])
-    setShowCatForm(false); setEditCatId(null); setCatForm({ name: '', icon: '' }); fetchData()
+    setShowCatForm(false); setEditCatId(null); setCatForm({ name: '', icon: '' })
+    fetchCategoriesTab()
     triggerRevalidate(null, 'home')
   }
 
   const deleteCat = async (id: string) => {
     if (confirm('حذف التصنيف؟')) {
       await supabase.from('platform_categories').delete().eq('id', id)
-      fetchData()
+      fetchCategoriesTab()
       triggerRevalidate(null, 'home')
     }
   }
@@ -338,7 +430,7 @@ export default function AdminDashboard() {
     setShowZoneForm(false)
     setEditZoneId(null)
     setZoneForm(emptyZone)
-    fetchData()
+    fetchZonesTab()
     triggerRevalidate(null, 'home')
   }
 
@@ -358,14 +450,14 @@ export default function AdminDashboard() {
   const handleDeleteZone = async (id: string, name: string) => {
     if (confirm(`هل أنت متأكد من حذف المنطقة الجغرافية "${name}"؟`)) {
       await supabase.from('service_zones').delete().eq('id', id)
-      fetchData()
+      fetchZonesTab()
       triggerRevalidate(null, 'home')
     }
   }
 
   const toggleZoneActive = async (z: any) => {
     await supabase.from('service_zones').update({ is_active: !z.is_active }).eq('id', z.id)
-    fetchData()
+    fetchZonesTab()
     triggerRevalidate(null, 'home')
   }
 
@@ -415,7 +507,7 @@ export default function AdminDashboard() {
     setShowAdForm(false)
     setEditAdId(null)
     setAdForm(emptyAdForm)
-    fetchData()
+    fetchAdsTab()
     triggerRevalidate(null, 'home')
   }
 
@@ -437,7 +529,7 @@ export default function AdminDashboard() {
   const deleteAd = async (id: string) => {
     if (confirm('حذف هذا الإعلان؟')) {
       await supabase.from('platform_ads').delete().eq('id', id)
-      fetchData()
+      fetchAdsTab()
       triggerRevalidate(null, 'home')
     }
   }
@@ -468,7 +560,7 @@ export default function AdminDashboard() {
         {TABS.map(({ key, label, Icon }) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key)}
+            onClick={() => switchTab(key)}
             className={`dash-tab ${activeTab === key ? 'active' : ''}`}
           >
             <Icon size={16} />
@@ -506,7 +598,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {loading && (
+        {(loading || tabLoading) && (
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -518,7 +610,7 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             QR ANALYTICS TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'qr_analytics' && (
+        {!loading && !tabLoading && activeTab === 'qr_analytics' && (
           <TabErrorBoundary tabName="إحصائيات الـ QR">
             <AdminQrAnalyticsTab restaurants={restaurants} />
           </TabErrorBoundary>
@@ -527,14 +619,14 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             BUSINESS TYPES TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'business_types' && (
-          <AdminBusinessTypesTab businessTypes={businessTypes} onRefresh={fetchData} />
+        {!loading && !tabLoading && activeTab === 'business_types' && (
+          <AdminBusinessTypesTab businessTypes={businessTypes} onRefresh={fetchRestaurantsTab} />
         )}
 
         {/* ══════════════════════════════════════
             RESTAURANTS TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'restaurants' && (
+        {!loading && !tabLoading && activeTab === 'restaurants' && (
           <div className="animate-fade-in-up space-y-4">
             {/* Header & Controls Toolbar */}
             <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs flex flex-col gap-4">
@@ -1344,7 +1436,7 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             MAP TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'map' && (
+        {!loading && !tabLoading && activeTab === 'map' && (
           <div className="animate-fade-in-up">
             <AdminInteractiveMap
               restaurants={restaurants}
@@ -1357,7 +1449,7 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             CATEGORIES TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'categories' && (
+        {!loading && !tabLoading && activeTab === 'categories' && (
           <div className="animate-fade-in-up max-w-2xl">
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -1424,7 +1516,7 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             SERVICE ZONES TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'zones' && (
+        {!loading && !tabLoading && activeTab === 'zones' && (
           <div className="animate-fade-in-up">
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -1613,7 +1705,7 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             ADS TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'ads' && (
+        {!loading && !tabLoading && activeTab === 'ads' && (
           <div className="animate-fade-in-up">
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -1776,7 +1868,7 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             OFFERS TAB (Super Admin Platform Offers Management & Reordering)
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'offers' && (
+        {!loading && !tabLoading && activeTab === 'offers' && (
           <div className="animate-fade-in-up space-y-5">
             {/* Header & Stats */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs">
@@ -1981,7 +2073,7 @@ export default function AdminDashboard() {
         {/* ══════════════════════════════════════
             ORDERS TAB
         ══════════════════════════════════════ */}
-        {!loading && activeTab === 'orders' && (
+        {!loading && !tabLoading && activeTab === 'orders' && (
           <div className="animate-fade-in-up">
             <div className="mb-5">
               <h2 className="text-lg font-black text-slate-800">الطلبات الواردة</h2>
@@ -2046,10 +2138,11 @@ export default function AdminDashboard() {
                             <button
                               onClick={async () => {
                                 if (order.status === 'completed') return
-                                if (confirm('تغيير الطلب إلى مكتمل؟')) {
-                                  await supabase.from('orders').update({ status: 'completed' }).eq('id', order.id)
-                                  fetchData()
-                                }
+                                // Optimistic update: change locally first, no page reload
+                                setOrders(prev => prev.map(o =>
+                                  o.id === order.id ? { ...o, status: 'completed' } : o
+                                ))
+                                await supabase.from('orders').update({ status: 'completed' }).eq('id', order.id)
                               }}
                               className={`badge cursor-pointer transition ${order.status === 'completed' ? 'badge-green' : 'badge-amber hover:bg-amber-100'}`}
                             >
@@ -2077,7 +2170,7 @@ export default function AdminDashboard() {
         restaurant={selectedStoreForSettings}
         isOpen={!!selectedStoreForSettings}
         onClose={() => setSelectedStoreForSettings(null)}
-        onSaveSuccess={fetchData}
+        onSaveSuccess={fetchRestaurantsTab}
       />
       {selectedPosterOffer && selectedPosterRestaurant && (
         <OfferPosterModal
