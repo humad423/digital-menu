@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
-import { Settings, X, Clock, Calendar, Phone, Image, Store, Save, AlertCircle, Bike, Plus, Trash2, CheckCircle2, ChevronDown } from 'lucide-react'
+import { X, Clock, Calendar, Phone, Image as ImageIcon, Store, Save, AlertCircle, Bike, Plus, Trash2, ChevronDown } from 'lucide-react'
 import { DAYS_OF_WEEK } from '@/utils/storeStatus'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
@@ -465,14 +465,14 @@ export default function StoreSettingsModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="f-label flex items-center gap-1 mb-1">
-                <Image size={13} className="text-orange-500" />
+                <ImageIcon size={13} className="text-orange-500" />
                 <span>شعار المتجر (Logo)</span>
               </label>
               <ImageUpload value={logoUrl} onChange={url => setLogoUrl(url)} />
             </div>
             <div>
               <label className="f-label flex items-center gap-1 mb-1">
-                <Image size={13} className="text-orange-500" />
+                <ImageIcon size={13} className="text-orange-500" />
                 <span>غلاف المتجر (Cover)</span>
               </label>
               <ImageUpload value={coverUrl} onChange={url => setCoverUrl(url)} />

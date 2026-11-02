@@ -70,13 +70,13 @@ export default function AdminDashboard() {
       supabase
         .from('restaurants')
         .select(
-          'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, store_type, ' +
-          'has_delivery, is_on_holiday, opening_time, closing_time, days_off, ' +
+          'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, store_type, ' +
+          'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, days_off, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
           'enable_whatsapp_orders, menu_note, is_subscription_active, is_menu_active, subscription_notes, created_at'
         )
         .order('created_at', { ascending: false }),
-      supabase.from('platform_categories').select('id, name, icon, sort_order, created_at').order('created_at', { ascending: true }),
+      supabase.from('platform_categories').select('id, name, icon, created_at').order('created_at', { ascending: true }),
       supabase.from('restaurant_platform_categories').select('restaurant_id, platform_category_id'),
       supabase.from('profiles').select('restaurant_id, phone').eq('role', 'restaurant_owner'),
       supabase.from('business_types').select('id, name, slug, icon, sort_order, is_active').order('sort_order', { ascending: true })
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
     setTabLoading(true)
     const adsRes = await supabase
       .from('platform_ads')
-      .select('id, title, image_url, link_url, sort_order, is_active, target_region, latitude, longitude, radius_km, created_at')
+      .select('id, image_url, link_url, sort_order, is_active, target_region, latitude, longitude, radius_km, created_at')
       .order('sort_order', { ascending: true })
     if (adsRes.data) setPlatformAds(adsRes.data)
     setTabLoading(false)
@@ -134,7 +134,7 @@ export default function AdminDashboard() {
   const fetchCategoriesTab = async () => {
     setTabLoading(true)
     const [catRes, relRes] = await Promise.all([
-      supabase.from('platform_categories').select('id, name, icon, sort_order, created_at').order('created_at', { ascending: true }),
+      supabase.from('platform_categories').select('id, name, icon, created_at').order('created_at', { ascending: true }),
       supabase.from('restaurant_platform_categories').select('restaurant_id, platform_category_id')
     ])
     if (catRes.data) setPlatformCategories(catRes.data)
@@ -153,7 +153,7 @@ export default function AdminDashboard() {
     setTabLoading(true)
     const zonesRes = await supabase
       .from('service_zones')
-      .select('id, name, polygon, latitude, longitude, radius_km, is_active, created_at')
+      .select('id, name, latitude, longitude, radius_km, is_active, created_at')
       .order('created_at', { ascending: true })
     if (zonesRes.data) setServiceZones(zonesRes.data)
     setTabLoading(false)
@@ -175,13 +175,13 @@ export default function AdminDashboard() {
     // restaurants already loaded from restaurants tab; just need zones
     const zonesRes = await supabase
       .from('service_zones')
-      .select('id, name, polygon, latitude, longitude, radius_km, is_active, created_at')
+      .select('id, name, latitude, longitude, radius_km, is_active, created_at')
       .order('created_at', { ascending: true })
     if (zonesRes.data) setServiceZones(zonesRes.data)
     // also ensure ads loaded
     const adsRes = await supabase
       .from('platform_ads')
-      .select('id, title, image_url, link_url, sort_order, is_active, target_region, latitude, longitude, radius_km, created_at')
+      .select('id, image_url, link_url, sort_order, is_active, target_region, latitude, longitude, radius_km, created_at')
       .order('sort_order', { ascending: true })
     if (adsRes.data) setPlatformAds(adsRes.data)
     setTabLoading(false)
@@ -208,7 +208,7 @@ export default function AdminDashboard() {
 
 
   const movePlatformOfferToRank = async (targetOfferId: string, targetRank: number) => {
-    let list = [...allOffers].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    const list = [...allOffers].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
     const currentIndex = list.findIndex(o => o.id === targetOfferId)
     if (currentIndex === -1) return
 
@@ -535,17 +535,8 @@ export default function AdminDashboard() {
   }
 
   const handleImpersonateOwner = (r: any) => {
-    localStorage.setItem('restaurant_owner_session', JSON.stringify({
-      restaurant_id: r.id,
-      restaurant_name: r.name,
-      role: 'admin'
-    }))
-
-    const partnerUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
-      ? `https://partner.alfsouq.com/restaurant-panel/${r.id}?auth=admin`
-      : `/restaurant-panel/${r.id}?auth=admin`
-
-    window.open(partnerUrl, '_blank')
+    // Same host as the admin panel, because the login session cookie is per-host
+    window.open(`/restaurant-panel/${r.id}`, '_blank')
   }
 
 
@@ -858,7 +849,7 @@ export default function AdminDashboard() {
                         className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer"
                       />
                       <label htmlFor="has_delivery" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                        🛵 يقدّم خدمة التوصيل للمنازل (عند إلغاء التفعيل سيظهر كـ "استلام من الفرع / تصفح فقط")
+                        🛵 يقدّم خدمة التوصيل للمنازل (عند إلغاء التفعيل سيظهر كـ &quot;استلام من الفرع / تصفح فقط&quot;)
                       </label>
                     </div>
 

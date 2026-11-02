@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
-import { MapPin, Navigation, X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
+import { MapPin, Navigation, X, CheckCircle2, Loader2 } from 'lucide-react'
 
 export default function MenuLocationNotice({ restaurant }: { restaurant: any }) {
   const [outOfRangeInfo, setOutOfRangeInfo] = useState<{
@@ -21,7 +21,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
         setDismissed(true)
         return
       }
-    } catch (e) {}
+    } catch {}
 
     // 2. Validate store has delivery and valid coordinates
     if (!restaurant || restaurant.has_delivery === false) return
@@ -47,7 +47,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
             isPrecise = parsed.isPrecise === true
           }
         }
-      } catch (e) {}
+      } catch {}
 
       // If no stored location, fetch approximate IP-based location silently
       if (!userLat || !userLng) {
@@ -60,7 +60,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
             userLng = Number(data.longitude)
             isPrecise = false
           }
-        } catch (e) {
+        } catch {
           try {
             // Provider 2: BigDataCloud
             const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ar')
@@ -70,7 +70,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
               userLng = Number(data.longitude)
               isPrecise = false
             }
-          } catch (err) {}
+          } catch {}
         }
       }
 
@@ -98,7 +98,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
     setDismissed(true)
     try {
       sessionStorage.setItem('alfsouq_dismiss_loc_notice', 'true')
-    } catch (e) {}
+    } catch {}
   }
 
   const handleCalibrateLocation = () => {
@@ -120,7 +120,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
             JSON.stringify({ lat, lng, isPrecise: true, timestamp: Date.now() })
           )
           window.dispatchEvent(new Event('alfsouq_user_loc_updated'))
-        } catch (e) {}
+        } catch {}
 
         const storeLat = Number(restaurant.latitude)
         const storeLng = Number(restaurant.longitude)

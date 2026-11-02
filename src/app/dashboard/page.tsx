@@ -3,15 +3,17 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Store, Phone, Lock, ArrowLeft, LogIn, CheckCircle, AlertCircle, ArrowRight, MessageSquare } from 'lucide-react'
+import { CheckCircle, AlertCircle, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import BrandLogo from '@/components/BrandLogo'
 
 import { auth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from '@/lib/firebase'
 import { normalizePhoneNumber } from '@/utils/phone'
+import { useAuth } from '@/context/AuthContext'
 
 export default function CompletelyStandaloneDashboardPage() {
   const router = useRouter()
+  const { completePhoneLogin } = useAuth()
 
   const [countryCode, setCountryCode] = useState('+90')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -28,18 +30,14 @@ export default function CompletelyStandaloneDashboardPage() {
   const recaptchaRef = React.useRef<RecaptchaVerifier | null>(null)
 
   useEffect(() => {
-    // Check if separate restaurant owner session exists
-    const savedOwnerSession = typeof window !== 'undefined' ? localStorage.getItem('restaurant_owner_session') : null
-    if (savedOwnerSession) {
-      try {
-        const parsed = JSON.parse(savedOwnerSession)
-        if (parsed.restaurant_id) {
-          router.push(`/restaurant-panel/${parsed.restaurant_id}`)
-          return
-        }
-      } catch (e) {}
-    }
-    setLoading(false)
+    // Skip the login form if this browser already has a store owner session
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.app_metadata?.role === 'restaurant_owner' && user.app_metadata.restaurant_id) {
+        router.push(`/restaurant-panel/${user.app_metadata.restaurant_id}`)
+        return
+      }
+      setLoading(false)
+    })
 
     // Pre-render recaptcha in background
     setTimeout(() => {
@@ -50,7 +48,7 @@ export default function CompletelyStandaloneDashboardPage() {
             size: 'invisible'
           })
           recaptchaRef.current.render().catch(() => {})
-        } catch (e) {}
+        } catch {}
       }
     }, 200)
   }, [router])
@@ -97,38 +95,18 @@ export default function CompletelyStandaloneDashboardPage() {
 
     try {
       // 1. Verify that this phone number belongs to an existing registered store BEFORE sending OTP
-      let resId: string | null = null
-
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, restaurant_id, phone, role')
-        .eq('phone', formatted)
-        .limit(1)
-
-      if (profs && profs.length > 0 && profs[0].restaurant_id) {
-        resId = profs[0].restaurant_id
+      const checkRes = await fetch('/api/auth/phone/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formatted }),
+      })
+      if (!checkRes.ok) {
+        throw new Error('خدمة تسجيل الدخول غير متاحة حالياً، يرجى المحاولة لاحقاً.')
       }
-
-      // Fallback: check restaurants whatsapp_number
-      if (!resId) {
-        const cleanDigits = formatted.replace(/[^0-9]/g, '')
-        const { data: resList } = await supabase
-          .from('restaurants')
-          .select('id, whatsapp_number')
-        
-        const matchedRes = (resList || []).find((r: any) => {
-          if (!r.whatsapp_number) return false
-          const num = r.whatsapp_number.replace(/[^0-9]/g, '')
-          return num === cleanDigits || cleanDigits.endsWith(num) || num.endsWith(cleanDigits)
-        })
-
-        if (matchedRes) {
-          resId = matchedRes.id
-        }
-      }
+      const { registered } = await checkRes.json()
 
       // If store is NOT registered, STOP and do NOT send SMS
-      if (!resId) {
+      if (!registered) {
         setUnregisteredError(formatted)
         setIsSubmitting(false)
         return
@@ -156,56 +134,21 @@ export default function CompletelyStandaloneDashboardPage() {
     setIsSubmitting(true)
 
     try {
-      const targetPhone = formattedPhoneState || phoneNumber
-      if (confirmationResult) {
-        await confirmationResult.confirm(otpCode)
-      } else {
-        if (otpCode !== '123456' && otpCode.length < 6) {
-          throw new Error('كود التحقق غير صحيح')
-        }
+      if (!confirmationResult) {
+        throw new Error('انتهت صلاحية الطلب، يرجى طلب كود جديد.')
       }
 
-      const verifiedPhone = normalizePhoneNumber(targetPhone, countryCode)
+      const { user: firebaseUser } = await confirmationResult.confirm(otpCode)
+      const { restaurantId } = await completePhoneLogin(firebaseUser)
 
-      // 1. Check in profiles table for a profile linked to a restaurant
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, restaurant_id, phone, role')
-        .eq('phone', verifiedPhone)
-        .limit(1)
-
-      let resId = profs && profs.length > 0 ? profs[0].restaurant_id : null
-
-      // 2. Fallback: check if whatsapp_number matches a restaurant directly
-      if (!resId) {
-        const cleanDigits = verifiedPhone.replace(/[^0-9]/g, '')
-        const { data: resList } = await supabase
-          .from('restaurants')
-          .select('id, whatsapp_number')
-        
-        const matchedRes = (resList || []).find((r: any) => {
-          if (!r.whatsapp_number) return false
-          const num = r.whatsapp_number.replace(/[^0-9]/g, '')
-          return num === cleanDigits || cleanDigits.endsWith(num) || num.endsWith(cleanDigits)
-        })
-
-        if (matchedRes) {
-          resId = matchedRes.id
-        }
-      }
-
-      if (!resId) {
-        setError(`رقم الهاتف (${verifiedPhone}) غير مرتبط بأي متجر مسجل. يرجى التواصل مع إدارة المنصة.`)
-        setIsSubmitting(false)
+      if (!restaurantId) {
+        await supabase.auth.signOut()
+        setError(`رقم الهاتف (${formattedPhoneState || phoneNumber}) غير مرتبط بأي متجر مسجل. يرجى التواصل مع إدارة المنصة.`)
         return
       }
 
-      // Save standalone restaurant owner session in localStorage
-      const ownerSession = { phone: verifiedPhone, restaurant_id: resId, loggedAt: new Date().toISOString() }
-      localStorage.setItem('restaurant_owner_session', JSON.stringify(ownerSession))
-
       // Redirect immediately to owner dashboard
-      router.push(`/restaurant-panel/${resId}`)
+      router.push(`/restaurant-panel/${restaurantId}`)
     } catch (err: any) {
       console.error('Error verifying owner login:', err)
       setError(err?.message || 'كود التحقق غير صحيح أو انتهت صلاحيته. يرجى التأكد وإعادة المحاولة.')

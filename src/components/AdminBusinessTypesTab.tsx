@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { triggerRevalidate } from '@/utils/revalidate'
-import { Tag, Plus, Edit, Trash2, CheckCircle2, XCircle, Sparkles, Loader2 } from 'lucide-react'
+import { Tag, Plus, Edit, Trash2, Sparkles, Loader2 } from 'lucide-react'
 
 export interface BusinessType {
   id: string

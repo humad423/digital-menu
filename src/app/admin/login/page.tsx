@@ -19,13 +19,17 @@ export default function AdminLogin() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) {
       setError('بيانات الدخول غير صحيحة')
+      setLoading(false)
+    } else if (data.user?.app_metadata?.role !== 'admin') {
+      await supabase.auth.signOut()
+      setError('هذا الحساب لا يملك صلاحية الإدارة')
       setLoading(false)
     } else {
       router.push('/admin')

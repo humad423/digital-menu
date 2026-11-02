@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, MapPin, Clock, ChevronLeft, ChevronRight, X, Bike, Star, Sparkles, Loader2, ArrowUpDown } from 'lucide-react'
+import { Search, MapPin, ChevronLeft, ChevronRight, X, Bike, Star, Loader2, ArrowUpDown } from 'lucide-react'
 
-import { createClient } from '@/utils/supabase/client'
+
 import SmartOfferImage from '@/components/SmartOfferImage'
-import { useAuth } from '@/context/AuthContext'
+
 import UserAuthButton from '@/components/UserAuthButton'
 import BrandLogo from '@/components/BrandLogo'
 import { calculateDistance, getDeliveryFeeForDistance, isStoreWithinRange } from '@/utils/distance'
@@ -56,9 +56,6 @@ function AdsSlider({ ads }: { ads: any[] }) {
     setDragX(0); setDrag(false); arm()
   }
 
-  const w   = containerRef.current?.offsetWidth || 1
-  const pct = -(current * 100) + (dragX / w) * 100
-
   if (!ads || !ads.length) return null
 
   return (
@@ -74,7 +71,7 @@ function AdsSlider({ ads }: { ads: any[] }) {
         <div
           className="flex h-full"
           style={{
-            transform: `translateX(${pct}%)`,
+            transform: `translateX(calc(${-(current * 100)}% + ${dragX}px))`,
             transition: isDragging ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
             willChange: 'transform',
           }}
@@ -200,7 +197,7 @@ export default function PlatformClient({
     if (typeof window !== 'undefined') {
       const savedLoc = localStorage.getItem('alfsouq_user_loc')
       if (savedLoc) {
-        try { return JSON.parse(savedLoc) } catch (e) {}
+        try { return JSON.parse(savedLoc) } catch {}
       }
     }
     return { lat: 40.8167, lng: 29.3750 }

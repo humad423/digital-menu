@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ألف سوق (Alfsouq)
 
-## Getting Started
+Arabic marketplace for stores and restaurants: digital menus, offers, and a cart that sends orders over WhatsApp.
 
-First, run the development server:
+| Area | Host | Routes | Login |
+|---|---|---|---|
+| Customers | `alfsouq.com` | `/`, `/m/[slug]`, `/offers` | Optional, phone SMS |
+| Store owners | `partner.alfsouq.com` | `/dashboard`, `/restaurant-panel/[id]` | Phone SMS |
+| Platform admin | `admin.alfsouq.com` | `/admin` | Email and password |
+
+Stack: Next.js 16, React 19, Tailwind 4, Zustand, Supabase (data and sessions), Firebase (SMS only), Cloudinary (images).
+
+## Setup
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill in the values
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Commands
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run dev     # development server
+npm run build   # production build
+npm run lint    # ESLint
+npm test        # unit tests
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Access control
 
-## Learn More
+Row Level Security in Postgres is what protects the data. The checks in the UI only decide what to show.
 
-To learn more about Next.js, take a look at the following resources:
+- Roles live in `app_metadata` on the Supabase user (`role`, `restaurant_id`, `phone`). Only the service role can write them, and they reach RLS through the JWT.
+- Phone login: Firebase sends the SMS, then `/api/auth/phone/session` verifies the Firebase ID token and returns a Supabase session with the right role.
+- Policies are in `supabase/migrations/`. Earlier migrations were applied from the dashboard and aren't in this repo.
+- Some columns are hidden with allow-list grants, so a new column on `restaurants`, `ratings` or `platform_settings` stays hidden from the public until it is granted.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Make a user a platform admin in the Supabase SQL editor, then sign in again:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```sql
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"role":"admin"}'
+where email = 'someone@example.com';
+```
 
-## Deploy on Vercel
+## Seed scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Demo data scripts in `scripts/seed/` need the service role key:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+node --env-file=.env.local scripts/seed/seed.mjs
+```

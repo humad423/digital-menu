@@ -286,7 +286,6 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
         alert('خطأ في حفظ المضاعف: ' + error.message)
       } else {
         // Mutate in local array
-        activeModalStore.subscription_notes = encoded
         const matched = restaurants.find(r => r.id === activeModalStore.id)
         if (matched) matched.subscription_notes = encoded
         setRefreshTrigger(prev => prev + 1)

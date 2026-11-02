@@ -10,7 +10,7 @@ export function normalizePhoneNumber(phone: string | null | undefined, defaultCo
   if (!phone) return ''
 
   // 1. Remove all Unicode bidirectional / invisible characters and formatting
-  let clean = phone
+  const clean = phone
     .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
     .trim()
     .replace(/[\s\-\(\)\.]/g, '')
@@ -49,6 +49,21 @@ export function normalizePhoneNumber(phone: string | null | undefined, defaultCo
   }
 
   return '+' + digits
+}
+
+/**
+ * Finds the one store whose WhatsApp number is exactly this phone number.
+ * Returns null when no store matches, or when several do and the owner is ambiguous.
+ */
+export function findStoreIdByPhone(
+  stores: { id: string; whatsapp_number: string | null }[],
+  phone: string
+): string | null {
+  const target = normalizePhoneNumber(phone)
+  if (target.length < 9) return null
+
+  const matches = stores.filter(store => normalizePhoneNumber(store.whatsapp_number) === target)
+  return matches.length === 1 ? matches[0].id : null
 }
 
 /**

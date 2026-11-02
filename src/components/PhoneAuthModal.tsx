@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { Phone, Lock, X, CheckCircle, AlertCircle, MessageSquare, Smartphone } from 'lucide-react'
+import { Lock, X, CheckCircle, AlertCircle, Smartphone } from 'lucide-react'
 import { auth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from '@/lib/firebase'
 import { trackGALogin } from '@/utils/analytics'
 import { normalizePhoneNumber } from '@/utils/phone'
 
 export default function PhoneAuthModal() {
-  const { isAuthModalOpen, closeAuthModal, onSuccessCallback, loginWithTestPhone } = useAuth()
+  const { isAuthModalOpen, closeAuthModal, onSuccessCallback, completePhoneLogin } = useAuth()
   const [countryCode, setCountryCode] = useState('+90')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [formattedPhoneState, setFormattedPhoneState] = useState('')
@@ -42,7 +42,7 @@ export default function PhoneAuthModal() {
               callback: () => {}
             })
             recaptchaVerifierRef.current.render().catch(() => {})
-          } catch (e) {}
+          } catch {}
         }
       }, 100)
     }
@@ -94,16 +94,12 @@ export default function PhoneAuthModal() {
     setLoading(true)
 
     try {
-      if (confirmationResult) {
-        await confirmationResult.confirm(otpCode)
-      } else {
-        // Fallback validation
-        if (otpCode !== '123456' && otpCode.length < 6) {
-          throw new Error('كود التحقق غير صحيح')
-        }
+      if (!confirmationResult) {
+        throw new Error('انتهت صلاحية الطلب، يرجى طلب كود جديد.')
       }
 
-      await loginWithTestPhone(formattedPhoneState || phoneNumber)
+      const { user: firebaseUser } = await confirmationResult.confirm(otpCode)
+      await completePhoneLogin(firebaseUser)
       trackGALogin('phone_sms')
       closeAuthModal()
       if (onSuccessCallback) {

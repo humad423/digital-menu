@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import { ArrowRight, Star, Plus, Check, MessageSquare, AlertCircle } from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ReviewsClient({
@@ -23,7 +23,7 @@ export default function ReviewsClient({
   const fetchRatings = async () => {
     const { data } = await supabase
       .from('ratings')
-      .select('*')
+      .select('id, created_at, restaurant_id, user_name, rating, comment')
       .eq('restaurant_id', restaurant.id)
       .order('created_at', { ascending: false })
 
@@ -57,8 +57,12 @@ export default function ReviewsClient({
       comment: comment.trim() || null
     }
 
-    await supabase.from('ratings').insert([payload])
+    const { error } = await supabase.from('ratings').insert([payload])
     setSubmitting(false)
+    if (error) {
+      alert('تعذر حفظ التقييم، يرجى المحاولة مجدداً.')
+      return
+    }
     setShowAddForm(false)
     setComment('')
     await fetchRatings()

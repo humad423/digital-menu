@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ImagePlus, X, Link as LinkIcon, Upload } from 'lucide-react'
+import { X, Link as LinkIcon, Upload } from 'lucide-react'
 
 function compressImageToWebpBlob(file: File, maxWidth = 1200, quality = 0.8): Promise<Blob> {
   return new Promise((resolve) => {

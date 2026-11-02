@@ -5,7 +5,7 @@ import { useCartStore } from '@/store/cartStore'
 import { ShoppingBag, X, Plus, Minus, Trash2, MessageCircle, MapPin, AlertTriangle } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import { supabase } from '@/lib/supabase'
-import { calculateDistance } from '@/utils/distance'
+
 import { useAuth } from '@/context/AuthContext'
 import { getStoreStatus } from '@/utils/storeStatus'
 import { trackGAWhatsAppOrder } from '@/utils/analytics'
@@ -18,6 +18,12 @@ type Restaurant = Pick<Database['public']['Tables']['restaurants']['Row'], 'id' 
   opening_time?: string
   closing_time?: string
   off_days?: string[]
+}
+
+function rememberUserLocation(lat: number, lng: number) {
+  try {
+    localStorage.setItem('user_location', JSON.stringify({ lat, lng, timestamp: Date.now() }))
+  } catch {}
 }
 
 export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
@@ -42,7 +48,7 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
           const { latitude: lat, longitude: lng } = pos.coords
           try {
             localStorage.setItem('user_location', JSON.stringify({ lat, lng, timestamp: Date.now() }))
-          } catch (e) {}
+          } catch {}
         },
         () => {},
         { enableHighAccuracy: false, timeout: 3000, maximumAge: 30000 }
@@ -78,10 +84,8 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
         })
         const { latitude: lat, longitude: lng } = pos.coords
         locationUrl = `https://www.google.com/maps?q=${lat},${lng}`
-        try {
-          localStorage.setItem('user_location', JSON.stringify({ lat, lng, timestamp: Date.now() }))
-        } catch (e) {}
-      } catch (e) {
+        rememberUserLocation(lat, lng)
+      } catch {
         // Live GPS failed or timed out — smoothly fallback to cached location below
       }
     }
@@ -96,7 +100,7 @@ export default function CartButton({ restaurant }: { restaurant: Restaurant }) {
             locationUrl = `https://www.google.com/maps?q=${Number(parsed.lat)},${Number(parsed.lng)}`
           }
         }
-      } catch (e) {}
+      } catch {}
     }
 
     try {

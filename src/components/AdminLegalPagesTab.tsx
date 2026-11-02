@@ -18,29 +18,29 @@ export default function AdminLegalPagesTab() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchLegalSettings()
-  }, [])
+    const fetchLegalSettings = async () => {
+      setLoading(true)
+      try {
+        const { data } = await supabase
+          .from('platform_settings')
+          .select('privacy_policy, terms_of_service, about_us')
+          .eq('id', 'main')
+          .maybeSingle()
 
-  const fetchLegalSettings = async () => {
-    setLoading(true)
-    try {
-      const { data } = await supabase
-        .from('platform_settings')
-        .select('privacy_policy, terms_of_service, about_us')
-        .eq('id', 'main')
-        .maybeSingle()
-
-      if (data) {
-        setPrivacyPolicy(data.privacy_policy || '')
-        setTermsOfService(data.terms_of_service || '')
-        setAboutUs(data.about_us || '')
+        if (data) {
+          setPrivacyPolicy(data.privacy_policy || '')
+          setTermsOfService(data.terms_of_service || '')
+          setAboutUs(data.about_us || '')
+        }
+      } catch (e: any) {
+        console.error('Error fetching legal pages:', e)
+      } finally {
+        setLoading(false)
       }
-    } catch (e: any) {
-      console.error('Error fetching legal pages:', e)
-    } finally {
-      setLoading(false)
     }
-  }
+
+    fetchLegalSettings()
+  }, [supabase])
 
   const handleSave = async () => {
     setSaving(true)

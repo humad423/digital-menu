@@ -30,7 +30,7 @@ export default async function RestaurantReviewsPage({ params }: { params: Promis
   const supabase = createPublicClient()
   const { data: ratings } = await supabase
     .from('ratings')
-    .select('*')
+    .select('id, created_at, restaurant_id, user_name, rating, comment')
     .eq('restaurant_id', restaurant.id)
     .order('created_at', { ascending: false })
 

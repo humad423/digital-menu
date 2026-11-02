@@ -2,7 +2,7 @@
 import { getOffersPageData } from '@/utils/menuCache'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
-import BrandLogo from '@/components/BrandLogo'
+
 import UserAuthButton from '@/components/UserAuthButton'
 import OffersClient from './OffersClient'
 

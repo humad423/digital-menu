@@ -1,7 +1,9 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { User, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import type { User as FirebaseUser } from 'firebase/auth'
+import type { User } from '@supabase/supabase-js'
+import { signOut as firebaseSignOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { supabase } from '@/lib/supabase'
 
@@ -21,7 +23,7 @@ interface AuthContextType {
   isLoggedIn: boolean
   logout: () => Promise<void>
   refreshProfile: () => Promise<void>
-  loginWithTestPhone: (phone: string) => Promise<void>
+  completePhoneLogin: (firebaseUser: FirebaseUser) => Promise<{ restaurantId: string | null }>
   openAuthModal: (onSuccessCallback?: () => void) => void
   closeAuthModal: () => void
   isAuthModalOpen: boolean
@@ -35,7 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
   logout: async () => {},
   refreshProfile: async () => {},
-  loginWithTestPhone: async () => {},
+  completePhoneLogin: async () => ({ restaurantId: null }),
   openAuthModal: () => {},
   closeAuthModal: () => {},
   isAuthModalOpen: false,
@@ -49,101 +51,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [onSuccessCallback, setOnSuccessCallback] = useState<(() => void) | null>(null)
 
-  const fetchOrCreateProfile = async (firebaseUser: User) => {
-    try {
-      const phone = firebaseUser.phoneNumber || ''
-      if (!phone) return
-
-      // Single query: find by firebase UID or phone (saves one round-trip vs two separate queries)
-      const { data: rows } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`id.eq.${firebaseUser.uid},phone.eq.${phone}`)
-        .limit(2)
-
-      const existingProfile = rows && rows.length > 0 ? rows[0] : null
-
-      if (existingProfile) {
-        setProfile(existingProfile as UserProfile)
-      } else {
-        // Create new profile for this user
-        const newProfile: UserProfile = {
-          id: firebaseUser.uid,
-          phone: phone,
-          full_name: firebaseUser.displayName || '(بدون اسم)',
-          role: 'customer',
-          restaurant_id: null
-        }
-
-        const { data: inserted } = await supabase
-          .from('profiles')
-          .insert([newProfile])
-          .select()
-
-        if (inserted && inserted.length > 0) {
-          setProfile(inserted[0] as UserProfile)
-        } else {
-          setProfile(newProfile)
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching or creating user profile:', err)
-      setProfile({
-        id: firebaseUser.uid,
-        phone: firebaseUser.phoneNumber || '',
-        full_name: '(بدون اسم)',
-        role: 'customer',
-        restaurant_id: null
-      })
-    }
-  }
-
-  useEffect(() => {
-    // Check if test phone session exists in localStorage
-    const savedTestPhone = typeof window !== 'undefined' ? localStorage.getItem('digital_menu_test_phone') : null
-    if (savedTestPhone) {
-      const uid = 'test-uid-' + savedTestPhone.replace(/[^0-9]/g, '')
-      const fakeUser = { uid, phoneNumber: savedTestPhone } as any
-      setUser(fakeUser)
-      fetchOrCreateProfile(fakeUser)
-      setLoading(false)
+  const syncFromUser = useCallback(async (nextUser: User | null) => {
+    // Only phone logins are customers/owners here; the admin's email login has no phone
+    const phone = nextUser?.app_metadata?.phone as string | undefined
+    if (!nextUser || !phone) {
+      setUser(null)
+      setProfile(null)
+      return
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser)
-        await fetchOrCreateProfile(firebaseUser)
-      } else if (!savedTestPhone) {
-        setUser(null)
-        setProfile(null)
-      }
-      setLoading(false)
-    })
+    setUser(nextUser)
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('phone', phone)
+      .maybeSingle()
 
-    return () => unsubscribe()
+    if (error) console.error('Error fetching user profile:', error)
+    setProfile((data as UserProfile) ?? null)
   }, [])
 
-  const loginWithTestPhone = async (phone: string) => {
-    const uid = 'test-uid-' + phone.replace(/[^0-9]/g, '')
-    const fakeUser = { uid, phoneNumber: phone } as any
-    setUser(fakeUser)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('digital_menu_test_phone', phone)
+  useEffect(() => {
+    let active = true
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Supabase calls inside this callback can deadlock, so defer them
+      setTimeout(async () => {
+        if (!active) return
+        await syncFromUser(session?.user ?? null)
+        if (active) setLoading(false)
+      }, 0)
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
     }
-    await fetchOrCreateProfile(fakeUser)
+  }, [syncFromUser])
+
+  // Trades the SMS-verified Firebase user for a Supabase session that RLS can check
+  const completePhoneLogin = async (firebaseUser: FirebaseUser) => {
+    const idToken = await firebaseUser.getIdToken()
+    const res = await fetch('/api/auth/phone/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    })
+    if (!res.ok) {
+      throw new Error('تعذر إكمال تسجيل الدخول، يرجى المحاولة مجدداً.')
+    }
+
+    const { access_token, refresh_token, restaurant_id } = await res.json()
+    const { data, error } = await supabase.auth.setSession({ access_token, refresh_token })
+    if (error) throw error
+
+    await firebaseSignOut(auth).catch(() => {})
+    await syncFromUser(data.user)
+    return { restaurantId: (restaurant_id as string | null) ?? null }
   }
 
   const refreshProfile = async () => {
-    if (user) {
-      await fetchOrCreateProfile(user)
-    }
+    await syncFromUser(user)
   }
 
   const logout = async () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('digital_menu_test_phone')
-    }
-    await firebaseSignOut(auth).catch(() => {})
+    await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
   }
@@ -168,7 +140,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isLoggedIn: !!user,
         logout,
         refreshProfile,
-        loginWithTestPhone,
+        completePhoneLogin,
         openAuthModal,
         closeAuthModal,
         isAuthModalOpen,

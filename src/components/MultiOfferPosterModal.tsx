@@ -271,7 +271,7 @@ export default function MultiOfferPosterModal({
             if (imgUrl) {
               try {
                 loadedImg = await loadImage(imgUrl)
-              } catch (e) {
+              } catch {
                 console.warn('Could not load image for offer:', offer.id)
               }
             }
@@ -297,7 +297,7 @@ export default function MultiOfferPosterModal({
         if (restaurant.logo_url) {
           try {
             logoImg = await loadImage(restaurant.logo_url)
-          } catch (e) {}
+          } catch {}
         }
 
         const bannerText = BANNER_PHRASES[bannerIndex % BANNER_PHRASES.length]
@@ -1071,7 +1071,7 @@ interface ParsedOfferInfo {
 
 function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | string): ParsedOfferInfo {
   if (!rawTitle) return { quantity: null, cleanTitle: '', displayTitle: '' }
-  let title = rawTitle.trim()
+  const title = rawTitle.trim()
   let qty: number | null = null
 
   // 1. Check if minQuantity is specified and > 1

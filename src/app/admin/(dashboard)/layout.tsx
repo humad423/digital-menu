@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import BrandLogo from '@/components/BrandLogo'
-import Link from 'next/link'
+
 
 export default async function AdminDashboardLayout({
   children,
@@ -11,7 +11,7 @@ export default async function AdminDashboardLayout({
   const supabase = await createClient()
   const { data, error } = await supabase.auth.getUser()
 
-  if (error || !data?.user) {
+  if (error || data?.user?.app_metadata?.role !== 'admin') {
     redirect('/admin/login')
   }
 

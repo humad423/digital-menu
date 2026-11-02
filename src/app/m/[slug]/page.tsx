@@ -1,5 +1,5 @@
 import { getRestaurantBySlug, getMenuByRestaurantId } from '@/utils/menuCache'
-import { notFound } from 'next/navigation'
+
 import MenuClient from '@/components/MenuClient'
 
 // Fully dynamic SSR — 0 ISR Write Units

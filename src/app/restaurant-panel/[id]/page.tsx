@@ -10,7 +10,7 @@ import StoreSettingsModal from '@/components/StoreSettingsModal'
 import StoreQrModal from '@/components/StoreQrModal'
 import OfferPosterModal from '@/components/OfferPosterModal'
 import MultiOfferPosterModal from '@/components/MultiOfferPosterModal'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Settings, Eye, Download, Share, Share2, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Edit, LogOut, X, Settings, Eye, Download, Share, Share2, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -137,7 +137,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         if (outcome === 'accepted') {
           setCanInstallPwa(false)
         }
-      } catch (e) {
+      } catch {
         setShowInstallModal(true)
       }
     } else {
@@ -206,43 +206,27 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     async function checkOwnerAuth() {
       if (!id) return
 
-      const savedOwnerSession = typeof window !== 'undefined' ? localStorage.getItem('restaurant_owner_session') : null
-      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-      const isParamAdmin = searchParams?.get('auth') === 'admin' || searchParams?.get('impersonate') === 'true'
-
-      let parsedSession: any = null
-      if (savedOwnerSession) {
-        try { parsedSession = JSON.parse(savedOwnerSession) } catch (e) {}
-      }
-
-      // Check if logged into Supabase as Super Admin
+      // Roles live in app_metadata, which only the server can write. RLS enforces the
+      // same rules on every query, so this check only decides what to show.
       const { data: { user } } = await supabase.auth.getUser()
-      let isAdminUser = false
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-        if (profile?.role === 'admin') isAdminUser = true
-      }
+      const meta = user?.app_metadata
 
-      // If opening from admin dashboard (?auth=admin) OR logged in as admin OR session has admin role:
-      if (isParamAdmin || isAdminUser || parsedSession?.role === 'admin') {
-        const adminSession = {
+      if (meta?.role === 'admin') {
+        setAuthenticatedOwner({
           restaurant_id: id,
           restaurant_name: 'Super Admin',
           role: 'admin'
-        }
-        localStorage.setItem('restaurant_owner_session', JSON.stringify(adminSession))
-        setAuthenticatedOwner(adminSession)
+        })
         return
       }
 
-      // Regular Store Owner check
-      if (parsedSession) {
-        if (parsedSession.restaurant_id === id) {
-          setAuthenticatedOwner(parsedSession)
-          return
-        }
-        // Clear session if owner attempts to view a store that isn't theirs
-        localStorage.removeItem('restaurant_owner_session')
+      if (meta?.role === 'restaurant_owner' && meta.restaurant_id === id) {
+        setAuthenticatedOwner({
+          restaurant_id: id,
+          phone: meta.phone,
+          role: 'restaurant_owner'
+        })
+        return
       }
 
       const partnerDashboardUrl = typeof window !== 'undefined' && window.location.hostname.includes('alfsouq.com')
@@ -266,9 +250,9 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       const { data: resData } = await supabase
         .from('restaurants')
         .select(
-          'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
+          'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
-          'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, store_type, ' +
+          'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, days_off, store_type, ' +
           'max_offers_limit, menu_note, is_subscription_active, is_menu_active, subscription_notes'
         )
         .eq('id', id)
@@ -329,10 +313,13 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     return true
   }
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('restaurant_owner_session')
+  const handleLogout = async () => {
+    // An admin visiting a store keeps their session and returns to the admin panel
+    if (authenticatedOwner?.role === 'admin') {
+      router.push('/admin')
+      return
     }
+    await supabase.auth.signOut()
     router.push('/dashboard')
   }
 
@@ -401,7 +388,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       if (typeof window !== 'undefined') {
         try {
           localStorage.removeItem(`alfsouq_menu_cache_${id}`)
-        } catch (e) {}
+        } catch {}
       }
 
       // Invalidate the public ISR cache so visitors see the new order immediately
@@ -541,7 +528,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (Array.isArray(item.images)) {
       parsedImages = item.images
     } else if (typeof item.images === 'string') {
-      try { parsedImages = JSON.parse(item.images) } catch (e) {}
+      try { parsedImages = JSON.parse(item.images) } catch {}
     }
     if (parsedImages.length === 0 && item.image_url) {
       parsedImages = [item.image_url]
@@ -551,7 +538,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (Array.isArray(item.sizes)) {
       parsedSizes = item.sizes
     } else if (typeof item.sizes === 'string') {
-      try { parsedSizes = JSON.parse(item.sizes) } catch (e) {}
+      try { parsedSizes = JSON.parse(item.sizes) } catch {}
     }
 
     setItemForm({
@@ -767,7 +754,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (Array.isArray(offer.images)) {
       parsedImages = offer.images
     } else if (typeof offer.images === 'string') {
-      try { parsedImages = JSON.parse(offer.images) } catch (e) {}
+      try { parsedImages = JSON.parse(offer.images) } catch {}
     }
     if (parsedImages.length === 0 && offer.image_url) {
       parsedImages = [offer.image_url]
@@ -2035,7 +2022,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 </p>
                 <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
                   <p>1. اضغط على زر المشاركة <Share size={13} className="inline text-orange-400 mx-1" /> بالأسفل.</p>
-                  <p>2. اختر <span className="text-white underline font-black">"إضافة إلى الشاشة الرئيسية ➕"</span>.</p>
+                  <p>2. اختر <span className="text-white underline font-black">&quot;إضافة إلى الشاشة الرئيسية ➕&quot;</span>.</p>
                 </div>
               </>
             ) : (
@@ -2046,7 +2033,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                 </p>
                 <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
                   <p>1. اضغط على خيارات المتصفح <span className="text-orange-400 font-black">⋮</span> بأعلى شاشة Chrome.</p>
-                  <p>2. اختر <span className="text-white underline font-black">"تثبيت التطبيق 📲"</span> أو <span className="text-white underline font-black">"إضافة إلى الشاشة الرئيسية ➕"</span>.</p>
+                  <p>2. اختر <span className="text-white underline font-black">&quot;تثبيت التطبيق 📲&quot;</span> أو <span className="text-white underline font-black">&quot;إضافة إلى الشاشة الرئيسية ➕&quot;</span>.</p>
                 </div>
               </>
             )}

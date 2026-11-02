@@ -345,7 +345,7 @@ export default function LandingPageClient() {
                   </div>
                   <h3 className="font-black text-base text-slate-900">طلب مباشر بضغطة زر</h3>
                   <p className="text-xs text-slate-600 font-medium leading-relaxed mt-1">
-                    أضف وجباتك إلى السلة واضغط "إرسال الطلب" لتنتقل فوراً إلى محادثة واتساب المطعم مع كافة التفاصيل جاهزة دون أي تعقيد.
+                    أضف وجباتك إلى السلة واضغط &quot;إرسال الطلب&quot; لتنتقل فوراً إلى محادثة واتساب المطعم مع كافة التفاصيل جاهزة دون أي تعقيد.
                   </p>
                 </div>
                 <div className="pt-2 text-[11px] text-emerald-600 font-bold flex items-center gap-1">

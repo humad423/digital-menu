@@ -40,8 +40,9 @@ export const useCartStore = create<CartState>()(
           
           if (existingItemIndex > -1) {
             // Update quantity if item exists
-            const newItems = [...currentItems];
-            newItems[existingItemIndex].quantity += 1;
+            const newItems = currentItems.map((i, index) =>
+              index === existingItemIndex ? { ...i, quantity: i.quantity + 1 } : i
+            );
             return { items: newItems, restaurantId };
           }
           
@@ -54,11 +55,14 @@ export const useCartStore = create<CartState>()(
       },
 
       removeItem: (id) => {
-        set((state) => ({
-          items: state.items.filter((item) => item.id !== id),
-          // Clear restaurantId if cart is empty
-          restaurantId: state.items.length === 1 ? null : state.restaurantId
-        }));
+        set((state) => {
+          const newItems = state.items.filter((item) => item.id !== id);
+          return {
+            items: newItems,
+            // Clear restaurantId if cart is empty
+            restaurantId: newItems.length === 0 ? null : state.restaurantId
+          };
+        });
       },
 
       updateQuantity: (id, quantity) => {

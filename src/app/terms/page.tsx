@@ -17,7 +17,7 @@ async function getTermsContent() {
       .eq('id', 'main')
       .maybeSingle()
     return data?.terms_of_service || null
-  } catch (e) {
+  } catch {
     return null
   }
 }

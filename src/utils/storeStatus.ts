@@ -49,7 +49,7 @@ export function getNowInTimezone(overrideTimeZone?: string) {
 
     const dayIndex = dayMap[weekdayStr] !== undefined ? dayMap[weekdayStr] : now.getDay()
     return { dayIndex, hour, minute, userTimeZone }
-  } catch (e) {
+  } catch {
     const now = new Date()
     return { dayIndex: now.getDay(), hour: now.getHours(), minute: now.getMinutes(), userTimeZone: 'local' }
   }

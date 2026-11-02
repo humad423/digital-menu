@@ -172,7 +172,7 @@ export function usePageDurationTracker({
   store_slug?: string
   event_type?: AnalyticsEventType
 }) {
-  const startTimeRef = useRef<number>(Date.now())
+  const startTimeRef = useRef<number>(0)
 
   useEffect(() => {
     startTimeRef.current = Date.now()
@@ -203,6 +203,6 @@ export function usePageDurationTracker({
       window.removeEventListener('pagehide', handleUnload)
       handleUnload()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [store_id, store_slug])
 }

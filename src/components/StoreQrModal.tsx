@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { X, Download, Printer, Copy, Check, QrCode as QrIcon, Layout } from 'lucide-react'
 import { getMainDomainMenuUrl } from '@/utils/url'

@@ -303,7 +303,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
                 .eq('id', offer.primary_item_id)
                 .single()
               if (fetchedItem?.image_url) rawImageUrls = [fetchedItem.image_url]
-            } catch (e) {}
+            } catch {}
           }
         } else {
           // Multi-Product Combo Deal: Gather distinct images from each component product
@@ -359,7 +359,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
 
         let logoImg: HTMLImageElement | null = null
         if (restaurant.logo_url) {
-          try { logoImg = await loadImage(restaurant.logo_url) } catch (e) {}
+          try { logoImg = await loadImage(restaurant.logo_url) } catch {}
         }
 
         const deliveryText = restaurant.has_delivery !== false
@@ -912,7 +912,7 @@ function drawOfferDetails(c: RenderContext, startY: number) {
   const { ctx, width: w, offer, accent, deliveryText, marketingPhrase, badgeStyle } = c
 
   ctx.save()
-  let tagH = 52
+  const tagH = 52
 
   if (badgeStyle === 'stamp_seal') {
     ctx.save()
@@ -1501,7 +1501,7 @@ interface ParsedOfferInfo {
 
 function parseOfferTitleAndQuantity(rawTitle: string, minQuantity?: number | string): ParsedOfferInfo {
   if (!rawTitle) return { quantity: null, cleanTitle: '', displayTitle: '' }
-  let title = rawTitle.trim()
+  const title = rawTitle.trim()
   let qty: number | null = null
 
   // 1. Check if minQuantity is specified and > 1

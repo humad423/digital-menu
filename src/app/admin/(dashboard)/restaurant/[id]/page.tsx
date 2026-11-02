@@ -2,11 +2,11 @@
 
 import { useState, useEffect, use } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import ImageUpload from '@/components/ImageUpload'
+
 import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { useAuth } from '@/context/AuthContext'
-import { Plus, Trash2, ArrowRight, Edit, GripVertical, LogOut, Store, Tag, Utensils, X, Eye, Bike, Check, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, ArrowRight, Edit, LogOut, Utensils, X, Eye, Bike, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { getMainDomainMenuUrl } from '@/utils/url'
 import { triggerRevalidate } from '@/utils/revalidate'
@@ -214,7 +214,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
       if (typeof window !== 'undefined') {
         try {
           localStorage.removeItem(`alfsouq_menu_cache_${id}`)
-        } catch (e) {}
+        } catch {}
       }
 
       triggerRevalidate(restaurant?.slug, 'menu')
@@ -323,7 +323,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (Array.isArray(item.images)) {
       parsedImages = item.images
     } else if (typeof item.images === 'string') {
-      try { parsedImages = JSON.parse(item.images) } catch (e) {}
+      try { parsedImages = JSON.parse(item.images) } catch {}
     }
     if (parsedImages.length === 0 && item.image_url) {
       parsedImages = [item.image_url]
@@ -333,7 +333,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (Array.isArray(item.sizes)) {
       parsedSizes = item.sizes
     } else if (typeof item.sizes === 'string') {
-      try { parsedSizes = JSON.parse(item.sizes) } catch (e) {}
+      try { parsedSizes = JSON.parse(item.sizes) } catch {}
     }
 
     setItemForm({
@@ -519,7 +519,7 @@ export default function AdminRestaurantPanel({ params }: { params: Promise<{ id:
     if (Array.isArray(offer.images)) {
       parsedImages = offer.images
     } else if (typeof offer.images === 'string') {
-      try { parsedImages = JSON.parse(offer.images) } catch (e) {}
+      try { parsedImages = JSON.parse(offer.images) } catch {}
     }
     if (parsedImages.length === 0 && offer.image_url) {
       parsedImages = [offer.image_url]

@@ -36,7 +36,7 @@ export default function StoreDeliveryBadge({ restaurant }: { restaurant: any }) 
           })
         }
       }
-    } catch (e) {}
+    } catch {}
   }, [restaurant])
 
   if (restaurant?.has_delivery === false) {

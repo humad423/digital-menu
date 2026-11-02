@@ -187,7 +187,7 @@ export default function InstallPwaPrompt() {
                   <span>لتثبيت التطبيق على آيفون:</span>
                 </div>
                 <p className="text-slate-300">
-                  اضغط على زر المشاركة <Share size={12} className={`inline mx-0.5 ${isPartnerPage ? 'text-emerald-400' : 'text-orange-400'}`} /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">"إضافة إلى الشاشة الرئيسية ➕"</span>.
+                  اضغط على زر المشاركة <Share size={12} className={`inline mx-0.5 ${isPartnerPage ? 'text-emerald-400' : 'text-orange-400'}`} /> بالأسفل ثم اختر <span className="text-white underline font-extrabold">&quot;إضافة إلى الشاشة الرئيسية ➕&quot;</span>.
                 </p>
               </div>
             ) : (

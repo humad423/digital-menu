@@ -36,7 +36,7 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
           }
         }
       }
-    } catch (e) {}
+    } catch {}
   }, [restaurant])
 
   // Pick the right icon and message based on reason

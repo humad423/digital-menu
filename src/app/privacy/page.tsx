@@ -17,7 +17,7 @@ async function getPrivacyContent() {
       .eq('id', 'main')
       .maybeSingle()
     return data?.privacy_policy || null
-  } catch (e) {
+  } catch {
     return null
   }
 }

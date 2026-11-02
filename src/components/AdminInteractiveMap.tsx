@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Store, MapPin, Flame, Eye, Filter, Layers, Navigation, Maximize2, Minimize2, X, CircleDot, RotateCcw } from 'lucide-react'
+import { Maximize2, Minimize2, RotateCcw } from 'lucide-react'
 import { getStoreStatus } from '@/utils/storeStatus'
 
 declare global {

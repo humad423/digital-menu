@@ -71,8 +71,8 @@ export const getRestaurantBySlug = cache(async (slug: string): Promise<any> => {
     .select(
       'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
       'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
-      'enable_whatsapp_orders, is_on_holiday, opening_time, closing_time, days_off, ' +
-      'store_type, menu_note, is_subscription_active, is_menu_active, subscription_notes, ratings(rating)'
+      'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, days_off, ' +
+      'store_type, menu_note, is_subscription_active, is_menu_active, ratings(rating)'
     )
     .eq('slug', slug)
     .maybeSingle()
@@ -179,7 +179,7 @@ export const getHomePageData = cache(async (): Promise<{
       .from('restaurants')
       .select(
         'id, name, slug, logo_url, cover_url, store_type, primary_color, ' +
-        'has_delivery, is_on_holiday, opening_time, closing_time, days_off, ' +
+        'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, days_off, ' +
         'latitude, longitude, delivery_radius_km, delivery_tiers, is_subscription_active, is_menu_active, ' +
         'restaurant_platform_categories(platform_category_id), ratings(rating)'
       )
@@ -187,12 +187,12 @@ export const getHomePageData = cache(async (): Promise<{
 
     supabase
       .from('platform_categories')
-      .select('id, name, icon, sort_order')
+      .select('id, name, icon')
       .order('created_at', { ascending: true }),
 
     supabase
       .from('platform_ads')
-      .select('id, title, image_url, link_url, sort_order, is_active')
+      .select('id, image_url, link_url, sort_order, is_active, target_region, latitude, longitude, radius_km')
       .eq('is_active', true)
       .order('sort_order', { ascending: true }),
 
@@ -214,7 +214,7 @@ export const getHomePageData = cache(async (): Promise<{
 
     supabase
       .from('service_zones')
-      .select('id, name, polygon, is_active')
+      .select('id, name, latitude, longitude, radius_km, is_active')
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
 

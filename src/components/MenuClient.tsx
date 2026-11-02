@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import Link from 'next/link'
+
 import MenuItem from '@/components/MenuItem'
 import { Search, X } from 'lucide-react'
 import { trackEvent, usePageDurationTracker } from '@/utils/analytics'
-import Footer from '@/components/Footer'
+
 
 export default function MenuClient({
   restaurantId,
@@ -47,7 +47,7 @@ export default function MenuClient({
       try {
         const cacheData = { categories, menuItems, offers, timestamp: Date.now() }
         localStorage.setItem(`alfsouq_menu_cache_${restaurantId}`, JSON.stringify(cacheData))
-      } catch (e) {}
+      } catch {}
     }
   }, [restaurantId, categories, menuItems, offers])
 
@@ -89,13 +89,13 @@ export default function MenuClient({
             try {
               const parsed = JSON.parse(o.images)
               if (Array.isArray(parsed)) customOfferImages = parsed.filter(Boolean)
-            } catch (e) {}
+            } catch {}
           }
           if (customOfferImages.length === 0 && o.image_url) {
             customOfferImages = [o.image_url]
           }
 
-          let collectedItemImages: string[] = []
+          const collectedItemImages: string[] = []
           const collectItemImgs = (itemObj: any) => {
             if (!itemObj) return
             let imgs: string[] = []
@@ -105,7 +105,7 @@ export default function MenuClient({
               try {
                 const parsed = JSON.parse(itemObj.images)
                 if (Array.isArray(parsed)) imgs = parsed.filter(Boolean)
-              } catch (e) {}
+              } catch {}
             }
             if (imgs.length === 0 && itemObj.image_url) {
               imgs = [itemObj.image_url]

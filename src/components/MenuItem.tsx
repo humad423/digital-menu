@@ -73,7 +73,7 @@ export default function MenuItem({
     try {
       const parsed = JSON.parse(item.images)
       if (Array.isArray(parsed)) imageList = parsed.filter(Boolean)
-    } catch (e) {}
+    } catch {}
   }
   if (imageList.length === 0 && item.image_url) {
     imageList = [item.image_url]
@@ -86,7 +86,7 @@ export default function MenuItem({
     try {
       const parsed = JSON.parse(item.sizes)
       if (Array.isArray(parsed)) sizesList = parsed.filter(Boolean)
-    } catch (e) {}
+    } catch {}
   }
   const [selectedSize, setSelectedSize] = useState<string>(sizesList[0] || '')
 
@@ -98,7 +98,8 @@ export default function MenuItem({
     ? Math.round(((item.original_price - item.price) / item.original_price) * 100)
     : null
   
-  const isAutoRestocked = item.out_of_stock_until && new Date(item.out_of_stock_until).getTime() <= Date.now()
+  const [mountedAt] = useState(() => Date.now())
+  const isAutoRestocked = item.out_of_stock_until && new Date(item.out_of_stock_until).getTime() <= mountedAt
   const isOutOfStock = item.is_available === false && !isAutoRestocked
 
   const handleAdd = () => {

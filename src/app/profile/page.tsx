@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { User, Phone, Shield, ArrowRight, Save, LogOut, Settings, CheckCircle2, AlertCircle } from 'lucide-react'
+import { ArrowRight, Save, LogOut, Settings, CheckCircle2, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
