@@ -1,29 +1,13 @@
 import React from 'react'
-import { createPublicClient } from '@/utils/supabase/server'
 import { ShieldCheck, PhoneCall, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import BrandLogo from '@/components/BrandLogo'
 import Footer from '@/components/Footer'
-
-export const revalidate = false
-export const dynamic = 'force-static'
-
-async function getPrivacyContent() {
-  try {
-    const supabase = createPublicClient()
-    const { data } = await supabase
-      .from('platform_settings')
-      .select('privacy_policy')
-      .eq('id', 'main')
-      .maybeSingle()
-    return data?.privacy_policy || null
-  } catch {
-    return null
-  }
-}
+import { getLegalContent } from '@/utils/menuCache'
+import { supportWhatsappUrl } from '@/config/site'
 
 export default async function PrivacyPolicyPage() {
-  const customPolicy = await getPrivacyContent()
+  const { privacy: customPolicy } = await getLegalContent()
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col dir-rtl selection:bg-emerald-500 selection:text-white">
@@ -147,7 +131,7 @@ export default async function PrivacyPolicyPage() {
               </div>
             </div>
             <a
-              href="https://wa.me/905352574134"
+              href={supportWhatsappUrl()}
               target="_blank"
               rel="noopener noreferrer"
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2 shrink-0 cursor-pointer"

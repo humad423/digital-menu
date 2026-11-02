@@ -1,11 +1,6 @@
-import { Metadata } from 'next'
-import LandingPageClient from '@/components/LandingPageClient'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'منصة ألف سوق | المنيو الرقمي السريع والطلبات الذكية للشركاء والزبائن',
-  description: 'المنصة الذكية الأولى لربط المطاعم والمتاجر بالزبائن مع منيو رقمي فائق السرعة، رموز QR مخصصة، وطلبات واتساب مباشرة.',
-}
-
+// /about is the one marketing page
 export default function LandingPage() {
-  return <LandingPageClient />
+  redirect('/about')
 }

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
-import { clearMemoryCache } from '@/utils/menuCache'
+import { revalidateTag } from 'next/cache'
+import { ALL_TAG, HOME_TAG, LEGAL_TAG, OFFERS_TAG, storeTag } from '@/utils/menuCache'
 import { createClient } from '@/utils/supabase/server'
+
+// Saved changes must show on the very next request, so stale data is never served
+const expireNow = { expire: 0 }
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,12 +22,12 @@ export async function POST(request: NextRequest) {
     const { slug, restaurantId, type = 'menu' } = body as {
       slug?: string
       restaurantId?: string
-      type?: 'menu' | 'offers' | 'home' | 'all'
+      type?: 'menu' | 'offers' | 'home' | 'legal' | 'all'
     }
 
     // Store owners can only invalidate their own store
     if (!isAdmin) {
-      let ownsTarget = !restaurantId || restaurantId === ownedRestaurantId
+      let ownsTarget = type !== 'legal' && (!restaurantId || restaurantId === ownedRestaurantId)
       if (ownsTarget && slug) {
         const { data: store } = await supabase
           .from('restaurants')
@@ -38,36 +41,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clear specific slug/id cache for menu/restaurant updates
-    if (slug) {
-      clearMemoryCache(slug)
-      try {
-        revalidatePath(`/m/${slug}`, 'layout')
-        revalidatePath(`/m/${slug}`, 'page')
-      } catch {}
-    }
+    if (slug) revalidateTag(storeTag(slug), expireNow)
+    if (restaurantId) revalidateTag(storeTag(restaurantId), expireNow)
 
-    if (restaurantId) {
-      clearMemoryCache(restaurantId)
-    }
-
-    // Clear home + offers caches when relevant data changes
     if (type === 'offers' || type === 'home' || type === 'all') {
-      clearMemoryCache('home:all')
-      clearMemoryCache('offers:page')
-      try {
-        revalidatePath('/', 'page')
-        revalidatePath('/offers', 'page')
-      } catch {}
+      revalidateTag(HOME_TAG, expireNow)
+      revalidateTag(OFFERS_TAG, expireNow)
     }
 
-    // Nuclear option: clear everything
-    if (type === 'all' && isAdmin) {
-      clearMemoryCache()
-      try {
-        revalidatePath('/', 'layout')
-      } catch {}
-    }
+    if (type === 'legal') revalidateTag(LEGAL_TAG, expireNow)
+
+    // Clearing the whole platform is admin-only
+    if (type === 'all' && isAdmin) revalidateTag(ALL_TAG, expireNow)
 
     return NextResponse.json({
       revalidated: true,

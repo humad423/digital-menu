@@ -1,8 +1,10 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useEffect, useState } from 'react'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 import { MapPin, Navigation, X, CheckCircle2, Loader2 } from 'lucide-react'
+import { readUserLocation, saveUserLocation } from '@/utils/userLocation'
 
 export default function MenuLocationNotice({ restaurant }: { restaurant: any }) {
   const [outOfRangeInfo, setOutOfRangeInfo] = useState<{
@@ -31,67 +33,14 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
     const storeLng = Number(restaurant.longitude)
     if (isNaN(storeLat) || isNaN(storeLng) || storeLat === 0) return
 
-    const checkUserLocation = async () => {
-      let userLat: number | null = null
-      let userLng: number | null = null
-      let isPrecise = false
-
-      // Check stored user location first (from GPS or previous selection)
-      try {
-        const stored = localStorage.getItem('alfsouq_user_loc')
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          if (parsed.lat && parsed.lng) {
-            userLat = Number(parsed.lat)
-            userLng = Number(parsed.lng)
-            isPrecise = parsed.isPrecise === true
-          }
-        }
-      } catch {}
-
-      // If no stored location, fetch approximate IP-based location silently
-      if (!userLat || !userLng) {
-        try {
-          // Provider 1: ipwho.is (Highly accurate for Middle East & Turkey)
-          const res = await fetch('https://ipwho.is/')
-          const data = await res.json()
-          if (data && data.success !== false && data.latitude && data.longitude) {
-            userLat = Number(data.latitude)
-            userLng = Number(data.longitude)
-            isPrecise = false
-          }
-        } catch {
-          try {
-            // Provider 2: BigDataCloud
-            const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ar')
-            const data = await res.json()
-            if (data && data.latitude && data.longitude) {
-              userLat = Number(data.latitude)
-              userLng = Number(data.longitude)
-              isPrecise = false
-            }
-          } catch {}
-        }
-      }
-
-      if (userLat && userLng) {
-        const dist = calculateDistance(userLat, userLng, storeLat, storeLng)
-        const feeInfo = getDeliveryFeeForDistance(
-          dist,
-          restaurant.delivery_tiers,
-          restaurant.delivery_radius_km
-        )
-
-        if (!feeInfo.available) {
-          setOutOfRangeInfo({
-            distanceKm: dist,
-            isPrecise
-          })
-        }
+    const saved = readUserLocation()
+    if (saved) {
+      const dist = calculateDistance(saved.lat, saved.lng, storeLat, storeLng)
+      const feeInfo = getDeliveryFeeForDistance(dist, restaurant.delivery_tiers, restaurant.delivery_radius_km)
+      if (!feeInfo.available) {
+        setOutOfRangeInfo({ distanceKm: dist, isPrecise: saved.source === 'gps' })
       }
     }
-
-    checkUserLocation()
   }, [restaurant])
 
   const handleDismiss = () => {
@@ -103,7 +52,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
 
   const handleCalibrateLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert('عذراً، متصفحك لا يدعم الخدمة المباشرة للموقع الجغرافي.')
+      notifyError('عذراً، متصفحك لا يدعم الخدمة المباشرة للموقع الجغرافي.')
       return
     }
 
@@ -113,14 +62,7 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
         const lat = pos.coords.latitude
         const lng = pos.coords.longitude
 
-        // Save accurate GPS location in localStorage
-        try {
-          localStorage.setItem(
-            'alfsouq_user_loc',
-            JSON.stringify({ lat, lng, isPrecise: true, timestamp: Date.now() })
-          )
-          window.dispatchEvent(new Event('alfsouq_user_loc_updated'))
-        } catch {}
+        saveUserLocation({ lat, lng, source: 'gps' })
 
         const storeLat = Number(restaurant.latitude)
         const storeLng = Number(restaurant.longitude)
@@ -144,13 +86,13 @@ export default function MenuLocationNotice({ restaurant }: { restaurant: any }) 
             distanceKm: dist,
             isPrecise: true
           })
-          alert(`تم تحديد موقعك الدقيق (${dist.toFixed(1)} كم). أنت لا تزال خارج نطاق التوصيل المعتاد، لكن يمكنك متابعة الطلب والتصفح بحرية.`)
+          notifyError(`تم تحديد موقعك الدقيق (${dist.toFixed(1)} كم). أنت لا تزال خارج نطاق التوصيل المعتاد، لكن يمكنك متابعة الطلب والتصفح بحرية.`)
         }
       },
       (err) => {
         setLoadingLocation(false)
         console.warn('Geolocation denied or error:', err)
-        alert('يرجى التكرم بالسماح للمتصفح بالوصول للموقع ليتم تحديد المسافة بدقة.')
+        notifyError('يرجى التكرم بالسماح للمتصفح بالوصول للموقع ليتم تحديد المسافة بدقة.')
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     )

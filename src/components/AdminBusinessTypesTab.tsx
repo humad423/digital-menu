@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { triggerRevalidate } from '@/utils/revalidate'
@@ -63,7 +64,7 @@ export default function AdminBusinessTypesTab({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) return alert('يرجى كتابة اسم الفئة/النشاط')
+    if (!form.name.trim()) return notifyError('يرجى كتابة اسم الفئة/النشاط')
 
     setSaving(true)
     const slug = form.slug.trim()
@@ -81,7 +82,7 @@ export default function AdminBusinessTypesTab({
     if (editId) {
       const { error } = await supabase.from('business_types').update(payload).eq('id', editId)
       if (error) {
-        alert('حدث خطأ أثناء حفظ التعديلات: ' + error.message)
+        notifyError('حدث خطأ أثناء حفظ التعديلات: ' + error.message)
       } else {
         setShowForm(false)
         onRefresh()
@@ -90,7 +91,7 @@ export default function AdminBusinessTypesTab({
     } else {
       const { error } = await supabase.from('business_types').insert([payload])
       if (error) {
-        alert('حدث خطأ أثناء إضافة نوع النشاط: ' + error.message)
+        notifyError('حدث خطأ أثناء إضافة نوع النشاط: ' + error.message)
       } else {
         setShowForm(false)
         onRefresh()
@@ -115,7 +116,7 @@ export default function AdminBusinessTypesTab({
         onRefresh()
         triggerRevalidate(null, 'home')
       } else {
-        alert('حدث خطأ أثناء الحذف: ' + error.message)
+        notifyError('حدث خطأ أثناء الحذف: ' + error.message)
       }
     }
   }

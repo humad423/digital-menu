@@ -1,25 +1,33 @@
 import { getRestaurantBySlug } from '@/utils/menuCache'
 import CartButton from '@/components/CartButton'
-import UserAuthButton from '@/components/UserAuthButton'
-import RestaurantRating from '@/components/RestaurantRating'
 import StoreHeaderBanner from '@/components/StoreHeaderBanner'
 import StoreDeliveryBadge from '@/components/StoreDeliveryBadge'
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { ArrowRight, MapPin } from 'lucide-react'
-import { getStoreStatus } from '@/utils/storeStatus'
+import StoreStatusLine from '@/components/StoreStatusLine'
+import CartHydrator from '@/components/CartHydrator'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import MenuLocationNotice from '@/components/MenuLocationNotice'
 import MenuQrTracker from '@/components/MenuQrTracker'
-
-// Fully dynamic SSR — eliminates Vercel ISR Write Units completely (0 ISR Writes)
-export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   // Reuses the same cache as RestaurantLayout — no extra Supabase query
   const r = await getRestaurantBySlug(slug)
-  return { title: r ? `${r.name} | مِنيو` : 'مطعم غير موجود' }
+  if (!r) return { title: 'المتجر غير موجود', robots: { index: false } }
+
+  const title = `${r.name} | ألف سوق`
+  const description = r.menu_note || `تصفح منيو ${r.name} واطلب مباشرة عبر واتساب على منصة ألف سوق.`
+  const image = getOptimizedImageUrl(r.cover_url || r.logo_url, 1200)
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/m/${r.slug}` },
+    openGraph: { title, description, type: 'website', locale: 'ar', images: image ? [image] : undefined },
+  }
 }
 
 export default async function RestaurantLayout({
@@ -33,28 +41,10 @@ export default async function RestaurantLayout({
   // Single cached Supabase query shared with generateMetadata above
   const restaurant = await getRestaurantBySlug(slug)
 
-  if (!restaurant) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
-        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-xs">
-          🏪
-        </div>
-        <h1 className="text-lg font-black text-slate-900 mb-1">المتجر غير موجود</h1>
-        <p className="text-xs text-slate-400 font-bold max-w-xs mb-5 leading-relaxed">
-          عذراً، هذا المتجر غير موجود أو الرابط غير صحيح.
-        </p>
-        <Link
-          href="/"
-          className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow-sm transition active:scale-95"
-        >
-          العودة للرئيسية 🏠
-        </Link>
-      </div>
-    )
-  }
+  if (!restaurant) notFound()
 
-  // Check if customer menu has been suspended by admin
-  if (restaurant.is_menu_active === false) {
+  // A store is hidden when the admin suspends its menu or its subscription ends
+  if (restaurant.is_menu_active === false || restaurant.is_subscription_active === false) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-5 text-center" dir="rtl">
         <div className="max-w-md w-full bg-white rounded-3xl p-7 sm:p-8 shadow-xl border border-slate-200/90 flex flex-col items-center">
@@ -100,13 +90,6 @@ export default async function RestaurantLayout({
     )
   }
 
-  // Compute avg rating server-side (no separate DB call needed)
-  const ratingsList: { rating: number }[] = (restaurant as any).ratings || []
-  const avgRating = ratingsList.length > 0
-    ? (ratingsList.reduce((acc, curr) => acc + curr.rating, 0) / ratingsList.length).toFixed(1)
-    : 'جديد'
-  const ratingsCount = ratingsList.length
-
   const primary = restaurant.primary_color || '#F97316'
 
   return (
@@ -115,6 +98,7 @@ export default async function RestaurantLayout({
       className="min-h-screen bg-slate-200 text-slate-800 font-sans pb-28"
       style={{ '--color-primary': primary } as React.CSSProperties}
     >
+      <CartHydrator />
       <MenuQrTracker restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
       {/* Centered mobile-frame wrapper */}
       <div className="max-w-md sm:max-w-lg mx-auto bg-slate-50 min-h-screen relative shadow-2xl">
@@ -146,11 +130,6 @@ export default async function RestaurantLayout({
             <ArrowRight size={19} />
           </Link>
 
-          {/* User Auth */}
-          <div className="absolute top-4 left-4 z-20">
-            <UserAuthButton variant="light" />
-          </div>
-
           {/* Subtle gradient at bottom only for visual polish */}
           <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-slate-950/60 to-transparent" />
         </div>
@@ -176,17 +155,7 @@ export default async function RestaurantLayout({
             <div className="flex-1 min-w-0">
               <h2 className="text-sm font-black text-slate-900 truncate mb-1 leading-tight">{restaurant.name}</h2>
               <div className="flex items-center gap-3 flex-wrap text-xs mt-0">
-                {(() => {
-                  const status = getStoreStatus(restaurant)
-                  return (
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${status.dotClass}`} />
-                      <span className="font-bold text-slate-700">{status.statusText}</span>
-                      {status.subText && <span className="text-[10px] text-slate-400 font-bold">({status.subText})</span>}
-                    </div>
-                  )
-                })()}
-                <RestaurantRating restaurantSlug={restaurant.slug} avgRating={avgRating} ratingsCount={ratingsCount} />
+                <StoreStatusLine restaurant={restaurant} />
                 <StoreDeliveryBadge restaurant={restaurant} />
               </div>
             </div>
@@ -221,21 +190,7 @@ export default async function RestaurantLayout({
         {children}
       </main>
 
-      {restaurant.enable_whatsapp_orders === false ? null : restaurant.has_delivery === false ? (
-        <div className="fixed bottom-4 left-0 right-0 z-40 px-4 max-w-md sm:max-w-lg mx-auto">
-          <div className="bg-slate-900 text-white rounded-2xl p-3 px-4 shadow-xl border border-slate-800 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-base shrink-0">🏪</span>
-              <div className="min-w-0">
-                <p className="font-black text-xs text-white truncate">استلام من الفرع / تصفح فقط</p>
-                <p className="text-[10px] text-slate-400 font-medium truncate">هذا المتجر لا يوفر خدمة التوصيل المباشر</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <CartButton restaurant={restaurant} />
-      )}
+      <CartButton restaurant={restaurant} />
 
       </div>{/* end mobile-frame wrapper */}
     </div>

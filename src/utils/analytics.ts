@@ -129,37 +129,6 @@ export function trackGALogin(method = 'phone_sms') {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Visitor / Session ID helpers  (localStorage-based, unchanged)
-// ─────────────────────────────────────────────────────────────
-export function getOrCreateVisitorId(): string {
-  if (typeof window === 'undefined') return ''
-  try {
-    let vid = localStorage.getItem('alfsouq_vid')
-    if (!vid) {
-      vid = 'v_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36)
-      localStorage.setItem('alfsouq_vid', vid)
-    }
-    return vid
-  } catch {
-    return 'v_unknown'
-  }
-}
-
-export function getOrCreateSessionId(): string {
-  if (typeof window === 'undefined') return ''
-  try {
-    let sid = sessionStorage.getItem('alfsouq_sid')
-    if (!sid) {
-      sid = 's_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36)
-      sessionStorage.setItem('alfsouq_sid', sid)
-    }
-    return sid
-  } catch {
-    return 's_unknown'
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
 //  usePageDurationTracker  — heartbeat every 45 s + on unload
 //  Sends ONE مدة_التصفح event per interval / page-close
 // ─────────────────────────────────────────────────────────────

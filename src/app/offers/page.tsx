@@ -1,12 +1,8 @@
-// Server Component — data served from in-memory cache (5 min TTL)
 import { getOffersPageData } from '@/utils/menuCache'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
-import UserAuthButton from '@/components/UserAuthButton'
 import OffersClient from './OffersClient'
-
-export const dynamic = 'force-dynamic'
 
 export default async function AllOffersPage() {
   const { offers, businessTypes } = await getOffersPageData()
@@ -32,7 +28,6 @@ export default async function AllOffersPage() {
                 <p className="text-[11px] text-slate-400 font-medium">استكشف كافة عروض وبكجات المنصة المتاحة</p>
               </div>
             </div>
-            <UserAuthButton variant="light" />
           </div>
 
           {/* Interactive parts (search + tabs + grid) */}

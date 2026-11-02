@@ -9,11 +9,11 @@ import BrandLogo from '@/components/BrandLogo'
 
 import { auth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from '@/lib/firebase'
 import { normalizePhoneNumber } from '@/utils/phone'
-import { useAuth } from '@/context/AuthContext'
+import { signOut as firebaseSignOut } from 'firebase/auth'
+import { supportWhatsappUrl } from '@/config/site'
 
 export default function CompletelyStandaloneDashboardPage() {
   const router = useRouter()
-  const { completePhoneLogin } = useAuth()
 
   const [countryCode, setCountryCode] = useState('+90')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -139,16 +139,29 @@ export default function CompletelyStandaloneDashboardPage() {
       }
 
       const { user: firebaseUser } = await confirmationResult.confirm(otpCode)
-      const { restaurantId } = await completePhoneLogin(firebaseUser)
 
-      if (!restaurantId) {
-        await supabase.auth.signOut()
+      // Trade the SMS-verified Firebase user for a Supabase session that RLS can check
+      const res = await fetch('/api/auth/phone/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: await firebaseUser.getIdToken() }),
+      })
+      await firebaseSignOut(auth).catch(() => {})
+
+      if (res.status === 403) {
         setError(`رقم الهاتف (${formattedPhoneState || phoneNumber}) غير مرتبط بأي متجر مسجل. يرجى التواصل مع إدارة المنصة.`)
         return
       }
+      if (!res.ok) {
+        throw new Error('تعذر إكمال تسجيل الدخول، يرجى المحاولة مجدداً.')
+      }
+
+      const { access_token, refresh_token, restaurant_id } = await res.json()
+      const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token })
+      if (sessionError) throw sessionError
 
       // Redirect immediately to owner dashboard
-      router.push(`/restaurant-panel/${restaurantId}`)
+      router.push(`/restaurant-panel/${restaurant_id}`)
     } catch (err: any) {
       console.error('Error verifying owner login:', err)
       setError(err?.message || 'كود التحقق غير صحيح أو انتهت صلاحيته. يرجى التأكد وإعادة المحاولة.')
@@ -203,7 +216,7 @@ export default function CompletelyStandaloneDashboardPage() {
             </div>
 
             <a
-              href={`https://wa.me/905352574134?text=${encodeURIComponent(`مرحباً، أود تسجيل وتفعيل متجري الجديد في منصة ألف سوق برقم الهاتف: ${unregisteredError}`)}`}
+              href={supportWhatsappUrl(`مرحباً، أود تسجيل وتفعيل متجري الجديد في منصة ألف سوق برقم الهاتف: ${unregisteredError}`)}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition shadow-md no-underline cursor-pointer"
@@ -327,7 +340,7 @@ export default function CompletelyStandaloneDashboardPage() {
           <div className="mt-6 pt-5 border-t border-gray-800 text-center space-y-2.5">
             <p className="text-xs text-gray-300 font-bold">تريد الحصول على منيو رقمي جديد لمتجرك؟</p>
             <a
-              href="https://wa.me/905352574134?text=مرحباً،%20أرغب%20في%20إنشاء%20منيو%20رقمي%20جديد%20لمتجري%20عبر%20منصة%20ألف%20سوق"
+              href={supportWhatsappUrl('مرحباً، أرغب في إنشاء منيو رقمي جديد لمتجري عبر منصة ألف سوق')}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-3 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer no-underline"

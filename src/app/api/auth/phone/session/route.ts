@@ -21,13 +21,12 @@ function phoneIdentity(phone: string) {
   return { id, email: `${digits}@phone.alfsouq.com` }
 }
 
-async function syncProfile(
+async function syncOwnerProfile(
   admin: SupabaseClient<any>,
   firebaseUid: string,
   phone: string,
-  restaurantId: string | null
+  restaurantId: string
 ) {
-  const role = restaurantId ? 'restaurant_owner' : 'customer'
   const { data: existing, error } = await admin
     .from('profiles')
     .select('id, role, restaurant_id')
@@ -37,25 +36,21 @@ async function syncProfile(
 
   if (!existing) {
     const { error: insertError } = await admin.from('profiles').insert([
-      { id: firebaseUid, phone, full_name: '(بدون اسم)', role, restaurant_id: restaurantId },
+      { id: firebaseUid, phone, full_name: '(بدون اسم)', role: 'restaurant_owner', restaurant_id: restaurantId },
     ])
     if (insertError) throw insertError
-  } else if (existing.role !== role || existing.restaurant_id !== restaurantId) {
+  } else if (existing.role !== 'restaurant_owner' || existing.restaurant_id !== restaurantId) {
     const { error: updateError } = await admin
       .from('profiles')
-      .update({ role, restaurant_id: restaurantId })
+      .update({ role: 'restaurant_owner', restaurant_id: restaurantId })
       .eq('id', existing.id)
     if (updateError) throw updateError
   }
 }
 
-async function syncAuthUser(admin: SupabaseClient<any>, phone: string, restaurantId: string | null) {
+async function syncAuthUser(admin: SupabaseClient<any>, phone: string, restaurantId: string) {
   const { id, email } = phoneIdentity(phone)
-  const app_metadata = {
-    role: restaurantId ? 'restaurant_owner' : 'customer',
-    restaurant_id: restaurantId,
-    phone,
-  }
+  const app_metadata = { role: 'restaurant_owner', restaurant_id: restaurantId, phone }
 
   const { data: found } = await admin.auth.admin.getUserById(id)
   if (found?.user) {
@@ -70,7 +65,7 @@ async function syncAuthUser(admin: SupabaseClient<any>, phone: string, restauran
 }
 
 // Exchanges a Firebase-verified phone login for a Supabase session, so RLS can see
-// who the caller is. The role comes only from this server check.
+// which store the owner manages. The role comes only from this server check.
 export async function POST(request: NextRequest) {
   let identity: { uid: string; phone: string }
   try {
@@ -85,8 +80,11 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
     const phone = normalizePhoneNumber(identity.phone)
     const restaurantId = await resolveOwnedRestaurantId(admin, phone)
+    if (!restaurantId) {
+      return NextResponse.json({ error: 'Phone is not linked to a store' }, { status: 403 })
+    }
 
-    await syncProfile(admin, identity.uid, phone, restaurantId)
+    await syncOwnerProfile(admin, identity.uid, phone, restaurantId)
     const email = await syncAuthUser(admin, phone, restaurantId)
 
     const { data: link, error: linkError } = await admin.auth.admin.generateLink({

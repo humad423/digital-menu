@@ -1,9 +1,7 @@
-import { getRestaurantBySlug, getMenuByRestaurantId } from '@/utils/menuCache'
-
+import { getRestaurantBySlug, getMenuByRestaurant } from '@/utils/menuCache'
+import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
-
-// Fully dynamic SSR — 0 ISR Write Units
-export const dynamic = 'force-dynamic'
+import SupermarketOffers from '@/components/SupermarketOffers'
 
 export default async function RestaurantMenuPage({
   params,
@@ -12,29 +10,36 @@ export default async function RestaurantMenuPage({
 }) {
   const { slug } = await params
 
-  // Reuses cached query from layout — zero extra Supabase calls
+  // Shares its cached query with the layout
   const restaurant = await getRestaurantBySlug(slug)
+  if (!restaurant) notFound()
 
-  if (!restaurant) {
-    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر غير موجود أو قد يكون الرابط غير صحيح.</div>
+  const { categories, menuItems, offers } = await getMenuByRestaurant(restaurant.id, restaurant.slug)
+
+  if (categories.length === 0 && offers.length === 0) {
+    return <div className="text-center py-20 text-gray-500 font-bold">المتجر قيد التجهيز حالياً...</div>
   }
 
-  // Cached menu data — shared across all render passes for this restaurant
-  const { categories, menuItems, offers } = await getMenuByRestaurantId(restaurant.id)
-
-  if (!categories || categories.length === 0) {
-    return <div className="text-center py-20 text-gray-500 font-bold dir-rtl">المتجر قيد التجهيز حالياً...</div>
+  // A supermarket lists its current deals like a flyer, not a full product catalog
+  if (restaurant.store_type === 'supermarket') {
+    return (
+      <SupermarketOffers
+        restaurant={restaurant}
+        categories={categories}
+        menuItems={menuItems}
+        offers={offers}
+      />
+    )
   }
 
   return (
     <MenuClient
       restaurantId={restaurant.id}
       restaurantName={restaurant.name}
-      storeType={(restaurant as any).store_type || 'restaurant'}
+      storeType={restaurant.store_type || 'restaurant'}
       restaurant={restaurant}
       categories={categories}
       menuItems={menuItems}
-      ads={[]}
       offers={offers}
     />
   )

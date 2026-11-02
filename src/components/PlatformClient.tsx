@@ -2,17 +2,86 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, MapPin, ChevronLeft, ChevronRight, X, Bike, Star, Loader2, ArrowUpDown } from 'lucide-react'
+import { Search, MapPin, ChevronLeft, ChevronRight, X, Bike, Loader2, ArrowUpDown } from 'lucide-react'
 
 
 import SmartOfferImage from '@/components/SmartOfferImage'
 
-import UserAuthButton from '@/components/UserAuthButton'
+
 import BrandLogo from '@/components/BrandLogo'
 import { calculateDistance, getDeliveryFeeForDistance, isStoreWithinRange } from '@/utils/distance'
 import { getStoreStatus } from '@/utils/storeStatus'
 import { trackEvent } from '@/utils/analytics'
 import Footer from '@/components/Footer'
+import { matchesSearch } from '@/utils/text'
+import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
+import { supportWhatsappUrl } from '@/config/site'
+import {
+  getPositionIfPermitted,
+  getPrecisePosition,
+  hasChosenToStayInZone,
+  readUserLocation,
+  rememberStayInZone,
+  saveUserLocation,
+  type SavedLocation,
+} from '@/utils/userLocation'
+
+// How far GPS must be from a hand-picked zone before suggesting a change
+const MOVED_AWAY_KM = 3
+
+function ZoneModal({
+  zones,
+  onClose,
+  onUseGps,
+  onSelectZone,
+}: {
+  zones: any[]
+  onClose: () => void
+  onUseGps: () => void
+  onSelectZone: (zone: any) => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-slate-100 p-5 space-y-4 text-right" dir="rtl">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+            <MapPin size={16} className="text-orange-500" />
+            <span>تحديد موقعك أو اختيار منطقة</span>
+          </h4>
+          <button onClick={onClose} aria-label="إغلاق" className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+            <X size={18} />
+          </button>
+        </div>
+
+        <button
+          onClick={onUseGps}
+          className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 font-black text-xs py-2.5 px-3 rounded-2xl border border-orange-200 flex items-center justify-center gap-2 transition cursor-pointer"
+        >
+          <MapPin size={14} />
+          <span>استخدم موقعي الحالي 🛰️</span>
+        </button>
+
+        <div className="space-y-1.5 pt-2">
+          <span className="text-[11px] font-black text-slate-400 block">أو اختر منطقة:</span>
+          {zones.length === 0 ? (
+            <p className="text-xs text-slate-400 font-medium py-2">لا توجد مناطق تغطية مضافة حالياً</p>
+          ) : (
+            zones.map((z: any) => (
+              <button
+                key={z.id}
+                onClick={() => onSelectZone(z)}
+                className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
+              >
+                <span>📍 {z.name}</span>
+                <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════
 //  ADS SLIDER (Touch + Mouse Drag + Dots + Arrows)
@@ -178,123 +247,53 @@ export default function PlatformClient({
   const [offerStartX, setOfferStartX]   = useState(0)
   const [offerScrollL, setOfferScrollL] = useState(0)
 
-  const [userArea, setUserArea] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('alfsouq_user_area') || ''
-    }
-    return ''
-  })
+  const [location, setLocation] = useState<SavedLocation | null>(null)
+  const [locationReady, setLocationReady] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
+  const [movedTo, setMovedTo] = useState<{ lat: number; lng: number } | null>(null)
+  const [browseAll, setBrowseAll] = useState(false)
+  const userLoc = location ? { lat: location.lat, lng: location.lng } : null
 
-  const [locationStatus, setLocStatus] = useState<'granted' | 'locating' | 'default'>(() => {
-    if (typeof window !== 'undefined') {
-      const savedStatus = localStorage.getItem('alfsouq_loc_status')
-      if (savedStatus === 'granted') return 'granted'
-    }
-    return 'default'
-  })
+  const applyGpsPosition = useCallback((pos: { lat: number; lng: number }) => {
+    const zone = (serviceZones || [])
+      .map((z: any) => ({ ...z, dist: calculateDistance(pos.lat, pos.lng, z.latitude, z.longitude) }))
+      .filter((z: any) => z.dist <= (z.radius_km || 15))
+      .sort((a: any, b: any) => a.dist - b.dist)[0]
 
-  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number }>(() => {
-    if (typeof window !== 'undefined') {
-      const savedLoc = localStorage.getItem('alfsouq_user_loc')
-      if (savedLoc) {
-        try { return JSON.parse(savedLoc) } catch {}
-      }
-    }
-    return { lat: 40.8167, lng: 29.3750 }
-  })
-
-  const requestLocation = useCallback(() => {
-    if (typeof window === 'undefined') return
-    setLocStatus('locating')
-
-    const processCoords = async (lat: number, lng: number, isPrecise: boolean) => {
-      const coords = { lat, lng }
-      setUserLoc(coords)
-      setLocStatus(isPrecise ? 'granted' : 'default')
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('alfsouq_user_loc', JSON.stringify(coords))
-        if (isPrecise) localStorage.setItem('alfsouq_loc_status', 'granted')
-      }
-
-      // Determine area name: 1. Custom Zones (Closest) -> 2. Default Region -> 3. Reverse Geocoding API
-      try {
-        let areaName = ''
-
-        // 1. Custom Admin Defined Zones (Resolve overlaps by choosing closest zone center)
-        if (serviceZones && serviceZones.length > 0) {
-          const matchingZones = serviceZones
-            .map(z => ({
-              ...z,
-              dist: calculateDistance(lat, lng, z.latitude, z.longitude)
-            }))
-            .filter(z => z.dist <= (z.radius_km || 15))
-            .sort((a, b) => a.dist - b.dist)
-
-          if (matchingZones.length > 0) {
-            areaName = matchingZones[0].name
-          }
-        }
-
-        // 2. Major Region / City Name directly from Reverse Geocoding Maps API in Arabic if no custom zone matched
-        if (!areaName) {
-          const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=ar`)
-          if (res.ok) {
-            const data = await res.json()
-            areaName = data.city || data.localityInfo?.administrative?.[2]?.name || data.localityInfo?.administrative?.[1]?.name || ''
-          }
-        }
-
-        if (areaName) {
-          setUserArea(areaName)
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('alfsouq_user_area', areaName)
-          }
-        } else {
-          setUserArea('موقعي الحالي')
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('alfsouq_user_area')
-          }
-        }
-      } catch (err) {
-        console.warn('Error resolving area name:', err)
-      }
-    }
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        p => processCoords(p.coords.latitude, p.coords.longitude, true),
-        async err => {
-          console.warn('GPS location request denied or error, falling back to approximate IP location:', err)
-          setLocStatus('default')
-          // Approximate Location via IP Geolocation API
-          try {
-            const ipRes = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ar')
-            if (ipRes.ok) {
-              const data = await ipRes.json()
-              if (data.latitude && data.longitude) {
-                await processCoords(data.latitude, data.longitude, false)
-                return
-              }
-            }
-          } catch (ipErr) {
-            console.warn('IP location fallback error:', ipErr)
-          }
-          // Final fallback to default coordinates if IP lookup also fails
-          await processCoords(40.8167, 29.3750, false)
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-      )
-    } else {
-      processCoords(40.8167, 29.3750, false)
-    }
+    setLocation(saveUserLocation({ ...pos, area: zone?.name, source: 'gps' }))
+    setMovedTo(null)
+    setBrowseAll(false)
   }, [serviceZones])
 
+  const requestLocation = useCallback(() => {
+    setLocating(true)
+    setLocationError('')
+    getPrecisePosition()
+      .then(applyGpsPosition)
+      .catch(() => setLocationError('تعذر تحديد موقعك. اسمح للمتصفح بالوصول للموقع أو اختر منطقتك يدوياً.'))
+      .finally(() => setLocating(false))
+  }, [applyGpsPosition])
+
   useEffect(() => {
-    if (typeof window !== 'undefined' && !localStorage.getItem('alfsouq_loc_status')) {
-      requestLocation()
-    }
-  }, [requestLocation])
+    const saved = readUserLocation()
+    setLocation(saved)
+    setLocationReady(true)
+
+    // Without a prompt, see if the visitor moved. GPS-based locations just follow them;
+    // a zone they picked by hand stays until they choose to change it.
+    getPositionIfPermitted().then(pos => {
+      if (!pos) return
+      if (!saved || saved.source === 'gps') {
+        applyGpsPosition(pos)
+      } else if (
+        calculateDistance(saved.lat, saved.lng, pos.lat, pos.lng) > MOVED_AWAY_KM &&
+        !hasChosenToStayInZone()
+      ) {
+        setMovedTo(pos)
+      }
+    })
+  }, [applyGpsPosition])
 
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -318,28 +317,31 @@ export default function PlatformClient({
   // Calculate restaurant distances
   const withDist = restaurants.map(r => ({
     ...r,
-    distance: (r.latitude && r.longitude)
+    distance: (userLoc && r.latitude && r.longitude)
       ? calculateDistance(userLoc.lat, userLoc.lng, r.latitude, r.longitude)
       : null
   }))
 
+  // A store with no delivery tiers has an unknown fee, so it sorts after known fees
+  const knownDeliveryFee = (r: any) => {
+    if (r.distance === null) return Infinity
+    const info = getDeliveryFeeForDistance(r.distance, r.delivery_tiers, r.delivery_radius_km)
+    return info.available && info.hasTiers ? info.fee : Infinity
+  }
+
   const filteredRestaurants = withDist.filter(r => {
     const storeTypeMatches = activeStoreType === 'all' ? true : (r.store_type || 'restaurant') === activeStoreType
     const catMatches       = activeCat ? (r.platform_category_ids || []).includes(activeCat) : true
-    const searchMatches    = r.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const searchMatches    = matchesSearch(searchQuery, r.name)
 
     // Exclude stores outside delivery/pickup radius using the robust helper
-    const withinRadius = isStoreWithinRange(userLoc.lat, userLoc.lng, r)
+    const withinRadius = browseAll || !userLoc || isStoreWithinRange(userLoc.lat, userLoc.lng, r)
 
     return storeTypeMatches && catMatches && searchMatches && withinRadius
   }).sort((a, b) => {
-    if (sortBy === 'rating') {
-      const rateA = parseFloat(a.avg_rating) || 0
-      const rateB = parseFloat(b.avg_rating) || 0
-      if (rateB !== rateA) return rateB - rateA
-    } else if (sortBy === 'delivery_fee') {
-      const feeA = a.distance !== null ? (getDeliveryFeeForDistance(a.distance, a.delivery_tiers, a.delivery_radius_km)?.fee ?? 999) : 999
-      const feeB = b.distance !== null ? (getDeliveryFeeForDistance(b.distance, b.delivery_tiers, b.delivery_radius_km)?.fee ?? 999) : 999
+    if (sortBy === 'delivery_fee') {
+      const feeA = knownDeliveryFee(a)
+      const feeB = knownDeliveryFee(b)
       if (feeA !== feeB) return feeA - feeB
     } else if (sortBy === 'newest') {
       const dateA = new Date(a.created_at || 0).getTime()
@@ -363,19 +365,10 @@ export default function PlatformClient({
 
   const filteredAds = (ads || []).filter(ad => {
     // 1. General ads (no lat/lng/radius specified) -> Show to ALL
-    if (!ad.latitude || !ad.longitude || !ad.radius_km || ad.radius_km === 0) {
-      return true
-    }
+    if (!ad.latitude || !ad.longitude || !ad.radius_km) return true
 
-    // 2. Pure GPS Distance Geofencing (Haversine Formula)
-    if (userLoc?.lat && userLoc?.lng) {
-      const dist = calculateDistance(userLoc.lat, userLoc.lng, ad.latitude, ad.longitude)
-      return dist <= ad.radius_km
-    }
-
-    // Fallback for default zone (40.8167, 29.3750)
-    const defaultDist = calculateDistance(40.8167, 29.3750, ad.latitude, ad.longitude)
-    return defaultDist <= ad.radius_km
+    // 2. Geofenced ads need a known location
+    return !!userLoc && calculateDistance(userLoc.lat, userLoc.lng, ad.latitude, ad.longitude) <= ad.radius_km
   })
 
 
@@ -397,30 +390,42 @@ export default function PlatformClient({
 
   // Check if user is within any active service zone
   const activeServiceZones = (serviceZones || []).filter((z: any) => z.is_active !== false && z.latitude && z.longitude)
-  const isUserInCoverage = activeServiceZones.length > 0 && activeServiceZones.some((z: any) => {
+  const isUserInCoverage = activeServiceZones.length === 0 || (!!userLoc && activeServiceZones.some((z: any) => {
     const dist = calculateDistance(userLoc.lat, userLoc.lng, Number(z.latitude), Number(z.longitude))
     return dist <= (Number(z.radius_km) || 15)
-  })
+  }))
 
   const handleSelectZone = (zone: any) => {
-    const coords = { lat: Number(zone.latitude), lng: Number(zone.longitude) }
-    setUserLoc(coords)
-    setUserArea(zone.name)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('alfsouq_user_loc', JSON.stringify(coords))
-      localStorage.setItem('alfsouq_user_area', zone.name)
-    }
+    setLocation(saveUserLocation({
+      lat: Number(zone.latitude),
+      lng: Number(zone.longitude),
+      area: zone.name,
+      source: 'zone',
+    }))
+    setMovedTo(null)
+    setBrowseAll(false)
     setShowZoneModal(false)
   }
 
+  const stayInZone = () => {
+    rememberStayInZone()
+    setMovedTo(null)
+  }
+
+  // Location is only known in the browser, so wait instead of flashing the wrong screen
+  if (!locationReady) {
+    return <div className="min-h-screen bg-slate-50" />
+  }
+
   // Render Outside Coverage Screen if user is outside coverage zone
-  if (locationStatus !== 'locating' && !isUserInCoverage) {
-    const nearestZone = activeServiceZones
+  if (!locating && !isUserInCoverage && !browseAll) {
+    const nearestZone = userLoc && activeServiceZones
       .map((z: any) => ({
         ...z,
         dist: calculateDistance(userLoc.lat, userLoc.lng, Number(z.latitude), Number(z.longitude))
       }))
       .sort((a, b) => a.dist - b.dist)[0]
+
 
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between dir-rtl font-sans">
@@ -432,7 +437,7 @@ export default function PlatformClient({
             className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-3.5 py-1.5 rounded-full text-xs font-black transition cursor-pointer shadow-xs"
           >
             <MapPin size={14} className="text-amber-600" />
-            <span>{userArea || 'اختر المنطقة 📍'}</span>
+            <span>{location?.area || 'اختر المنطقة 📍'}</span>
           </button>
         </header>
 
@@ -444,26 +449,41 @@ export default function PlatformClient({
             <div className="w-full h-full bg-white rounded-[22px] flex items-center justify-center text-4xl">
               📍
             </div>
-            <div className="absolute -bottom-2 -right-2 bg-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              قريباً 🚀
-            </div>
+            {location && (
+              <div className="absolute -bottom-2 -right-2 bg-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                قريباً 🚀
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
-            <span className="inline-block bg-orange-100 text-orange-800 text-xs font-black px-3.5 py-1 rounded-full border border-orange-200">
-              سيكون متوفر قريباً في منطقتك ✨
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-              عذراً، خدمات التطبيق غير متوفرة في موقعك الحالي حالياً
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
-              نعمل باستمرار على توسيع نطاق خدماتنا للتواجد في منطقتك بالقريب العاجل 🚀
-            </p>
+            {location ? (
+              <>
+                <span className="inline-block bg-orange-100 text-orange-800 text-xs font-black px-3.5 py-1 rounded-full border border-orange-200">
+                  سيكون متوفر قريباً في منطقتك ✨
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  عذراً، خدمات التطبيق غير متوفرة في موقعك الحالي حالياً
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                  نعمل باستمرار على توسيع نطاق خدماتنا للتواجد في منطقتك بالقريب العاجل 🚀
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  أهلاً بك في ألف سوق 👋
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                  حدد موقعك لنعرض لك المتاجر القريبة منك
+                </p>
+              </>
+            )}
           </div>
 
-          {/* Distance Info Card */}
-          {nearestZone && (
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs text-xs font-bold text-slate-600 flex items-center justify-between gap-3 text-right">
+          {/* Choose a location */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs text-xs font-bold text-slate-600 space-y-3 text-right">
+            {nearestZone && (
               <div className="flex items-center gap-2">
                 <span className="text-xl">🗺️</span>
                 <div>
@@ -471,14 +491,21 @@ export default function PlatformClient({
                   <span className="text-slate-500 font-medium">{nearestZone.name} (تبعد {nearestZone.dist.toFixed(1)} كم)</span>
                 </div>
               </div>
-              <button
-                onClick={() => setShowZoneModal(true)}
-                className="text-orange-600 hover:underline shrink-0 text-xs font-black cursor-pointer"
-              >
-                تغيير المنطقة 📍
-              </button>
-            </div>
-          )}
+            )}
+            <button
+              onClick={() => setShowZoneModal(true)}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2.5 rounded-xl transition active:scale-95"
+            >
+              {location ? 'تغيير المنطقة 📍' : 'حدد موقعك أو اختر منطقتك 📍'}
+            </button>
+          </div>
+
+          <button
+            onClick={() => setBrowseAll(true)}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-3 rounded-2xl transition active:scale-95"
+          >
+            تصفح كل المتاجر 🛍️
+          </button>
 
           {/* Merchant / Business Owner CTA Card */}
           <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-700/80 text-right space-y-4 relative overflow-hidden">
@@ -497,12 +524,12 @@ export default function PlatformClient({
             </div>
 
             <a
-              href="https://wa.me/905352574134?text=مرحباً،%20أرغب%20في%20الحصول%20على%20منيو%20رقمي%20خاص%20بمتجري%20عبر%20منصة%20ألف%20سوق"
+              href={supportWhatsappUrl('مرحباً، أرغب في الحصول على منيو رقمي خاص بمتجري عبر منصة ألف سوق')}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-2xl shadow-lg flex items-center justify-center gap-2.5 transition active:scale-95 text-center no-underline cursor-pointer"
             >
-              <span>💬 تواصل معنا عبر الواتساب (05352574134+)</span>
+              <span>💬 تواصل معنا عبر الواتساب</span>
             </a>
           </div>
 
@@ -513,49 +540,12 @@ export default function PlatformClient({
 
         {/* Zone Selector Modal */}
         {showZoneModal && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-slate-100 p-5 space-y-4 text-right">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                  <MapPin size={16} className="text-orange-500" />
-                  <span>تحديد أو اختيار منطقة التغطية</span>
-                </h4>
-                <button onClick={() => setShowZoneModal(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                  <X size={18} />
-                </button>
-              </div>
-
-              <p className="text-xs text-slate-500 font-medium">
-                يمكنك إعادة تحديد موقعك عبر GPS أو اختيار إحدى مناطق التغطية المتاحة:
-              </p>
-
-              <button
-                onClick={() => { setShowZoneModal(false); requestLocation(); }}
-                className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 font-black text-xs py-2.5 px-3 rounded-2xl border border-orange-200 flex items-center justify-center gap-2 transition cursor-pointer"
-              >
-                <MapPin size={14} />
-                <span>إعادة تحديد موقعي الحقيقي عبر GPS 🛰️</span>
-              </button>
-
-              <div className="space-y-1.5 pt-2">
-                <span className="text-[11px] font-black text-slate-400 block">مناطق التغطية المتاحة حالياً:</span>
-                {activeServiceZones.length === 0 ? (
-                  <p className="text-xs text-slate-400 font-medium py-2">لا توجد مناطق تغطية مضافة في النظام حالياً</p>
-                ) : (
-                  activeServiceZones.map((z: any) => (
-                    <button
-                      key={z.id}
-                      onClick={() => handleSelectZone(z)}
-                      className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
-                    >
-                      <span>📍 {z.name}</span>
-                      <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+          <ZoneModal
+            zones={activeServiceZones}
+            onClose={() => setShowZoneModal(false)}
+            onUseGps={() => { setShowZoneModal(false); requestLocation() }}
+            onSelectZone={handleSelectZone}
+          />
         )}
       </div>
     )
@@ -581,28 +571,22 @@ export default function PlatformClient({
             <div className="flex items-center justify-center min-w-0">
               <button
                 onClick={() => setShowZoneModal(true)}
-                disabled={locationStatus === 'locating'}
+                disabled={locating}
                 className="flex items-center justify-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-bold border border-slate-700/60 transition truncate max-w-[150px] disabled:opacity-75 cursor-pointer shadow-xs"
               >
-                {locationStatus === 'locating' ? (
+                {locating ? (
                   <Loader2 size={13} className="text-orange-400 shrink-0 animate-spin" />
                 ) : (
                   <MapPin size={13} className="text-orange-400 shrink-0" />
                 )}
                 <span className="truncate text-slate-200">
-                  {locationStatus === 'locating'
-                    ? 'جاري التحديد...'
-                    : userArea
-                    ? userArea
-                    : 'موقعي الحالي'}
+                  {locating ? 'جاري التحديد...' : location?.area || (location ? 'موقعي الحالي' : 'اختر موقعك')}
                 </span>
               </button>
             </div>
 
-            {/* Left: User Auth */}
-            <div className="flex items-center justify-end">
-              <UserAuthButton variant="light" />
-            </div>
+            {/* Left: balances the centered location pill */}
+            <div />
           </div>
 
           {/* Row 2: Search Bar (Collapses smoothly on scroll) */}
@@ -675,28 +659,31 @@ export default function PlatformClient({
       {/* ── MAIN CONTAINER ── */}
       <main className="w-full max-w-md sm:max-w-lg mx-auto px-3 sm:px-4 mt-5 mb-8 space-y-6">
 
-        {/* Location Notice Banner - shown as long as location is approximate (not granted) */}
-        {locationStatus === 'default' && (
-          <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-3.5 flex items-start gap-3 shadow-xs">
-            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 text-base mt-0.5">
-              📍
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-blue-900 mb-0.5">
-                أنت تتصفح بموقعك التقريبي
-              </p>
-              <p className="text-[11px] font-medium text-blue-700 leading-relaxed">
-                لإظهار المتاجر الأقرب إليك بدقة، يرجى السماح بالوصول إلى موقعك الحقيقي
-              </p>
+        {/* Visitor picked a zone but GPS says they moved: let them decide */}
+        {movedTo && location && (
+          <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-3.5 shadow-xs">
+            <p className="text-xs font-black text-blue-900 mb-2">
+              يبدو أنك الآن خارج {location.area || 'المنطقة التي اخترتها'}
+            </p>
+            <div className="flex gap-2">
               <button
-                onClick={requestLocation}
-                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-4 py-1.5 rounded-xl transition shadow-sm active:scale-95 flex items-center gap-1.5"
+                onClick={() => applyGpsPosition(movedTo)}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-3 py-2 rounded-xl transition active:scale-95"
               >
-                <MapPin size={12} />
-                السماح بالموقع الحقيقي
+                استخدم موقعي الحالي
+              </button>
+              <button
+                onClick={stayInZone}
+                className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-black text-xs px-3 py-2 rounded-xl transition active:scale-95"
+              >
+                ابقَ في {location.area || 'هذه المنطقة'}
               </button>
             </div>
           </div>
+        )}
+
+        {locationError && (
+          <p className="bg-rose-50 border border-rose-200/80 rounded-2xl p-3 text-xs font-bold text-rose-700">{locationError}</p>
         )}
 
 
@@ -945,7 +932,7 @@ export default function PlatformClient({
                 className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer pr-1"
               >
                 <option value="distance">📍 الأقرب مسافة</option>
-                <option value="rating">⭐ الأعلى تقييماً</option>
+
                 <option value="delivery_fee">🚚 الأقل توصيلاً</option>
                 <option value="newest">✨ الأحدث إضافـة</option>
               </select>
@@ -979,7 +966,7 @@ export default function PlatformClient({
                     <div className="h-44 sm:h-48 w-full bg-slate-900 relative overflow-hidden shrink-0">
                       {restaurant.cover_url ? (
                         <img
-                          src={restaurant.cover_url}
+                          src={getOptimizedImageUrl(restaurant.cover_url, 700)}
                           alt={restaurant.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
@@ -1038,7 +1025,7 @@ export default function PlatformClient({
                       <div className="flex items-start gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-white p-0.5 shadow-md border border-slate-100 overflow-hidden shrink-0 -mt-7 z-20 relative">
                           {restaurant.logo_url ? (
-                            <img src={restaurant.logo_url} alt={restaurant.name} className="w-full h-full object-cover rounded-xl" />
+                            <img src={getOptimizedImageUrl(restaurant.logo_url, 150)} alt={restaurant.name} className="w-full h-full object-cover rounded-xl" />
                           ) : (
                             <div
                               className="w-full h-full rounded-xl flex items-center justify-center text-sm font-black text-white"
@@ -1054,10 +1041,7 @@ export default function PlatformClient({
                             <h3 className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors truncate leading-tight">
                               {restaurant.name}
                             </h3>
-                            <div className="bg-amber-50 text-amber-900 border border-amber-200/80 px-1.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 shrink-0">
-                              <Star size={10} className="text-amber-500 fill-amber-500" />
-                              <span>{restaurant.avg_rating || 'جديد'}</span>
-                            </div>
+
                           </div>
                           {restaurantCats.length > 0 && (
                             <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
@@ -1110,51 +1094,14 @@ export default function PlatformClient({
       </main>
 
       {/* Zone Selector Modal */}
-      {showZoneModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-slate-100 p-5 space-y-4 text-right dir-rtl">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                <MapPin size={16} className="text-orange-500" />
-                <span>تحديد أو اختيار منطقة التغطية</span>
-              </h4>
-              <button onClick={() => setShowZoneModal(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500 font-medium">
-              يمكنك إعادة تحديد موقعك عبر GPS أو اختيار إحدى مناطق التغطية المتاحة:
-            </p>
-
-            <button
-              onClick={() => { setShowZoneModal(false); requestLocation(); }}
-              className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 font-black text-xs py-2.5 px-3 rounded-2xl border border-orange-200 flex items-center justify-center gap-2 transition cursor-pointer"
-            >
-              <MapPin size={14} />
-              <span>إعادة تحديد موقعي الحقيقي عبر GPS 🛰️</span>
-            </button>
-
-            <div className="space-y-1.5 pt-2">
-              <span className="text-[11px] font-black text-slate-400 block">مناطق التغطية المتاحة حالياً:</span>
-              {activeServiceZones.length === 0 ? (
-                <p className="text-xs text-slate-400 font-medium py-2">لا توجد مناطق تغطية مضافة في النظام حالياً</p>
-              ) : (
-                activeServiceZones.map((z: any) => (
-                  <button
-                    key={z.id}
-                    onClick={() => handleSelectZone(z)}
-                    className="w-full bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 text-right flex items-center justify-between text-xs font-black text-slate-800 transition cursor-pointer"
-                  >
-                    <span>📍 {z.name}</span>
-                    <span className="text-[10px] text-slate-400 font-normal">نطاق {z.radius_km} كم</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+        {showZoneModal && (
+          <ZoneModal
+            zones={activeServiceZones}
+            onClose={() => setShowZoneModal(false)}
+            onUseGps={() => { setShowZoneModal(false); requestLocation() }}
+            onSelectZone={handleSelectZone}
+          />
+        )}
 
       {/* Footer Component */}
       <Footer />

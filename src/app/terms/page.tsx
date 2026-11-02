@@ -1,29 +1,12 @@
 import React from 'react'
-import { createPublicClient } from '@/utils/supabase/server'
 import { FileText, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import BrandLogo from '@/components/BrandLogo'
 import Footer from '@/components/Footer'
-
-export const revalidate = false
-export const dynamic = 'force-static'
-
-async function getTermsContent() {
-  try {
-    const supabase = createPublicClient()
-    const { data } = await supabase
-      .from('platform_settings')
-      .select('terms_of_service')
-      .eq('id', 'main')
-      .maybeSingle()
-    return data?.terms_of_service || null
-  } catch {
-    return null
-  }
-}
+import { getLegalContent } from '@/utils/menuCache'
 
 export default async function TermsPage() {
-  const customTerms = await getTermsContent()
+  const { terms: customTerms } = await getLegalContent()
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col dir-rtl selection:bg-emerald-500 selection:text-white">

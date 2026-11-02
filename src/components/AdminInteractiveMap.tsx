@@ -306,7 +306,7 @@ export default function AdminInteractiveMap({
                 ${isCircleEnabled ? 'إلغاء/إخفاء دائرة التوصيل ✕' : 'رسم/إظهار دائرة التوصيل ⭕ (' + radiusKm + ' كم)'}
               </button>
             ` : ''}
-            <a href="/admin/restaurant/${store.id}" style="display: block; text-align: center; background: #0F172A; color: white; text-decoration: none; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 900; margin-top: 6px;">
+            <a href="/restaurant-panel/${store.id}" style="display: block; text-align: center; background: #0F172A; color: white; text-decoration: none; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 900; margin-top: 6px;">
               إدارة المنيو والعروض ⟵
             </a>
           </div>

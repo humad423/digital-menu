@@ -4,13 +4,13 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { ShieldCheck, FileText, Info, Save, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
+import { triggerRevalidate } from '@/utils/revalidate'
 
 export default function AdminLegalPagesTab() {
   const supabase = createClient()
   const [activeSubTab, setActiveSubTab] = useState<'privacy' | 'terms' | 'about'>('privacy')
   const [privacyPolicy, setPrivacyPolicy] = useState('')
   const [termsOfService, setTermsOfService] = useState('')
-  const [aboutUs, setAboutUs] = useState('')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -23,14 +23,13 @@ export default function AdminLegalPagesTab() {
       try {
         const { data } = await supabase
           .from('platform_settings')
-          .select('privacy_policy, terms_of_service, about_us')
+          .select('privacy_policy, terms_of_service')
           .eq('id', 'main')
           .maybeSingle()
 
         if (data) {
           setPrivacyPolicy(data.privacy_policy || '')
           setTermsOfService(data.terms_of_service || '')
-          setAboutUs(data.about_us || '')
         }
       } catch (e: any) {
         console.error('Error fetching legal pages:', e)
@@ -52,13 +51,13 @@ export default function AdminLegalPagesTab() {
         .from('platform_settings')
         .update({
           privacy_policy: privacyPolicy,
-          terms_of_service: termsOfService,
-          about_us: aboutUs
+          terms_of_service: termsOfService
         })
         .eq('id', 'main')
 
       if (error) throw error
 
+      triggerRevalidate(null, 'legal')
       setSuccessMsg('تم حفظ محتوى الصفحات القانونية بنجاح 🚀')
       setTimeout(() => setSuccessMsg(null), 4000)
     } catch (e: any) {
@@ -222,31 +221,6 @@ export default function AdminLegalPagesTab() {
       )}
 
       {/* Tab 3: About Us Editor */}
-      {activeSubTab === 'about' && (
-        <div className="bg-gray-900/90 border border-gray-800 rounded-3xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-200 flex items-center gap-2">
-              <Info size={18} className="text-blue-400" />
-              <span>محتوى صفحة عن المنصة</span>
-            </h3>
-            <Link
-              href="/about"
-              target="_blank"
-              className="text-xs font-bold text-blue-400 hover:underline flex items-center gap-1"
-            >
-              <span>معاينة الصفحة الحية</span>
-              <ExternalLink size={14} />
-            </Link>
-          </div>
-          <textarea
-            rows={16}
-            value={aboutUs}
-            onChange={e => setAboutUs(e.target.value)}
-            placeholder="اكتب محتوى عن المنصة هنا..."
-            className="w-full bg-gray-950 border border-gray-800 rounded-2xl p-4 text-xs font-mono text-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition leading-relaxed"
-          />
-        </div>
-      )}
     </div>
   )
 }

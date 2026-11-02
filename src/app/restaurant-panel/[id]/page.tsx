@@ -6,16 +6,20 @@ import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
-import StoreSettingsModal from '@/components/StoreSettingsModal'
-import StoreQrModal from '@/components/StoreQrModal'
-import OfferPosterModal from '@/components/OfferPosterModal'
-import MultiOfferPosterModal from '@/components/MultiOfferPosterModal'
+import dynamic from 'next/dynamic'
 import { Plus, Trash2, Edit, LogOut, X, Settings, Eye, Download, Share, Share2, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
 import { triggerRevalidate } from '@/utils/revalidate'
-import { parseRestaurantMultiplier, getEffectiveVisits, fetchTodayVisits } from '@/utils/visitsHelper'
+import { fetchTodayVisits } from '@/utils/visitsHelper'
+import { notifyError, reportWriteResult } from '@/utils/notify'
+
+// Rarely opened and heavy, so they load only when used
+const StoreSettingsModal = dynamic(() => import('@/components/StoreSettingsModal'))
+const StoreQrModal = dynamic(() => import('@/components/StoreQrModal'))
+const OfferPosterModal = dynamic(() => import('@/components/OfferPosterModal'))
+const MultiOfferPosterModal = dynamic(() => import('@/components/MultiOfferPosterModal'))
 
 function FormPortal({
   isMobile,
@@ -78,6 +82,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [todayVisits, setTodayVisits] = useState<number>(0)
+  const [panelTab, setPanelTab] = useState<'items' | 'offers' | 'categories' | 'delivery'>('items')
 
   // ── Partner PWA App Install State ─────────────────────────────
   const [canInstallPwa, setCanInstallPwa] = useState(true)
@@ -156,7 +161,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [editItemId, setEditItemId] = useState<string | null>(null)
   const [itemForm, setItemForm] = useState({
     category_id: '', name: '', description: '', price: '', image_url: '', is_available: true,
-    is_offer: false, original_price: '', offer_title: '', images: [] as string[], sizesText: '',
+    is_offer: false, original_price: '', offer_title: '', images: [] as string[], sizesText: '', colorsText: '',
     unit: 'piece', allow_custom_amount: false, is_hidden: false
   })
   const [savingItem, setSavingItem] = useState(false)
@@ -247,34 +252,38 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const fetchData = async (showFullSpinner = false) => {
     try {
       if (showFullSpinner) setLoading(true)
-      const { data: resData } = await supabase
-        .from('restaurants')
-        .select(
-          'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, ' +
-          'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
-          'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, days_off, store_type, ' +
-          'max_offers_limit, menu_note, is_subscription_active, is_menu_active, subscription_notes'
-        )
-        .eq('id', id)
-        .maybeSingle() as any
-      if (resData) {
-        setRestaurant(resData)
-        setDeliveryTiers(resData.delivery_tiers || [])
-        // Fetch and calculate today's visits with marketing multiplier
-        try {
-          const rawVisits = await fetchTodayVisits(supabase, id)
-          const { multiplier } = parseRestaurantMultiplier(resData.subscription_notes)
-          setTodayVisits(getEffectiveVisits(rawVisits, multiplier))
-        } catch (vErr) {
-          console.warn('Error fetching visits:', vErr)
-        }
-      }
+      const [restaurantResult, categoriesResult, offersResult, visits] = await Promise.all([
+        supabase
+          .from('restaurants')
+          .select(
+            'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, ' +
+            'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
+            'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, days_off, store_type, ' +
+            'max_offers_limit, menu_note, is_subscription_active, is_menu_active'
+          )
+          .eq('id', id)
+          .maybeSingle() as any,
+        supabase
+          .from('categories')
+          .select('id, name, sort_order, restaurant_id')
+          .eq('restaurant_id', id)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('offers')
+          .select('id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity')
+          .eq('restaurant_id', id)
+          .order('created_at', { ascending: false }),
+        fetchTodayVisits(supabase, id),
+      ])
 
-      const { data: catData } = await supabase
-        .from('categories')
-        .select('id, name, sort_order, restaurant_id')
-        .eq('restaurant_id', id)
-        .order('sort_order', { ascending: true })
+      if (restaurantResult.data) {
+        setRestaurant(restaurantResult.data)
+        setDeliveryTiers(restaurantResult.data.delivery_tiers || [])
+      }
+      setTodayVisits(visits)
+      if (offersResult.data) setOffers(offersResult.data)
+
+      const catData = categoriesResult.data
       if (catData) setCategories(catData)
 
       const { data: itemData } = await supabase
@@ -283,13 +292,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         .in('category_id', catData?.map(c => c.id) || ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: true })
       if (itemData) setMenuItems(itemData)
-
-      const { data: offerData } = await supabase
-        .from('offers')
-        .select('id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity')
-        .eq('restaurant_id', id)
-        .order('created_at', { ascending: false })
-      if (offerData) setOffers(offerData)
     } catch (err) {
       console.error('Error fetching restaurant data:', err)
     } finally {
@@ -307,7 +309,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
   const checkSubscriptionGuard = () => {
     if (isSubscriptionSuspended) {
-      alert('⚠️ اشتراكك غير نشط حالياً. يرجى التواصل مع إدارة المنصة لتجديد الاشتراك والتمكن من حفظ أو تعديل أي بيانات.')
+      notifyError('⚠️ اشتراكك غير نشط حالياً. يرجى التواصل مع إدارة المنصة لتجديد الاشتراك والتمكن من حفظ أو تعديل أي بيانات.')
       return false
     }
     return true
@@ -333,7 +335,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       const targetName = editCatName
       const targetSort = editCatSort
       setEditCatId(null)
-      await supabase.from('categories').update({ name: targetName, sort_order: targetSort }).eq('id', targetEditId)
+      reportWriteResult(await supabase.from('categories').update({ name: targetName, sort_order: targetSort }).eq('id', targetEditId))
     } else {
       if (!newCatName.trim()) return
       const maxSort = categories.length > 0 ? Math.max(...categories.map(c => c.sort_order || 0)) + 1 : 1
@@ -349,13 +351,22 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     triggerRevalidate(restaurant?.slug, 'menu')
   }
 
+  // Bundles that include any of these products
+  const offersUsingItems = (itemIds: string[]) => offers.filter(o =>
+    [o.primary_item_id, o.bonus_item_id, o.item3_id, o.item4_id].some(linked => linked && itemIds.includes(linked))
+  )
+
   const deleteCategory = async (catId: string, name: string) => {
     if (!checkSubscriptionGuard()) return
+    const usedIn = offersUsingItems(menuItems.filter(i => i.category_id === catId).map(i => i.id))
+    if (usedIn.length > 0) {
+      notifyError(`منتجات هذا القسم داخل عرض: ${usedIn[0].title}. احذف العرض أو عدّله أولاً.`)
+      return
+    }
     if (confirm(`حذف القسم "${name}" مع كافة منتجاته؟`)) {
       setCategories(prev => prev.filter(c => c.id !== catId))
-      await supabase.from('categories').delete().eq('id', catId)
+      reportWriteResult(await supabase.from('categories').delete().eq('id', catId))
       fetchData(false)
-      // Invalidate the public ISR cache
       triggerRevalidate(restaurant?.slug, 'menu')
     }
   }
@@ -379,17 +390,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
     try {
       // Save all updated sort_orders to database
-      const updatePromises = updatedWithSort.map(cat =>
+      const results = await Promise.all(updatedWithSort.map(cat =>
         supabase.from('categories').update({ sort_order: cat.sort_order }).eq('id', cat.id)
-      )
-      await Promise.all(updatePromises)
+      ))
+      results.forEach(result => reportWriteResult(result))
 
-      // Clear client-side local cache if present
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem(`alfsouq_menu_cache_${id}`)
-        } catch {}
-      }
 
       // Invalidate the public ISR cache so visitors see the new order immediately
       triggerRevalidate(restaurant?.slug, 'menu')
@@ -403,7 +408,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const handleAddTier = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!checkSubscriptionGuard()) return
-    if (!newTier.min_km || !newTier.max_km || !newTier.fee) return alert('يرجى ملء كافة حقول الشريحة')
+    if (!newTier.min_km || !newTier.max_km || !newTier.fee) return notifyError('يرجى ملء كافة حقول الشريحة')
     
     const updated = [
       ...deliveryTiers,
@@ -440,7 +445,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const saveTiersToDb = async (tiers: any[]) => {
     if (!checkSubscriptionGuard()) return
     setSavingTiers(true)
-    await supabase.from('restaurants').update({ delivery_tiers: tiers }).eq('id', id)
+    reportWriteResult(await supabase.from('restaurants').update({ delivery_tiers: tiers }).eq('id', id))
     setSavingTiers(false)
     triggerRevalidate(restaurant?.slug, 'menu', id)
   }
@@ -450,7 +455,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     const newVal = restaurant?.has_delivery === false ? true : false
     setSavingDelivery(true)
     setRestaurant((prev: any) => ({ ...prev, has_delivery: newVal }))
-    await supabase.from('restaurants').update({ has_delivery: newVal }).eq('id', id)
+    reportWriteResult(await supabase.from('restaurants').update({ has_delivery: newVal }).eq('id', id))
     setSavingDelivery(false)
     triggerRevalidate(restaurant?.slug, 'menu', id)
   }
@@ -461,7 +466,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     const newVal = restaurant?.enable_whatsapp_orders === false ? true : false
     setSavingWhatsappToggle(true)
     setRestaurant((prev: any) => ({ ...prev, enable_whatsapp_orders: newVal }))
-    await supabase.from('restaurants').update({ enable_whatsapp_orders: newVal }).eq('id', id)
+    reportWriteResult(await supabase.from('restaurants').update({ enable_whatsapp_orders: newVal }).eq('id', id))
     setSavingWhatsappToggle(false)
     triggerRevalidate(restaurant?.slug, 'menu', id)
   }
@@ -474,7 +479,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!checkSubscriptionGuard()) return
-    if (!itemForm.category_id || !itemForm.name || !itemForm.price) return alert('يرجى ملء الحقول المطلوبة')
+    if (!itemForm.category_id || !itemForm.name || !itemForm.price) return notifyError('يرجى ملء الحقول المطلوبة')
+    if (restaurant?.store_type === 'supermarket' && !(parseFloat(itemForm.original_price) > parseFloat(itemForm.price))) {
+      return notifyError('العرض يحتاج سعراً قبل الخصم أكبر من سعر العرض.')
+    }
     setSavingItem(true)
 
     const primaryImg = (itemForm.images && itemForm.images.length > 0) ? itemForm.images[0] : (itemForm.image_url || null)
@@ -487,6 +495,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       image_url: primaryImg,
       images: itemForm.images || (primaryImg ? [primaryImg] : []),
       sizes: sizesArray,
+      colors: itemForm.colorsText ? itemForm.colorsText.split(',').map(s => s.trim()).filter(Boolean) : [],
       unit: itemForm.unit || (itemForm.allow_custom_amount ? 'kg' : 'piece'),
       allow_custom_amount: !!itemForm.allow_custom_amount,
       is_available: itemForm.is_available,
@@ -500,14 +509,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       setMenuItems(prev => prev.map(i => i.id === editItemId ? { ...i, ...payload } : i))
       const { error } = await supabase.from('menu_items').update(payload).eq('id', editItemId)
       if (error) {
-        alert('خطأ في حفظ المنتج: ' + error.message)
+        notifyError('خطأ في حفظ المنتج: ' + error.message)
         setSavingItem(false)
         return
       }
     } else {
       const { error } = await supabase.from('menu_items').insert([payload])
       if (error) {
-        alert('خطأ في إضافة المنتج: ' + error.message)
+        notifyError('خطأ في إضافة المنتج: ' + error.message)
         setSavingItem(false)
         return
       }
@@ -516,7 +525,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setSavingItem(false)
     setShowItemForm(false)
     setEditItemId(null)
-    setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false, is_hidden: false } as any)
+    setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', colorsText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false, is_hidden: false } as any)
     fetchData(false)
     // Invalidate the public ISR cache so menu reflects the new/updated item immediately
     triggerRevalidate(restaurant?.slug, 'menu')
@@ -541,6 +550,13 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       try { parsedSizes = JSON.parse(item.sizes) } catch {}
     }
 
+    let parsedColors: string[] = []
+    if (Array.isArray(item.colors)) {
+      parsedColors = item.colors
+    } else if (typeof item.colors === 'string') {
+      try { parsedColors = JSON.parse(item.colors) } catch {}
+    }
+
     setItemForm({
       category_id: item.category_id,
       name: item.name,
@@ -549,6 +565,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       image_url: item.image_url || '',
       images: parsedImages,
       sizesText: parsedSizes.join(', '),
+      colorsText: parsedColors.join(', '),
       unit: item.unit || (item.allow_custom_amount ? 'kg' : 'piece'),
       allow_custom_amount: item.allow_custom_amount ?? item.unit === 'kg',
       is_available: item.is_available,
@@ -592,7 +609,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       targetDate = tomorrow.toISOString()
     } else if (outOfStockOption === 'custom') {
       if (!customOutOfStockTime) {
-        alert('يرجى تحديد الوقت المخصص')
+        notifyError('يرجى تحديد الوقت المخصص')
         return
       }
       targetDate = new Date(customOutOfStockTime).toISOString()
@@ -605,10 +622,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
   const setItemAvailability = async (itemId: string, isAvailable: boolean, outOfStockUntil: string | null) => {
     setMenuItems(prev => prev.map(i => i.id === itemId ? { ...i, is_available: isAvailable, out_of_stock_until: outOfStockUntil } : i))
-    await supabase.from('menu_items').update({
+    reportWriteResult(await supabase.from('menu_items').update({
       is_available: isAvailable,
       out_of_stock_until: outOfStockUntil
-    }).eq('id', itemId)
+    }).eq('id', itemId))
     fetchData(false)
     triggerRevalidate(restaurant?.slug, 'menu')
   }
@@ -617,16 +634,22 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (!checkSubscriptionGuard()) return
     const newHidden = item.is_hidden !== true
     setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, is_hidden: newHidden } : i))
-    await supabase.from('menu_items').update({ is_hidden: newHidden }).eq('id', item.id)
+    reportWriteResult(await supabase.from('menu_items').update({ is_hidden: newHidden }).eq('id', item.id))
     fetchData(false)
     triggerRevalidate(restaurant?.slug, 'menu')
   }
 
-  const deleteItem = async (id: string, name: string) => {
+  const deleteItem = async (itemId: string, name: string) => {
     if (!checkSubscriptionGuard()) return
+    // A deleted product would silently remove or break the bundles it belongs to
+    const usedIn = offersUsingItems([itemId])
+    if (usedIn.length > 0) {
+      notifyError(`المنتج "${name}" داخل عرض: ${usedIn[0].title}. احذف العرض أو عدّله أولاً.`)
+      return
+    }
     if (confirm(`حذف المنتج "${name}"؟`)) {
-      setMenuItems(prev => prev.filter(i => i.id !== id))
-      await supabase.from('menu_items').delete().eq('id', id)
+      setMenuItems(prev => prev.filter(i => i.id !== itemId))
+      reportWriteResult(await supabase.from('menu_items').delete().eq('id', itemId))
       fetchData(false)
       triggerRevalidate(restaurant?.slug, 'menu')
     }
@@ -686,7 +709,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     e.preventDefault()
     if (!checkSubscriptionGuard()) return
     if (!offerForm.primary_item_id || !offerForm.offer_price || !offerForm.title) {
-      return alert('يرجى اختيار المنتج الأساسي وتحديد سعر العرض وعنوانه')
+      return notifyError('يرجى اختيار المنتج الأساسي وتحديد سعر العرض وعنوانه')
     }
 
     setSavingOffer(true)
@@ -694,7 +717,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
     const payload = {
       restaurant_id: id,
-      type: 'bundle',
       primary_item_id: offerForm.primary_item_id,
       min_quantity: parseInt(offerForm.min_quantity) || 1,
       bonus_item_id: offerForm.bonus_item_id || null,
@@ -716,7 +738,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       setOffers(prev => prev.map(o => o.id === editOfferId ? { ...o, ...payload } : o))
       const { error } = await supabase.from('offers').update(payload).eq('id', editOfferId)
       if (error) {
-        alert('خطأ في تعديل العرض: ' + error.message)
+        notifyError('خطأ في تعديل العرض: ' + error.message)
         setSavingOffer(false)
         return
       }
@@ -725,7 +747,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       const nextRank = (maxOffer && maxOffer[0]?.sort_order && maxOffer[0].sort_order > 0) ? (maxOffer[0].sort_order + 1) : 1
       const { data: insertedData, error } = await supabase.from('offers').insert([{ ...payload, sort_order: nextRank }]).select()
       if (error) {
-        alert('خطأ في إضافة العرض: ' + error.message)
+        notifyError('خطأ في إضافة العرض: ' + error.message)
         setSavingOffer(false)
         return
       }
@@ -785,7 +807,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (!checkSubscriptionGuard()) return
     const newStatus = !offer.is_active
     setOffers(prev => prev.map(o => o.id === offer.id ? { ...o, is_active: newStatus } : o))
-    await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id)
+    reportWriteResult(await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id))
     fetchData(false)
     triggerRevalidate(restaurant?.slug, 'menu')
     triggerRevalidate(restaurant?.slug, 'offers')
@@ -794,21 +816,21 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const deleteOffer = async (offerId: string) => {
     if (!checkSubscriptionGuard()) return
     if (confirm('حذف هذا العرض؟')) {
-      await supabase.from('offers').delete().eq('id', offerId)
+      reportWriteResult(await supabase.from('offers').delete().eq('id', offerId))
       fetchData()
       triggerRevalidate(restaurant?.slug, 'menu')
       triggerRevalidate(restaurant?.slug, 'offers')
     }
   }
 
-  const PANEL_TABS = [
-    { key: 'menu', label: 'الوجبات', emoji: '🍱' },
-    { key: 'offers', label: 'العروض', emoji: '🔥' },
-    { key: 'delivery', label: 'التوصيل', emoji: '🛵' },
-  ] as const
-  type PanelTab = typeof PANEL_TABS[number]['key']
-  // activeTab is already declared at top
-  // we use a local panelTab state in JSX below via panelTab
+  const isSupermarket = restaurant?.store_type === 'supermarket'
+  const panelTabs = [
+    { key: 'items', label: isSupermarket ? '🏷️ العروض' : '🍱 المنتجات' },
+    ...(isSupermarket ? [] : [{ key: 'offers', label: '🔥 البكجات' }]),
+    { key: 'categories', label: '📁 الأقسام' },
+    { key: 'delivery', label: '🛵 التوصيل والطلبات' },
+  ] as { key: 'items' | 'offers' | 'categories' | 'delivery'; label: string }[]
+
 
   if (loading) {
     return (
@@ -857,7 +879,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     if (st === 'supermarket') {
       return {
         previewBtn: 'معاينة الماركت 👁️',
-        itemLabel: 'المنتجات والعروض',
+        itemLabel: 'العروض',
         subCatsHeader: 'أقسام الماركت الفرعية',
         countUnit: 'منتَج',
         offersHeader: 'العروض والتخفيضات',
@@ -1079,12 +1101,29 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           </div>
 
           {/* ══════════ MAIN GRID ══════════ */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up">
+          <div className="flex gap-1.5 overflow-x-auto hide-scrollbar mb-5 bg-white border border-slate-200/80 rounded-2xl p-1.5 shadow-xs" role="tablist">
+            {panelTabs.map(tab => (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={panelTab === tab.key}
+                onClick={() => setPanelTab(tab.key)}
+                className={`flex-1 shrink-0 whitespace-nowrap px-3 py-2 rounded-xl text-xs font-black transition ${
+                  panelTab === tab.key ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-6 animate-fade-in-up max-w-4xl mx-auto">
 
             {/* ── MAIN SECTION: Offers + Products ── */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6">
 
               {/* 1. OFFERS SECTION */}
+              {panelTab === 'offers' && !isSupermarket && (
               <div className="c-card border-t-4 border-t-orange-400">
                 <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
                   <div>
@@ -1484,8 +1523,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   )}
                 </div>
               </div>
+              )}
 
               {/* 2. MENU ITEMS SECTION */}
+              {panelTab === 'items' && (
               <div className="c-card">
                 <div className="c-card-header">
                   <div>
@@ -1500,7 +1541,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                       if (!checkSubscriptionGuard()) return
                       setShowItemForm(!showItemForm)
                       setEditItemId(null)
-                      setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false, is_hidden: false })
+                      setItemForm({ category_id: '', name: '', description: '', price: '', image_url: '', images: [], sizesText: '', colorsText: '', is_available: true, is_offer: false, original_price: '', offer_title: '', unit: 'piece', allow_custom_amount: false, is_hidden: false })
                     }}
                     disabled={categories.length === 0}
                     className="btn btn-dark btn-sm disabled:opacity-40"
@@ -1612,6 +1653,20 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                                   value={itemForm.sizesText || ''}
                                   onChange={e => setItemForm({ ...itemForm, sizesText: e.target.value })}
                                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-slate-800"
+                                />
+                              </div>
+                            )}
+
+                            {/* الألوان (للملابس فقط) */}
+                            {restaurant?.store_type === 'clothing' && (
+                              <div>
+                                <label className="text-xs font-black text-slate-700 block mb-1">الألوان المتوفرة</label>
+                                <input
+                                  type="text"
+                                  placeholder="مثال: أسود, أبيض, أحمر"
+                                  value={itemForm.colorsText || ''}
+                                  onChange={e => setItemForm({ ...itemForm, colorsText: e.target.value })}
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold outline-none focus:border-orange-500"
                                 />
                               </div>
                             )}
@@ -1797,13 +1852,16 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   )}
                 </div>
               </div>
+              )}
 
             </div>
 
             {/* ── SIDEBAR SECTION: Delivery + Categories ── */}
-            <div className="space-y-5 lg:col-span-1">
+            <div className="space-y-5">
 
               {/* Quick Control: WhatsApp Orders */}
+              {panelTab === 'delivery' && (
+              <>
               <div className="c-card p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -1898,8 +1956,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   </div>
                 </div>
               </div>
+              </>
+              )}
 
               {/* 4. Categories Card */}
+              {panelTab === 'categories' && (
               <div className="c-card">
                 <div className="c-card-header">
                   <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><span>📁</span> {terms.subCatsHeader}</h3>
@@ -1978,6 +2039,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
                   </div>
                 </div>
               </div>
+              )}
 
             </div>
 

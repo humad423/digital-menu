@@ -2,6 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import BrandLogo from './BrandLogo'
 import { ShieldCheck, FileText } from 'lucide-react'
+import { supportWhatsappUrl } from '@/config/site'
 
 export default function Footer() {
   return (
@@ -16,7 +17,7 @@ export default function Footer() {
             </p>
           </div>
           <a
-            href="https://wa.me/905352574134"
+            href={supportWhatsappUrl()}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-xl text-xs font-bold transition shrink-0"

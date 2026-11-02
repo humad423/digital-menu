@@ -1,23 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Tajawal } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/context/AuthContext";
-import PhoneAuthModal from "@/components/PhoneAuthModal";
 import TopProgressBar from "@/components/TopProgressBar";
 import InstallPwaPrompt from "@/components/InstallPwaPrompt";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
+import Toaster from "@/components/Toaster";
 import { Suspense } from "react";
+import { SITE_URL } from "@/config/site";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const tajawal = Tajawal({
+  variable: "--font-tajawal",
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "ألف سوق | Alfsouq - المنصة التجارية الشاملة للمتاجر والعروض",
   description: "ألف سوق (alfsouq.com) - المنصة التجارية الشاملة لتصفح أحدث المتاجر والمطاعم والمنتجات والعروض التنافسية وتسهيل الطلب المباشر.",
   manifest: "/manifest.json",
@@ -32,8 +30,6 @@ export const viewport: Viewport = {
   themeColor: "#F97316",
 };
 
-import GoogleAnalytics from "@/components/GoogleAnalytics";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -43,18 +39,16 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${tajawal.variable} h-full antialiased`}
     >
       <body className="min-h-full w-full bg-slate-950 text-slate-900 antialiased overflow-x-hidden">
         <GoogleAnalytics />
-        <AuthProvider>
-          <Suspense fallback={null}>
-            <TopProgressBar />
-          </Suspense>
-          {children}
-          <PhoneAuthModal />
-          <InstallPwaPrompt />
-        </AuthProvider>
+        <Suspense fallback={null}>
+          <TopProgressBar />
+        </Suspense>
+        {children}
+        <InstallPwaPrompt />
+        <Toaster />
       </body>
     </html>
   );

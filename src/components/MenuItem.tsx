@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useCartStore } from '@/store/cartStore'
+import { notifyError } from '@/utils/notify'
+import { useEffect, useState, useMemo } from 'react'
+import { confirmCartStoreSwitch, useCartStore } from '@/store/cartStore'
 import { Plus, Minus, ChevronLeft, ChevronRight, X, Layers, Scale, DollarSign, ShoppingBag } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import SmartOfferImage from '@/components/SmartOfferImage'
@@ -23,13 +24,11 @@ export default function MenuItem({
   item,
   restaurantId,
   storeType = 'restaurant',
-  hasDelivery = true,
   enableWhatsappOrders = true
 }: {
   item: Item
   restaurantId: string
   storeType?: string
-  hasDelivery?: boolean
   enableWhatsappOrders?: boolean
 }) {
   const addItem       = useCartStore(s => s.addItem)
@@ -90,16 +89,33 @@ export default function MenuItem({
   }
   const [selectedSize, setSelectedSize] = useState<string>(sizesList[0] || '')
 
-  const qty = cartRestId === restaurantId ? (cartItems.find(i => i.id === item.id)?.quantity ?? 0) : 0
+  let colorsList: string[] = []
+  if (Array.isArray(item.colors)) colorsList = (item.colors as string[]).filter(Boolean)
+  else if (typeof item.colors === 'string') {
+    try {
+      const parsed = JSON.parse(item.colors)
+      if (Array.isArray(parsed)) colorsList = parsed.filter(Boolean)
+    } catch {}
+  }
+  const [selectedColor, setSelectedColor] = useState<string>(colorsList[0] || '')
+
+  // Each size/color combination is its own line in the cart and in the WhatsApp message
+  const variantLabel = [selectedSize && `مقاس ${selectedSize}`, selectedColor && `لون ${selectedColor}`].filter(Boolean).join('، ')
+  const cartLineId = [item.id, selectedSize, selectedColor].filter(Boolean).join('|')
+  const cartLineName = variantLabel ? `${item.name} (${variantLabel})` : item.name
+
+  const qty = cartRestId === restaurantId ? (cartItems.find(i => i.id === cartLineId)?.quantity ?? 0) : 0
   const hasImage = imageList.length > 0 || !!item.primary_image_url
-  const isOffer  = !!item.is_offer || storeType === 'supermarket'
+  const isOffer  = !!item.is_offer
 
   const discountPercent = item.original_price && item.original_price > item.price
     ? Math.round(((item.original_price - item.price) / item.original_price) * 100)
     : null
   
-  const [mountedAt] = useState(() => Date.now())
-  const isAutoRestocked = item.out_of_stock_until && new Date(item.out_of_stock_until).getTime() <= mountedAt
+  // Checked in the browser because the page can be served from a cache
+  const [now, setNow] = useState<number | null>(null)
+  useEffect(() => setNow(Date.now()), [])
+  const isAutoRestocked = now !== null && item.out_of_stock_until && new Date(item.out_of_stock_until).getTime() <= now
   const isOutOfStock = item.is_available === false && !isAutoRestocked
 
   const handleAdd = () => {
@@ -112,7 +128,8 @@ export default function MenuItem({
       setShowKiloModal(true)
       return
     }
-    addItem(item, restaurantId)
+    if (!confirmCartStoreSwitch(restaurantId)) return
+    addItem({ id: cartLineId, name: cartLineName, price: Number(item.price) }, restaurantId)
     trackGAAddToCart(item.name, Number(item.price))
     setPopped(true)
     setTimeout(() => setPopped(false), 250)
@@ -126,10 +143,10 @@ export default function MenuItem({
   const calculatedPriceFromWeight = numWeightInput > 0 ? Math.round(numWeightInput * pricePerKg) : 0
 
   const handleAddKiloItem = () => {
-    if (isOutOfStock) return
+    if (isOutOfStock || !confirmCartStoreSwitch(restaurantId)) return
     const isAmountMode = kiloMode === 'amount'
-    if (isAmountMode && numPriceInput <= 0) return alert('يرجى إدخال مبلغ صحيح بالليرة')
-    if (!isAmountMode && numWeightInput <= 0) return alert('يرجى إدخال وزن صحيح بالكيلو')
+    if (isAmountMode && numPriceInput <= 0) return notifyError('يرجى إدخال مبلغ صحيح بالليرة')
+    if (!isAmountMode && numWeightInput <= 0) return notifyError('يرجى إدخال وزن صحيح بالكيلو')
 
     const finalPrice = isAmountMode ? numPriceInput : calculatedPriceFromWeight
     const calculatedW = isAmountMode ? calculatedWeightFromPrice : numWeightInput
@@ -138,7 +155,6 @@ export default function MenuItem({
       id: `${item.id}-${isAmountMode ? 'p' + numPriceInput : 'w' + numWeightInput}`,
       name: `${item.name} (${isAmountMode ? `بمبلغ ${numPriceInput} ₺ - حوالي ${calculatedW < 1 ? Math.round(calculatedW * 1000) + ' جرام' : calculatedW.toFixed(2) + ' كغ'}` : `وزن ${numWeightInput} كغ - ${finalPrice} ₺`})`,
       price: finalPrice,
-      image_url: imageList[0] || item.image_url || null
     }
 
     addItem(cartObj, restaurantId)
@@ -238,14 +254,44 @@ export default function MenuItem({
               </p>
             )}
 
-            {/* Display Available Sizes */}
+            {/* Choose size and color */}
             {sizesList.length > 0 && (
               <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                <span className="text-[10px] text-slate-400 font-bold">القياسات:</span>
-                {sizesList.map((sz, i) => (
-                  <span key={i} className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-md border border-slate-200">
-                    {sz}
-                  </span>
+                <span className="text-[10px] text-slate-400 font-bold">المقاس:</span>
+                {sizesList.map(size => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setSelectedSize(size)}
+                    aria-pressed={selectedSize === size}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md border transition ${
+                      selectedSize === size
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            )}
+            {colorsList.length > 0 && (
+              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-400 font-bold">اللون:</span>
+                {colorsList.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setSelectedColor(color)}
+                    aria-pressed={selectedColor === color}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md border transition ${
+                      selectedColor === color
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                    }`}
+                  >
+                    {color}
+                  </button>
                 ))}
               </div>
             )}
@@ -269,11 +315,7 @@ export default function MenuItem({
               <span className="text-[11px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-xl select-none">
                 نفد مؤقتاً
               </span>
-            ) : enableWhatsappOrders === false ? null : hasDelivery === false ? (
-              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-xl border border-slate-200/60">
-                🏪 استلام فقط
-              </span>
-            ) : isKiloItem ? (
+            ) : enableWhatsappOrders === false ? null : isKiloItem ? (
               <button
                 onClick={handleAdd}
                 className="px-3.5 py-1.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
@@ -298,7 +340,7 @@ export default function MenuItem({
                 style={{ background: 'var(--color-primary, #F97316)' }}
               >
                 <button
-                  onClick={() => updateQty(item.id, qty - 1)}
+                  onClick={() => updateQty(cartLineId, qty - 1)}
                   className="w-7 h-7 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center active:scale-90 transition"
                 >
                   <Minus size={13} strokeWidth={2.5} />

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import { X, Link as LinkIcon, Upload } from 'lucide-react'
 
@@ -49,36 +50,6 @@ function compressImageToWebpBlob(file: File, maxWidth = 1200, quality = 0.8): Pr
   })
 }
 
-function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Promise<string> {
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let width = img.width
-        let height = img.height
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width)
-          width = maxWidth
-        }
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/webp', quality))
-        } else {
-          resolve(e.target?.result as string)
-        }
-      }
-      img.onerror = () => resolve(e.target?.result as string)
-      img.src = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  })
-}
-
 export default function ImageUpload({ 
   value, 
   onChange 
@@ -91,8 +62,8 @@ export default function ImageUpload({
   const [uploading, setUploading] = useState(false)
 
   // Cloudinary configuration (Free 25GB storage)
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'o2iy0uxo'
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default'
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
 
   const MAX_FILE_SIZE_MB = 10
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -104,7 +75,7 @@ export default function ImageUpload({
 
     // 1. Validate File Type (Strictly Images Only)
     if (!file.type.startsWith('image/') && !ALLOWED_IMAGE_TYPES.some(t => file.type.includes(t.replace('image/', '')))) {
-      alert('عذراً، يرجى اختيار ملف صورة فقط (JPG, PNG, WEBP, GIF, SVG).')
+      notifyError('عذراً، يرجى اختيار ملف صورة فقط (JPG, PNG, WEBP, GIF, SVG).')
       e.target.value = ''
       return
     }
@@ -112,7 +83,7 @@ export default function ImageUpload({
     // 2. Validate File Size (Max 10 MB raw)
     if (file.size > MAX_FILE_SIZE_BYTES) {
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1)
-      alert(`حجم الصورة (${fileSizeMB} ميغابايت) يتجاوز الحد الأقصى المسموح به (${MAX_FILE_SIZE_MB} ميغابايت).`)
+      notifyError(`حجم الصورة (${fileSizeMB} ميغابايت) يتجاوز الحد الأقصى المسموح به (${MAX_FILE_SIZE_MB} ميغابايت).`)
       e.target.value = ''
       return
     }
@@ -137,15 +108,11 @@ export default function ImageUpload({
       if (data?.secure_url) {
         onChange(data.secure_url)
       } else {
-        // Fallback to compressed base64 if Cloudinary returns an error
-        const compressedBase64 = await compressImageToBase64(file)
-        if (compressedBase64) onChange(compressedBase64)
-        setUploading(false)
-        return
+        notifyError('تعذر رفع الصورة، يرجى المحاولة مجدداً.')
       }
     } catch (err) {
       console.error('Cloudinary upload error:', err)
-      alert('تعذر الرفع السحابي، يمكنك استخدام رابط الصورة المباشر.')
+      notifyError('تعذر الرفع السحابي، يمكنك استخدام رابط الصورة المباشر.')
     } finally {
       setUploading(false)
     }

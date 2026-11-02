@@ -1,15 +1,14 @@
 /**
- * Client-side helper to trigger on-demand ISR revalidation.
+ * Client-side helper to refresh the public pages' cached data.
  * Call this after any mutation (save item, edit offer, update settings, etc.)
- * so that the public menu pages are rebuilt with fresh data immediately.
  *
  * @param slug          - restaurant slug (for menu revalidation)
- * @param type          - 'menu' | 'offers' | 'home' | 'all'
+ * @param type          - 'menu' | 'offers' | 'home' | 'legal' | 'all'
  * @param restaurantId  - restaurant UUID (ensures menu cache is invalidated accurately)
  */
 export async function triggerRevalidate(
   slug: string | null | undefined,
-  type: 'menu' | 'offers' | 'home' | 'all' = 'menu',
+  type: 'menu' | 'offers' | 'home' | 'legal' | 'all' = 'menu',
   restaurantId?: string | null | undefined
 ): Promise<void> {
   try {

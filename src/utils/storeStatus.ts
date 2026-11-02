@@ -1,3 +1,5 @@
+import { STORE_TIMEZONE } from '@/config/site'
+
 export interface StoreStatus {
   isOpen: boolean
   isHoliday: boolean
@@ -20,9 +22,8 @@ export const DAYS_OF_WEEK = [
 export function getNowInTimezone(overrideTimeZone?: string) {
   try {
     const now = new Date()
-    // On client (browser), automatically detect the exact timezone of the visitor's device!
-    // On server (SSR), default to GMT+3 ('Europe/Istanbul') instead of UTC.
-    const userTimeZone = overrideTimeZone || (typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'Europe/Istanbul')
+    // A store's hours are local to the store, not to whoever is looking at the menu
+    const userTimeZone = overrideTimeZone || STORE_TIMEZONE
 
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: userTimeZone,
@@ -95,19 +96,6 @@ export function getStoreStatus(restaurant: any, targetTimeZone?: string): StoreS
   const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
   const currentDayName = ARABIC_DAYS[dayIndex]
   const daysOff = Array.isArray(restaurant.days_off) ? restaurant.days_off : []
-
-  if (daysOff.includes(currentDayName)) {
-    return {
-      isOpen: false,
-      isHoliday: true,
-      statusText: 'في عطلة 🌴',
-      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-      dotClass: 'bg-amber-500',
-      subText: `عطلة يوم ${currentDayName}`,
-    }
-  }
-
-  // 3. Check opening & closing time
   const openTime = restaurant.opening_time || '09:00'
   const closeTime = restaurant.closing_time || '23:00'
 
@@ -119,6 +107,23 @@ export function getStoreStatus(restaurant: any, targetTimeZone?: string): StoreS
   const [closeH, closeM] = closeTime.split(':').map(Number)
   const closeMinutes = (closeH || 0) * 60 + (closeM || 0)
 
+  // After midnight on an overnight schedule, the store is still on yesterday's shift
+  const isOvernightTail = closeMinutes <= openMinutes && currentMinutes < closeMinutes
+  const yesterdayName = ARABIC_DAYS[(dayIndex + 6) % 7]
+  const shiftDayName = isOvernightTail ? yesterdayName : currentDayName
+
+  if (daysOff.includes(shiftDayName)) {
+    return {
+      isOpen: false,
+      isHoliday: true,
+      statusText: 'في عطلة 🌴',
+      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      dotClass: 'bg-amber-500',
+      subText: `عطلة يوم ${shiftDayName}`,
+    }
+  }
+
+  // 3. Check opening & closing time
   let isOpen = false
   if (closeMinutes > openMinutes) {
     // Normal schedule e.g., 09:00 to 23:00

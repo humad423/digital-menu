@@ -6,16 +6,19 @@ import { triggerRevalidate } from '@/utils/revalidate'
 import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
-import StoreSettingsModal from '@/components/StoreSettingsModal'
-import OfferPosterModal from '@/components/OfferPosterModal'
-import AdminBusinessTypesTab, { BusinessType } from '@/components/AdminBusinessTypesTab'
-import AdminLegalPagesTab from '@/components/AdminLegalPagesTab'
-import AdminQrAnalyticsTab from '@/components/AdminQrAnalyticsTab'
+import type { BusinessType } from '@/components/AdminBusinessTypesTab'
 import TabErrorBoundary from '@/components/TabErrorBoundary'
 import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
+
+// Each tab's heavy code loads only when that tab is opened
+const StoreSettingsModal = dynamicImport(() => import('@/components/StoreSettingsModal'))
+const OfferPosterModal = dynamicImport(() => import('@/components/OfferPosterModal'))
+const AdminBusinessTypesTab = dynamicImport(() => import('@/components/AdminBusinessTypesTab'))
+const AdminLegalPagesTab = dynamicImport(() => import('@/components/AdminLegalPagesTab'))
+const AdminQrAnalyticsTab = dynamicImport(() => import('@/components/AdminQrAnalyticsTab'))
 import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, Share2 } from 'lucide-react'
-import { parseRestaurantMultiplier, encodeRestaurantMultiplier, MULTIPLIER_PRESETS } from '@/utils/visitsHelper'
+import { notifyError, reportWriteResult } from '@/utils/notify'
 import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
@@ -219,11 +222,12 @@ export default function AdminDashboard() {
     const updatedList = list.map((off, idx) => ({ ...off, sort_order: idx + 1 }))
     setAllOffers(updatedList)
 
-    await Promise.all(
+    const results = await Promise.all(
       updatedList.map(off =>
         supabase.from('offers').update({ sort_order: off.sort_order }).eq('id', off.id)
       )
     )
+    results.forEach(result => reportWriteResult(result))
     // Offers reordered: refresh offers page and home
     triggerRevalidate(null, 'offers')
   }
@@ -231,7 +235,7 @@ export default function AdminDashboard() {
   const togglePlatformOfferActive = async (offer: any) => {
     const newStatus = !offer.is_active
     setAllOffers(prev => prev.map(o => o.id === offer.id ? { ...o, is_active: newStatus } : o))
-    await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id)
+    reportWriteResult(await supabase.from('offers').update({ is_active: newStatus }).eq('id', offer.id))
     triggerRevalidate(offer.restaurants?.slug, 'offers')
     triggerRevalidate(null, 'home')
   }
@@ -240,7 +244,7 @@ export default function AdminDashboard() {
     if (confirm(`هل أنت متأكد من حذف العرض "${title}" من المنصة بالكامل؟`)) {
       const target = allOffers.find(o => o.id === offerId)
       setAllOffers(prev => prev.filter(o => o.id !== offerId))
-      await supabase.from('offers').delete().eq('id', offerId)
+      reportWriteResult(await supabase.from('offers').delete().eq('id', offerId))
       triggerRevalidate(target?.restaurants?.slug, 'offers')
       triggerRevalidate(null, 'home')
     }
@@ -249,14 +253,14 @@ export default function AdminDashboard() {
   const toggleRestaurantSubscription = async (r: any) => {
     const newVal = r.is_subscription_active === false ? true : false
     setRestaurants(prev => prev.map(item => item.id === r.id ? { ...item, is_subscription_active: newVal } : item))
-    await supabase.from('restaurants').update({ is_subscription_active: newVal }).eq('id', r.id)
+    reportWriteResult(await supabase.from('restaurants').update({ is_subscription_active: newVal }).eq('id', r.id))
     triggerRevalidate(r.slug, 'all')
   }
 
   const toggleRestaurantMenu = async (r: any) => {
     const newVal = r.is_menu_active === false ? true : false
     setRestaurants(prev => prev.map(item => item.id === r.id ? { ...item, is_menu_active: newVal } : item))
-    await supabase.from('restaurants').update({ is_menu_active: newVal }).eq('id', r.id)
+    reportWriteResult(await supabase.from('restaurants').update({ is_menu_active: newVal }).eq('id', r.id))
     triggerRevalidate(r.slug, 'all')
   }
 
@@ -270,7 +274,7 @@ export default function AdminDashboard() {
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
     opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false,
-    is_subscription_active: true, is_menu_active: true, subscription_notes: '', visits_multiplier: 1
+    is_subscription_active: true, is_menu_active: true, subscription_notes: ''
   }
   const [resForm, setResForm] = useState(emptyRes)
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([])
@@ -301,19 +305,19 @@ export default function AdminDashboard() {
       is_on_holiday: resForm.is_on_holiday || false,
       is_subscription_active: resForm.is_subscription_active !== false,
       is_menu_active: resForm.is_menu_active !== false,
-      subscription_notes: encodeRestaurantMultiplier(resForm.subscription_notes, resForm.visits_multiplier || 1),
+      subscription_notes: resForm.subscription_notes?.trim() || null,
     }
     let restaurantId = editResId
     if (editResId) {
       const { error } = await supabase.from('restaurants').update(payload).eq('id', editResId)
-      if (error) { alert('خطأ في التحديث'); setSavingRes(false); return }
+      if (error) { notifyError('خطأ في التحديث'); setSavingRes(false); return }
     } else {
       const { data, error } = await supabase.from('restaurants').insert([payload]).select().maybeSingle()
-      if (error || !data) { alert('حدث خطأ. تأكد أن الرابط (Slug) غير مكرر.'); setSavingRes(false); return }
+      if (error || !data) { notifyError('حدث خطأ. تأكد أن الرابط (Slug) غير مكرر.'); setSavingRes(false); return }
       restaurantId = data.id
     }
     if (restaurantId) {
-      await supabase.from('restaurant_platform_categories').delete().eq('restaurant_id', restaurantId)
+      reportWriteResult(await supabase.from('restaurant_platform_categories').delete().eq('restaurant_id', restaurantId))
       if (selectedCatIds.length > 0) {
         await supabase.from('restaurant_platform_categories').insert(
           selectedCatIds.map(cid => ({ restaurant_id: restaurantId, platform_category_id: cid }))
@@ -322,17 +326,18 @@ export default function AdminDashboard() {
       if (resForm.owner_phone.trim()) {
         const formattedPhone = normalizePhoneNumber(resForm.owner_phone)
         if (formattedPhone) {
-          const { data: existingProfByPhone } = await supabase.from('profiles').select('*').eq('phone', formattedPhone).limit(1)
-          if (existingProfByPhone && existingProfByPhone.length > 0) {
-            await supabase.from('profiles').update({ role: 'restaurant_owner', restaurant_id: restaurantId }).eq('id', existingProfByPhone[0].id)
+          // A store has one owner, so anyone else linked to it loses access
+          reportWriteResult(await supabase
+            .from('profiles')
+            .update({ role: 'customer', restaurant_id: null })
+            .eq('restaurant_id', restaurantId)
+            .neq('phone', formattedPhone))
+
+          const { data: existingProfile } = await supabase.from('profiles').select('id').eq('phone', formattedPhone).maybeSingle()
+          if (existingProfile) {
+            reportWriteResult(await supabase.from('profiles').update({ role: 'restaurant_owner', restaurant_id: restaurantId }).eq('id', existingProfile.id))
           } else {
-            const { data: existingProfByRes } = await supabase.from('profiles').select('*').eq('restaurant_id', restaurantId).eq('role', 'restaurant_owner').limit(1)
-            if (existingProfByRes && existingProfByRes.length > 0) {
-              await supabase.from('profiles').update({ phone: formattedPhone }).eq('id', existingProfByRes[0].id)
-            } else {
-              const fakeUid = 'owner-uid-' + formattedPhone.replace(/[^0-9]/g, '')
-              await supabase.from('profiles').insert([{ id: fakeUid, phone: formattedPhone, full_name: 'صاحب متجر ' + resForm.name, role: 'restaurant_owner', restaurant_id: restaurantId }])
-            }
+            reportWriteResult(await supabase.from('profiles').insert([{ id: 'owner-uid-' + formattedPhone.replace(/[^0-9]/g, ''), phone: formattedPhone, full_name: 'صاحب متجر ' + resForm.name, role: 'restaurant_owner', restaurant_id: restaurantId }]))
           }
         }
       }
@@ -347,7 +352,6 @@ export default function AdminDashboard() {
   const handleEditRes = (r: any) => {
     setEditResId(r.id)
     const currentOwnerPhone = ownerPhoneMap[r.id] || r.owner_phone || ''
-    const { note: cleanNote, multiplier: parsedMult } = parseRestaurantMultiplier(r.subscription_notes)
     setResForm({
       name: r.name, slug: r.slug, primary_color: r.primary_color || '#ea580c',
       whatsapp_number: formatPhoneDisplay(r.whatsapp_number) || '',
@@ -365,8 +369,7 @@ export default function AdminDashboard() {
       is_on_holiday: !!r.is_on_holiday,
       is_subscription_active: r.is_subscription_active !== false,
       is_menu_active: r.is_menu_active !== false,
-      subscription_notes: cleanNote,
-      visits_multiplier: parsedMult,
+      subscription_notes: r.subscription_notes || '',
     })
     setSelectedCatIds(restaurantCategoryMap[r.id] || [])
     setShowResForm(true)
@@ -374,8 +377,9 @@ export default function AdminDashboard() {
   }
 
   const handleDeleteRes = async (id: string, name: string) => {
-    if (confirm(`هل أنت متأكد من حذف مطعم "${name}"؟`)) {
-      await supabase.from('restaurants').delete().eq('id', id)
+    // Deleting removes the store's menu, offers and order history for good
+    if (window.prompt(`سيتم حذف "${name}" مع كل منتجاته وطلباته نهائياً. للتأكيد اكتب اسم المتجر:`)?.trim() === name.trim()) {
+      reportWriteResult(await supabase.from('restaurants').delete().eq('id', id))
       fetchData()
       // Restaurant deleted: revalidate home page
       triggerRevalidate(null, 'home')
@@ -389,8 +393,8 @@ export default function AdminDashboard() {
 
   const handleCatSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (editCatId) await supabase.from('platform_categories').update(catForm).eq('id', editCatId)
-    else await supabase.from('platform_categories').insert([catForm])
+    if (editCatId) reportWriteResult(await supabase.from('platform_categories').update(catForm).eq('id', editCatId))
+    else reportWriteResult(await supabase.from('platform_categories').insert([catForm]))
     setShowCatForm(false); setEditCatId(null); setCatForm({ name: '', icon: '' })
     fetchCategoriesTab()
     triggerRevalidate(null, 'home')
@@ -398,7 +402,7 @@ export default function AdminDashboard() {
 
   const deleteCat = async (id: string) => {
     if (confirm('حذف التصنيف؟')) {
-      await supabase.from('platform_categories').delete().eq('id', id)
+      reportWriteResult(await supabase.from('platform_categories').delete().eq('id', id))
       fetchCategoriesTab()
       triggerRevalidate(null, 'home')
     }
@@ -422,9 +426,9 @@ export default function AdminDashboard() {
       is_active: zoneForm.is_active
     }
     if (editZoneId) {
-      await supabase.from('service_zones').update(payload).eq('id', editZoneId)
+      reportWriteResult(await supabase.from('service_zones').update(payload).eq('id', editZoneId))
     } else {
-      await supabase.from('service_zones').insert([payload])
+      reportWriteResult(await supabase.from('service_zones').insert([payload]))
     }
     setSavingZone(false)
     setShowZoneForm(false)
@@ -449,14 +453,14 @@ export default function AdminDashboard() {
 
   const handleDeleteZone = async (id: string, name: string) => {
     if (confirm(`هل أنت متأكد من حذف المنطقة الجغرافية "${name}"؟`)) {
-      await supabase.from('service_zones').delete().eq('id', id)
+      reportWriteResult(await supabase.from('service_zones').delete().eq('id', id))
       fetchZonesTab()
       triggerRevalidate(null, 'home')
     }
   }
 
   const toggleZoneActive = async (z: any) => {
-    await supabase.from('service_zones').update({ is_active: !z.is_active }).eq('id', z.id)
+    reportWriteResult(await supabase.from('service_zones').update({ is_active: !z.is_active }).eq('id', z.id))
     fetchZonesTab()
     triggerRevalidate(null, 'home')
   }
@@ -477,7 +481,7 @@ export default function AdminDashboard() {
 
   const handleAdSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!adForm.image_url) return alert('الصورة مطلوبة')
+    if (!adForm.image_url) return notifyError('الصورة مطلوبة')
 
     const payload = {
       image_url: adForm.image_url,
@@ -493,14 +497,14 @@ export default function AdminDashboard() {
       const { error } = await supabase.from('platform_ads').update(payload).eq('id', editAdId)
       if (error) {
         console.error('Error updating ad:', error)
-        alert('حدث خطأ أثناء تعديل الإعلان: ' + error.message)
+        notifyError('حدث خطأ أثناء تعديل الإعلان: ' + error.message)
         return
       }
     } else {
       const { error } = await supabase.from('platform_ads').insert([payload])
       if (error) {
         console.error('Error inserting ad:', error)
-        alert('حدث خطأ أثناء حفظ الإعلان: ' + error.message)
+        notifyError('حدث خطأ أثناء حفظ الإعلان: ' + error.message)
         return
       }
     }
@@ -528,7 +532,7 @@ export default function AdminDashboard() {
 
   const deleteAd = async (id: string) => {
     if (confirm('حذف هذا الإعلان؟')) {
-      await supabase.from('platform_ads').delete().eq('id', id)
+      reportWriteResult(await supabase.from('platform_ads').delete().eq('id', id))
       fetchAdsTab()
       triggerRevalidate(null, 'home')
     }
@@ -911,33 +915,7 @@ export default function AdminDashboard() {
                         />
                       </div>
 
-                      {/* Marketing Multiplier Controls */}
-                      <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-black text-amber-400 flex items-center gap-1.5">
-                            <span>🚀 مضاعف الزيارات للتسويق:</span>
-                            <span className="text-white font-bold">×{resForm.visits_multiplier || 1}</span>
-                          </label>
-                          <span className="text-[10px] text-slate-400">يظهر لصاحب المتجر فقط</span>
-                        </div>
 
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {MULTIPLIER_PRESETS.map(p => (
-                            <button
-                              key={p.value}
-                              type="button"
-                              onClick={() => setResForm({ ...resForm, visits_multiplier: p.value })}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
-                                (resForm.visits_multiplier || 1) === p.value
-                                  ? 'bg-amber-500 text-slate-950 shadow-xs'
-                                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                              }`}
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
                     </div>
 
                     {/* Working Hours & Days Off */}
@@ -1012,10 +990,10 @@ export default function AdminDashboard() {
                           <p className="text-xs text-slate-400 mt-0.5">مطلوب لإظهار المطعم للمستخدمين القريبين</p>
                         </div>
                         <button type="button" onClick={() => {
-                          if (!navigator.geolocation) return alert('المتصفح لا يدعم تحديد الموقع')
+                          if (!navigator.geolocation) return notifyError('المتصفح لا يدعم تحديد الموقع')
                           navigator.geolocation.getCurrentPosition(
                             (pos) => setResForm({ ...resForm, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }),
-                            () => alert('تعذر تحديد الموقع')
+                            () => notifyError('تعذر تحديد الموقع')
                           )
                         }} className="btn btn-primary btn-sm shrink-0">
                           <MapPin size={14} /> موقعي الحالي
@@ -1227,7 +1205,7 @@ export default function AdminDashboard() {
                                 <td className="py-3 px-4">
                                   <div className="flex items-center justify-center gap-1.5">
                                     <Link
-                                      href={`/admin/restaurant/${r.id}`}
+                                      href={`/restaurant-panel/${r.id}`}
                                       className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-black rounded-xl text-xs flex items-center gap-1 transition"
                                       title="إدارة المنيو والعروض"
                                     >
@@ -1371,7 +1349,7 @@ export default function AdminDashboard() {
                         <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
                           <div className="flex items-center gap-1.5">
                             <Link
-                              href={`/admin/restaurant/${r.id}`}
+                              href={`/restaurant-panel/${r.id}`}
                               className="flex-1 py-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200/80 font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
                             >
                               <Utensils size={13} />
@@ -2034,7 +2012,7 @@ export default function AdminDashboard() {
                                   )}
                                   {store?.id && (
                                     <Link
-                                      href={`/admin/restaurant/${store.id}`}
+                                      href={`/restaurant-panel/${store.id}`}
                                       className="btn btn-ghost btn-sm text-blue-600 p-1.5"
                                       title="إدارة متجر العرض"
                                     >
@@ -2133,7 +2111,7 @@ export default function AdminDashboard() {
                                 setOrders(prev => prev.map(o =>
                                   o.id === order.id ? { ...o, status: 'completed' } : o
                                 ))
-                                await supabase.from('orders').update({ status: 'completed' }).eq('id', order.id)
+                                reportWriteResult(await supabase.from('orders').update({ status: 'completed' }).eq('id', order.id))
                               }}
                               className={`badge cursor-pointer transition ${order.status === 'completed' ? 'badge-green' : 'badge-amber hover:bg-amber-100'}`}
                             >

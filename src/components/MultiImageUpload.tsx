@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
 
@@ -48,36 +49,6 @@ function compressImageToWebpBlob(file: File, maxWidth = 1200, quality = 0.8): Pr
   })
 }
 
-function compressImageToBase64(file: File, maxWidth = 1000, quality = 0.7): Promise<string> {
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let width = img.width
-        let height = img.height
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width)
-          width = maxWidth
-        }
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/webp', quality))
-        } else {
-          resolve(e.target?.result as string)
-        }
-      }
-      img.onerror = () => resolve(e.target?.result as string)
-      img.src = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  })
-}
-
 export default function MultiImageUpload({
   images = [],
   onChange
@@ -104,14 +75,14 @@ export default function MultiImageUpload({
     )
 
     if (validFormatFiles.length < rawFiles.length) {
-      alert('عذراً، تم استبعاد بعض الملفات لأنها ليست ملفات صور صالحة (PNG, JPG, WEBP, GIF, SVG).')
+      notifyError('عذراً، تم استبعاد بعض الملفات لأنها ليست ملفات صور صالحة (PNG, JPG, WEBP, GIF, SVG).')
     }
 
     // 2. Filter out oversized files (> 10MB)
     const validSizeFiles = validFormatFiles.filter(file => file.size <= MAX_FILE_SIZE_BYTES)
 
     if (validSizeFiles.length < validFormatFiles.length) {
-      alert(`تم استبعاد بعض الصور لأن حجمها يتجاوز الحد الأقصى المسموح به (${MAX_FILE_SIZE_MB} ميغابايت).`)
+      notifyError(`تم استبعاد بعض الصور لأن حجمها يتجاوز الحد الأقصى المسموح به (${MAX_FILE_SIZE_MB} ميغابايت).`)
     }
 
     if (validSizeFiles.length === 0) {
@@ -140,9 +111,7 @@ export default function MultiImageUpload({
         if (data?.secure_url) {
           newUrls.push(data.secure_url)
         } else {
-          // Fallback to compressed base64
-          const base64 = await compressImageToBase64(file)
-          if (base64) newUrls.push(base64)
+          notifyError('تعذر رفع إحدى الصور، يرجى المحاولة مجدداً.')
         }
       } catch (err) {
         console.error('Upload error:', err)

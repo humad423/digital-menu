@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getStoreStatus } from '@/utils/storeStatus'
+import { getStoreStatus, type StoreStatus } from '@/utils/storeStatus'
 import { isStoreWithinRange, calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 import { Bike } from 'lucide-react'
 
@@ -15,9 +15,11 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
     tierName?: string
   } | null>(null)
 
-  const status = getStoreStatus(restaurant)
+  // Computed in the browser because the page itself can be cached for hours
+  const [status, setStatus] = useState<StoreStatus | null>(null)
 
   useEffect(() => {
+    setStatus(getStoreStatus(restaurant))
     try {
       const stored = localStorage.getItem('alfsouq_user_loc')
       if (stored && restaurant.latitude && restaurant.longitude) {
@@ -49,11 +51,11 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
         bg: 'bg-amber-600 border-amber-700',
       }
     }
-    if (status.subText?.startsWith('عطلة يوم')) {
+    if (status?.subText?.startsWith('عطلة يوم')) {
       return {
         icon: '📅',
         title: `اليوم عطلة أسبوعية`,
-        desc: `${status.subText} - المطعم مغلق رسمياً. يمكنك تصفح المنيو والطلب في أيام الدوام.`,
+        desc: `${status?.subText} - المطعم مغلق رسمياً. يمكنك تصفح المنيو والطلب في أيام الدوام.`,
         bg: 'bg-amber-600 border-amber-700',
       }
     }
@@ -86,7 +88,7 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
       )}
 
       {/* 1. Closed / Holiday Warning Banner */}
-      {!status.isOpen && (() => {
+      {status && !status.isOpen && (() => {
         const content = getClosedContent()
         return (
           <div className={`${content.bg} text-white rounded-2xl p-3.5 px-4 shadow-md flex items-start gap-3 border`}>
@@ -122,7 +124,7 @@ export default function StoreHeaderBanner({ restaurant }: { restaurant: any }) {
       )}
 
       {/* 3. Delivery Fee & Distance Info Banner (Only when tiers are configured AND fee is known) */}
-      {status.isOpen && !outOfRadius && deliveryInfo && deliveryInfo.available && deliveryInfo.hasTiers && restaurant.has_delivery !== false && (
+      {status?.isOpen && !outOfRadius && deliveryInfo && deliveryInfo.available && deliveryInfo.hasTiers && restaurant.has_delivery !== false && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3 px-4 flex items-center justify-between gap-3 text-emerald-950 shadow-2xs">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">

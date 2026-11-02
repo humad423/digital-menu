@@ -5,6 +5,8 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import MenuItem from '@/components/MenuItem'
 import { Search, X } from 'lucide-react'
 import { trackEvent, usePageDurationTracker } from '@/utils/analytics'
+import { matchesSearch } from '@/utils/text'
+import { offerToMenuItem } from '@/utils/offerItems'
 
 
 export default function MenuClient({
@@ -14,7 +16,6 @@ export default function MenuClient({
   restaurant,
   categories,
   menuItems,
-  ads,
   offers = []
 }: {
   restaurantId: string
@@ -23,7 +24,6 @@ export default function MenuClient({
   restaurant?: any
   categories: any[]
   menuItems: any[]
-  ads: any[]
   offers?: any[]
 }) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -43,15 +43,6 @@ export default function MenuClient({
   }, [categories])
 
   useEffect(() => {
-    if (restaurantId && (categories.length > 0 || menuItems.length > 0)) {
-      try {
-        const cacheData = { categories, menuItems, offers, timestamp: Date.now() }
-        localStorage.setItem(`alfsouq_menu_cache_${restaurantId}`, JSON.stringify(cacheData))
-      } catch {}
-    }
-  }, [restaurantId, categories, menuItems, offers])
-
-  useEffect(() => {
     if (restaurantId) {
       trackEvent({ event_type: 'menu_view', store_id: restaurantId })
     }
@@ -66,13 +57,13 @@ export default function MenuClient({
   }
 
   const displayCats = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
+    const query = searchQuery.trim()
     const sortedCategories = [...categories].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     const filteredCats = sortedCategories.map(cat => ({
       ...cat,
       items: menuItems.filter(i =>
         i.category_id === cat.id &&
-        (!query || i.name.toLowerCase().includes(query) || (i.description && i.description.toLowerCase().includes(query)))
+        matchesSearch(query, i.name, i.description)
       )
     })).filter(c => c.items.length > 0)
 
@@ -81,68 +72,7 @@ export default function MenuClient({
         id: 'offers-special',
         name: 'العروض والتخفيضات',
         icon: '🔥',
-        items: offers.map(o => {
-          let customOfferImages: string[] = []
-          if (Array.isArray(o.images)) {
-            customOfferImages = o.images.filter(Boolean)
-          } else if (typeof o.images === 'string') {
-            try {
-              const parsed = JSON.parse(o.images)
-              if (Array.isArray(parsed)) customOfferImages = parsed.filter(Boolean)
-            } catch {}
-          }
-          if (customOfferImages.length === 0 && o.image_url) {
-            customOfferImages = [o.image_url]
-          }
-
-          const collectedItemImages: string[] = []
-          const collectItemImgs = (itemObj: any) => {
-            if (!itemObj) return
-            let imgs: string[] = []
-            if (Array.isArray(itemObj.images)) {
-              imgs = itemObj.images.filter(Boolean)
-            } else if (typeof itemObj.images === 'string') {
-              try {
-                const parsed = JSON.parse(itemObj.images)
-                if (Array.isArray(parsed)) imgs = parsed.filter(Boolean)
-              } catch {}
-            }
-            if (imgs.length === 0 && itemObj.image_url) {
-              imgs = [itemObj.image_url]
-            }
-            imgs.forEach(imgUrl => {
-              if (imgUrl && !collectedItemImages.includes(imgUrl)) {
-                collectedItemImages.push(imgUrl)
-              }
-            })
-          }
-
-          collectItemImgs(o.primary_item)
-          collectItemImgs(o.bonus_item)
-          collectItemImgs(o.item3)
-          collectItemImgs(o.item4)
-
-          const finalImages = customOfferImages.length > 0 ? customOfferImages : collectedItemImages
-
-          return {
-            id: o.id,
-            name: o.title,
-            description: o.description,
-            price: o.offer_price,
-            original_price: o.original_price,
-            image_url: finalImages[0] || o.image_url || o.primary_item?.image_url,
-            images: finalImages,
-            item_images: collectedItemImages,
-            has_custom_image: customOfferImages.length > 0,
-            primary_image_url: o.primary_item?.image_url,
-            bonus_image_url: o.bonus_item?.image_url,
-            item3_image_url: o.item3?.image_url,
-            item4_image_url: o.item4?.image_url,
-            min_quantity: o.min_quantity,
-            bonus_quantity: o.bonus_quantity,
-            is_offer: true
-          }
-        })
+        items: offers.map(offerToMenuItem)
       }, ...filteredCats]
     }
 
@@ -233,7 +163,6 @@ export default function MenuClient({
                     item={item}
                     restaurantId={restaurantId}
                     storeType={storeType}
-                    hasDelivery={restaurant?.has_delivery !== false}
                     enableWhatsappOrders={restaurant?.enable_whatsapp_orders !== false}
                   />
                 ))}

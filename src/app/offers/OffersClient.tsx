@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Search, X, Store } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { isStoreWithinRange } from '@/utils/distance'
+import { matchesSearch } from '@/utils/text'
+import { readUserLocation } from '@/utils/userLocation'
 
 interface OffersClientProps {
   offers: any[]
@@ -15,28 +17,17 @@ export default function OffersClient({ offers, businessTypes }: OffersClientProp
   const [searchQuery, setSearchQuery]     = useState('')
   const [selectedType, setSelectedType]   = useState<string>('all')
 
-  // Read user location from localStorage (client-only, runs after hydration)
-  let userLoc: { lat: number; lng: number } | null = null
-  if (typeof window !== 'undefined') {
-    try {
-      const stored = localStorage.getItem('alfsouq_user_loc')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (parsed.lat && parsed.lng) userLoc = { lat: Number(parsed.lat), lng: Number(parsed.lng) }
-      }
-    } catch {}
-  }
+  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null)
+
+  useEffect(() => {
+    setUserLoc(readUserLocation())
+  }, [])
 
   const filteredOffers = offers.filter(offer => {
     const store = offer.restaurants
     if (!store) return false
     if (selectedType !== 'all' && store.store_type !== selectedType) return false
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      const titleMatch = offer.title?.toLowerCase().includes(q)
-      const storeMatch = store.name?.toLowerCase().includes(q)
-      if (!titleMatch && !storeMatch) return false
-    }
+    if (!matchesSearch(searchQuery, offer.title, store.name)) return false
     if (userLoc && !isStoreWithinRange(userLoc.lat, userLoc.lng, store)) return false
     return true
   })
