@@ -800,7 +800,7 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <label className="f-label">📱 رقم هاتف المحل/المالك (لتسجيل الدخول)</label>
-                        <input type="text" dir="ltr" placeholder="5352574134 أو +905352574134" value={resForm.owner_phone} onChange={e => setResForm({ ...resForm, owner_phone: e.target.value })} className="f-input text-left" />
+                        <input type="text" dir="ltr" placeholder="0000000000 أو +900000000000" value={resForm.owner_phone} onChange={e => setResForm({ ...resForm, owner_phone: e.target.value })} className="f-input text-left" />
                       </div>
                     </div>
 

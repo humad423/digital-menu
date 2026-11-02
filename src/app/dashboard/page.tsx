@@ -263,7 +263,7 @@ export default function CompletelyStandaloneDashboardPage() {
                     required
                     value={phoneNumber}
                     onChange={e => handlePhoneChange(e.target.value)}
-                    placeholder="535 257 4134"
+                    placeholder="000 000 0000"
                     className="w-full bg-gray-800 border border-gray-700 text-white font-bold text-sm pr-10 pl-4 py-3.5 rounded-2xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition placeholder-gray-500 dir-ltr text-right"
                   />
                 </div>
@@ -300,7 +300,7 @@ export default function CompletelyStandaloneDashboardPage() {
                 required
                 value={otpCode}
                 onChange={e => setOtpCode(e.target.value)}
-                placeholder="1 2 3 4 5 6"
+                placeholder="000000"
                 className="w-full bg-gray-800 border border-gray-700 text-emerald-400 font-black text-2xl tracking-[0.4em] text-center py-3.5 rounded-2xl focus:border-emerald-500 outline-none transition"
               />
             </div>
