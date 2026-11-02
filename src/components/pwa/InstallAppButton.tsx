@@ -10,6 +10,7 @@ const STYLES = {
   panel: 'btn btn-secondary btn-sm shrink-0',
   link: 'inline-flex items-center gap-1.5 min-h-11 font-bold text-ink underline underline-offset-4',
   solid: 'btn btn-secondary btn-sm shrink-0',
+  tile: 'btn btn-secondary',
 }
 
 export function IosInstallGuide({ appName, onClose }: { appName: string; onClose: () => void }) {

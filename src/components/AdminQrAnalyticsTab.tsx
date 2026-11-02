@@ -293,22 +293,22 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
     <div className="space-y-6" dir="rtl">
       
       {/* ── Top Filter & Header Bar ── */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-4">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           {/* Header Title */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-brand text-white flex items-center justify-center">
               <QrCode size={24} />
             </div>
             <div>
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <span>إحصائيات وتحليلات الـ QR</span>
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                   تتبع مباشر ⚡
                 </span>
               </h2>
-              <p className="text-xs text-slate-400 font-medium">متابعة دقيقة لعدد الزبائن الذين دخلوا وتصفحوا المنيو عبر مسح الـ QR</p>
+              <p className="text-sm text-muted font-medium">متابعة دقيقة لعدد الزبائن الذين دخلوا وتصفحوا المنيو عبر مسح الـ QR</p>
             </div>
           </div>
 
@@ -317,7 +317,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             <button
               onClick={() => setRefreshTrigger(prev => prev + 1)}
               disabled={loading}
-              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-sm font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               title="تحديث البيانات"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -327,7 +327,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             <button
               onClick={handleExportCsv}
               disabled={scans.length === 0}
-              className="px-3.5 py-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-2xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-2xl text-sm font-black flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               title="تصدير تقرير المسحات إلى ملف Excel/CSV"
             >
               <Download size={14} />
@@ -352,9 +352,9 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
               <button
                 key={p.key}
                 onClick={() => setPeriod(p.key as PeriodType)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition cursor-pointer shrink-0 ${
+                className={`px-3 py-1.5 rounded-xl text-sm font-black whitespace-nowrap  cursor-pointer shrink-0 ${
                   period === p.key
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-slate-900 text-white '
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -365,14 +365,14 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
 
           {/* Store Selector */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-black text-slate-500 shrink-0 flex items-center gap-1">
-              <Store size={14} className="text-orange-500" />
+            <label className="text-sm font-black text-muted shrink-0 flex items-center gap-1">
+              <Store size={14} className="text-brand" />
               <span>المتجر:</span>
             </label>
             <select
               value={selectedRestaurantId}
               onChange={e => setSelectedRestaurantId(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-orange-500 cursor-pointer min-w-[180px]"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 cursor-pointer min-w-[180px]"
             >
               <option value="all">جميع المتاجر ({restaurants.length})</option>
               {restaurants.map(r => (
@@ -386,7 +386,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
         {/* Source Filter (All / QR Only / Direct Web Only) */}
         <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/70">
-            <span className="text-[11px] font-black text-slate-400 px-2">نوع الزيارة:</span>
+            <span className="text-sm font-black text-muted px-2">نوع الزيارة:</span>
             {[
               { key: 'all', label: 'الكل (جميع الزيارات 🌐)' },
               { key: 'qr', label: 'مسحات الـ QR فقط 📱' },
@@ -395,9 +395,9 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
               <button
                 key={sf.key}
                 onClick={() => setSourceFilter(sf.key as any)}
-                className={`px-3 py-1 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap ${
+                className={`px-3 py-1 rounded-xl text-sm font-black  cursor-pointer whitespace-nowrap ${
                   sourceFilter === sf.key
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-slate-900 text-white '
                     : 'text-slate-600 hover:bg-slate-200/60'
                 }`}
               >
@@ -406,31 +406,31 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             ))}
           </div>
 
-          <span className="text-[11px] font-bold text-slate-400">
+          <span className="text-sm font-bold text-muted">
             يتم فصل مسحات رمز الاستجابة السريعة (QR) عن زيارات الروابط والموقع
           </span>
         </div>
 
         {/* Custom Date Range Picker Input Row */}
         {period === 'custom' && (
-          <div className="p-3.5 bg-orange-50/70 border border-orange-200 rounded-2xl flex flex-wrap items-center gap-3 animate-in fade-in duration-200">
+          <div className="p-3.5 bg-orange-50/70 border border-orange-200 rounded-2xl flex flex-wrap items-center gap-3 fade-in">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-orange-950">من تاريخ:</span>
+              <span className="text-sm font-bold text-orange-950">من تاريخ:</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-800 outline-none"
+                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-sm font-bold text-slate-800 outline-none"
               />
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-orange-950">إلى تاريخ:</span>
+              <span className="text-sm font-bold text-orange-950">إلى تاريخ:</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-800 outline-none"
+                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-sm font-bold text-slate-800 outline-none"
               />
             </div>
           </div>
@@ -442,10 +442,10 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
         {/* Total QR Scans */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-black text-slate-400">مسحات الـ QR فقط 📱</span>
-            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+            <span className="text-sm font-black text-muted">مسحات الـ QR فقط 📱</span>
+            <div className="w-9 h-9 rounded-xl bg-orange-50 text-brand flex items-center justify-center">
               <QrCode size={18} />
             </div>
           </div>
@@ -453,16 +453,16 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
               {loading ? '...' : stats.qrCount}
             </h3>
-            <p className="text-[11px] font-bold text-orange-600 flex items-center gap-1">
+            <p className="text-sm font-bold text-brand flex items-center gap-1">
               <span>مسح عبر كود الـ QR الفعلي</span>
             </p>
           </div>
         </div>
 
         {/* Direct Web Visits */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-black text-slate-400">الزيارات المباشرة 🌐</span>
+            <span className="text-sm font-black text-muted">الزيارات المباشرة 🌐</span>
             <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <ExternalLink size={18} />
             </div>
@@ -471,16 +471,16 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
               {loading ? '...' : stats.directCount}
             </h3>
-            <p className="text-[11px] font-bold text-blue-600 flex items-center gap-1">
+            <p className="text-sm font-bold text-blue-600 flex items-center gap-1">
               <span>عبر الروابط المباشرة والموقع</span>
             </p>
           </div>
         </div>
 
         {/* Today's Total Visits (4 AM cycle) */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-black text-slate-400">زيارات اليوم (المنصة ككل)</span>
+            <span className="text-sm font-black text-muted">زيارات اليوم (المنصة ككل)</span>
             <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <Sparkles size={18} />
             </div>
@@ -489,18 +489,18 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
               {loading ? '...' : stats.todayTotalScans}
             </h3>
-            <p className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 truncate">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <p className="text-sm font-bold text-emerald-600 flex items-center gap-1 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
               <span>{stats.todayQrCount} QR • {stats.todayDirectCount} مباشر (من 4 فجراً)</span>
             </p>
           </div>
         </div>
 
         {/* Top Store */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-black text-slate-400">المتجر الأكثر نشاطاً</span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <span className="text-sm font-black text-muted">المتجر الأكثر نشاطاً</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-brand flex items-center justify-center">
               <TrendingUp size={18} />
             </div>
           </div>
@@ -508,7 +508,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             <h3 className="text-base sm:text-lg font-black text-slate-900 truncate leading-snug mb-1">
               {loading ? '...' : (stats.topStore?.name || 'لا يوجد بيانات')}
             </h3>
-            <p className="text-[11px] font-bold text-amber-600">
+            <p className="text-sm font-bold text-brand">
               {stats.maxScans > 0 ? `${stats.maxScans} زيارة إجمالية` : 'لا توجد مسحات'}
             </p>
           </div>
@@ -517,13 +517,13 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
       </div>
 
       {/* ── Visual Trend Chart ── */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-            <BarChart3 size={16} className="text-orange-500" />
+            <BarChart3 size={16} className="text-brand" />
             <span>حركة المسحات اليومية (Daily Trend)</span>
           </h3>
-          <span className="text-xs text-slate-400 font-bold">
+          <span className="text-sm text-muted font-bold">
             {sourceFilter === 'qr' ? 'مسحات الـ QR فقط' : (sourceFilter === 'direct' ? 'الزيارات المباشرة فقط' : 'جميع الزيارات')}
           </span>
         </div>
@@ -534,14 +534,14 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
             const heightPercent = Math.max(Math.round((d.count / maxDailyCount) * 100), 4)
             return (
               <div key={d.dateStr} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                <span className="text-[10px] font-black text-slate-500 opacity-0 group-hover:opacity-100 transition">
+                <span className="text-sm font-black text-muted opacity-0 group-hover:opacity-100">
                   {d.count}
                 </span>
                 <div
-                  className="w-full rounded-xl bg-gradient-to-t from-orange-500 to-amber-400 group-hover:from-orange-600 group-hover:to-amber-500 transition-all duration-300 min-h-[6px]"
+                  className="w-full rounded-xl bg-brand group-hover:from-orange-600 group-hover:to-amber-500 min-h-[6px]"
                   style={{ height: `${heightPercent}%` }}
                 />
-                <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 truncate max-w-full text-center mt-1">
+                <span className="text-sm sm:text-[10px] font-bold text-muted truncate max-w-full text-center mt-1">
                   {d.label}
                 </span>
               </div>
@@ -554,19 +554,19 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Store Performance Breakdown Table (Col 2) */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="lg:col-span-2 bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Store size={16} className="text-orange-500" />
+              <Store size={16} className="text-brand" />
               <span>ترتيب المتاجر حسب الزيارات</span>
             </h3>
-            <span className="text-xs font-bold text-slate-400">{restaurants.length} متجر</span>
+            <span className="text-sm font-bold text-muted">{restaurants.length} متجر</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-right border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-black text-slate-400">
+                <tr className="border-b border-slate-100 text-sm font-black text-muted">
                   <th className="py-2.5 px-3">المتجر</th>
                   <th className="py-2.5 px-3 text-center">مسحات QR 📱</th>
                   <th className="py-2.5 px-3 text-center">زيارات الويب 🌐</th>
@@ -576,42 +576,42 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
                   <th className="py-2.5 px-3 text-center">معاينة</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 text-xs">
+              <tbody className="divide-y divide-slate-50 text-sm">
                 {stats.storeBreakdown.slice(0, 25).map(r => (
-                  <tr key={r.id} className="hover:bg-slate-50/70 transition">
+                  <tr key={r.id} className="hover:bg-slate-50/70">
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2.5">
                         {r.logo_url ? (
                           <img src={r.logo_url} alt="" className="w-8 h-8 rounded-xl object-contain border border-slate-100 shrink-0" />
                         ) : (
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white text-xs shrink-0" style={{ background: r.primary_color || '#F97316' }}>
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white text-sm shrink-0" style={{ background: r.primary_color || '#F97316' }}>
                             {r.name.charAt(0)}
                           </div>
                         )}
                         <div>
                           <p className="font-black text-slate-900">{r.name}</p>
-                          <p className="text-[10px] text-slate-400 font-bold">{r.slug}</p>
+                          <p className="text-sm text-muted font-bold">{r.slug}</p>
                         </div>
                       </div>
                     </td>
 
                     {/* QR Scans Count */}
                     <td className="py-3 px-3 text-center">
-                      <span className="font-black text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-lg text-xs">
+                      <span className="font-black text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-lg text-sm">
                         {r.qrScans}
                       </span>
                     </td>
 
                     {/* Direct Web Visits Count */}
                     <td className="py-3 px-3 text-center">
-                      <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-lg text-xs">
+                      <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-lg text-sm">
                         {r.directVisits}
                       </span>
                     </td>
 
                     {/* Total Scans in period */}
                     <td className="py-3 px-3 text-center">
-                      <span className="font-black text-slate-900 text-xs">
+                      <span className="font-black text-slate-900 text-sm">
                         {r.scanCount}
                       </span>
                     </td>
@@ -619,22 +619,22 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
                     {/* Today's Visits: Real vs Boosted */}
                     <td className="py-3 px-3 text-center">
                       <div className="inline-flex flex-col items-center">
-                        <span className="font-black text-xs text-slate-900 flex items-center gap-1">
+                        <span className="font-black text-sm text-slate-900 flex items-center gap-1">
                           <span className="text-emerald-600 font-black">{r.todayReal}</span>
                           <span className="text-slate-300 font-normal">/</span>
-                          <span className="text-amber-600 font-black" title="الرقم الظاهر لصاحب المتجر">
+                          <span className="text-brand font-black" title="الرقم الظاهر لصاحب المتجر">
                             {r.todayReal} 👁️
                           </span>
                         </span>
                       </div>
                     </td>
 
-                    <td className="py-3 px-3 text-slate-500 text-[11px] font-medium">
+                    <td className="py-3 px-3 text-muted text-sm font-medium">
                       {r.lastScan ? (
                         <span className="flex items-center gap-1 text-slate-600 font-bold">
-                          <Clock size={11} className="text-slate-400" />
+                          <Clock size={11} className="text-muted" />
                           {new Date(r.lastScan).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                          <span className="text-[10px] text-slate-400 font-normal">
+                          <span className="text-sm text-muted font-normal">
                             ({new Date(r.lastScan).toLocaleDateString('ar-EG', { month: 'numeric', day: 'numeric' })})
                           </span>
                         </span>
@@ -648,7 +648,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
                         href={getMainDomainMenuUrl(r.slug)}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 inline-flex items-center justify-center transition"
+                        className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 inline-flex items-center justify-center"
                         title="فتح المنيو"
                       >
                         <ExternalLink size={13} />
@@ -662,20 +662,20 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
         </div>
 
         {/* Live Scans Feed (Col 1) */}
-        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Sparkles size={16} className="text-amber-500" />
+              <Sparkles size={16} className="text-brand" />
               <span>آخر عمليات المسح والزيارات</span>
             </h3>
-            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
               Live
             </span>
           </div>
 
           <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
             {filteredScans.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-xs font-bold">
+              <div className="text-center py-12 text-muted text-sm font-bold">
                 لا توجد عمليات مسح مسجلة في هذه الفترة
               </div>
             ) : (
@@ -683,7 +683,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
                 const r = restaurantMap.get(s.restaurant_id)
                 const isQr = s.source === 'qr'
                 return (
-                  <div key={s.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 hover:bg-slate-100/70 transition">
+                  <div key={s.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 hover:bg-slate-100/70">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                         isQr ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
@@ -692,24 +692,24 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <h4 className="font-black text-xs text-slate-900 truncate">{r?.name || 'متجر'}</h4>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
+                          <h4 className="font-black text-sm text-slate-900 truncate">{r?.name || 'متجر'}</h4>
+                          <span className={`text-sm font-bold px-1.5 py-0.2 rounded-md ${
                             isQr ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
                           }`}>
                             {isQr ? '📱 مسح QR' : '🌐 ويب'}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-bold">
+                        <p className="text-sm text-muted font-bold">
                           {s.device_type === 'desktop' ? 'حاسوب' : (s.device_type === 'tablet' ? 'جهاز لوحي' : 'هاتف ذكي')}
                         </p>
                       </div>
                     </div>
 
                     <div className="text-left shrink-0">
-                      <p className="text-[10px] font-black text-slate-700 dir-ltr">
+                      <p className="text-sm font-black text-slate-700 dir-ltr">
                         {new Date(s.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </p>
-                      <p className="text-[9px] text-slate-400 font-bold">
+                      <p className="text-sm text-muted font-bold">
                         {new Date(s.created_at).toLocaleDateString('ar-EG', { month: 'numeric', day: 'numeric' })}
                       </p>
                     </div>

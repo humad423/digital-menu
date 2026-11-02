@@ -61,7 +61,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
               const x = (size - logoSize) / 2
               const y = (size - logoSize) / 2
 
-              // White background circle with shadow
+              // White background circle with 
               ctx.save()
               ctx.beginPath()
               ctx.arc(size / 2, size / 2, (logoSize / 2) + 4, 0, Math.PI * 2)
@@ -197,7 +197,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
             const logoX = (width - logoSize) / 2
             const logoY = 70
             
-            // White circular background for logo with shadow
+            // White circular background for logo with 
             ctx.save()
             ctx.beginPath()
             ctx.arc(width / 2, logoY + (logoSize / 2), (logoSize / 2) + 6, 0, Math.PI * 2)
@@ -465,24 +465,24 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
   }
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200" dir="rtl">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 fade-in" dir="rtl">
+      <div className="bg-white rounded-3xl border border-slate-200/90 w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden zoom-in-95">
         
         {/* Modal Header */}
         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-2xs" style={{ background: brandColor }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white" style={{ background: brandColor }}>
               <QrIcon size={16} />
             </div>
             <div>
               <h2 className="text-sm font-black text-slate-900">رمز الـ QR للمتجر</h2>
-              <p className="text-[11px] text-slate-400 font-medium">{restaurant.name}</p>
+              <p className="text-sm text-muted font-medium">{restaurant.name}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-slate-200/60 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-slate-200/60 hover:bg-slate-200 text-muted hover:text-slate-700 flex items-center justify-center cursor-pointer"
           >
             <X size={16} />
           </button>
@@ -493,14 +493,14 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           
           {/* WYSIWYG Mini Preview Card (Matches the exact exported image) */}
           <div className="flex justify-center">
-            <div className="w-full max-w-[270px] bg-white rounded-3xl shadow-md border border-slate-200 p-4 flex flex-col items-center text-center">
+            <div className="w-full max-w-[270px] bg-white rounded-3xl border border-slate-200 p-4 flex flex-col items-center text-center">
               
               {template === 'stand' ? (
                 <>
                   {/* Top Logo */}
                   {restaurant.logo_url && (
                     <div 
-                      className="w-11 h-11 rounded-full bg-white p-0.5 border-2 mx-auto mb-1.5 overflow-hidden shadow-2xs shrink-0"
+                      className="w-11 h-11 rounded-full bg-white p-0.5 border-2 mx-auto mb-1.5 overflow-hidden shrink-0"
                       style={{ borderColor: brandColor }}
                     >
                       <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain rounded-full" />
@@ -508,13 +508,13 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
                   )}
 
                   {/* Store Name */}
-                  <h4 className="text-slate-900 text-xs font-black truncate max-w-[230px] mb-1">
+                  <h4 className="text-slate-900 text-sm font-black truncate max-w-[230px] mb-1">
                     {restaurant.name}
                   </h4>
 
                   {/* Pill Badge */}
                   <div 
-                    className="text-[10px] font-black px-3 py-1 rounded-full mb-2.5 inline-flex items-center gap-1 shrink-0 border shadow-2xs"
+                    className="text-sm font-black px-3 py-1 rounded-full mb-2.5 inline-flex items-center gap-1 shrink-0 border"
                     style={{ background: `${brandColor}18`, color: brandColor, borderColor: `${brandColor}35` }}
                   >
                     <span>📷 وجّه كاميرا هاتفك لفتح المنيو والطلب</span>
@@ -530,10 +530,10 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
                   </div>
 
                   {/* Helper Text */}
-                  <p className="text-[8px] text-slate-500 font-medium leading-tight">
+                  <p className="text-sm text-muted font-medium leading-tight">
                     وجّه كاميرا هاتفك نحو الرمز لتصفح المنتجات
                   </p>
-                  <p className="text-[8px] text-slate-400 font-mono mt-0.5 dir-ltr truncate max-w-full">
+                  <p className="text-sm text-muted font-mono mt-0.5 dir-ltr truncate max-w-full">
                     alfsouq.com/m/{restaurant.slug}
                   </p>
                 </>
@@ -547,7 +547,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
                       <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                     )}
                   </div>
-                  <p className="text-[9px] text-slate-400 font-mono mt-2 dir-ltr truncate max-w-full">
+                  <p className="text-sm text-muted font-mono mt-2 dir-ltr truncate max-w-full">
                     alfsouq.com/m/{restaurant.slug}
                   </p>
                 </>
@@ -558,17 +558,17 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
 
           {/* Template Style Selector */}
           <div>
-            <label className="text-xs font-black text-slate-700 mb-1.5 flex items-center gap-1">
-              <Layout size={13} className="text-orange-500" />
+            <label className="text-sm font-black text-slate-700 mb-1.5 flex items-center gap-1">
+              <Layout size={13} className="text-brand" />
               <span>نمط العرض</span>
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setTemplate('stand')}
-                className={`py-2 px-3 rounded-xl text-xs font-black border transition cursor-pointer text-center ${
+                className={`py-2 px-3 rounded-xl text-sm font-black border  cursor-pointer text-center ${
                   template === 'stand'
-                    ? 'border-orange-500 bg-orange-50/70 text-orange-950 shadow-2xs'
+                    ? 'border-orange-500 bg-orange-50/70 text-orange-950 '
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -578,9 +578,9 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
               <button
                 type="button"
                 onClick={() => setTemplate('clean')}
-                className={`py-2 px-3 rounded-xl text-xs font-black border transition cursor-pointer text-center ${
+                className={`py-2 px-3 rounded-xl text-sm font-black border  cursor-pointer text-center ${
                   template === 'clean'
-                    ? 'border-orange-500 bg-orange-50/70 text-orange-950 shadow-2xs'
+                    ? 'border-orange-500 bg-orange-50/70 text-orange-950 '
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -592,13 +592,13 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           {/* Direct Link Copy Box */}
           <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] text-slate-400 font-bold mb-0.5">رابط المنيو المباشر:</p>
-              <p className="text-xs font-bold text-slate-800 truncate dir-ltr text-right">{qrTargetUrl}</p>
+              <p className="text-sm text-muted font-bold mb-0.5">رابط المنيو المباشر:</p>
+              <p className="text-sm font-bold text-slate-800 truncate dir-ltr text-right">{qrTargetUrl}</p>
             </div>
             <button
               type="button"
               onClick={handleCopyLink}
-              className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 transition active:scale-95 cursor-pointer shadow-2xs"
+              className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-1 shrink-0 cursor-pointer"
             >
               {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
               <span>{copied ? 'تم النسخ' : 'نسخ'}</span>
@@ -612,7 +612,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
           <button
             type="button"
             onClick={handlePrint}
-            className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+            className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl font-black text-sm flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Printer size={14} />
             <span>طباعة 🖨️</span>
@@ -622,7 +622,7 @@ export default function StoreQrModal({ isOpen, onClose, restaurant }: StoreQrMod
             type="button"
             onClick={handleDownloadPng}
             disabled={downloading}
-            className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-sm disabled:opacity-60"
+            className="flex-1 py-2.5 bg-brand hover:bg-brand text-white rounded-xl font-black text-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
           >
             <Download size={14} />
             <span>{downloading ? 'جاري التحميل...' : 'تحميل صورة (PNG)'}</span>

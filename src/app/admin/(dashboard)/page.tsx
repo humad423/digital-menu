@@ -561,7 +561,7 @@ export default function AdminDashboard() {
             <Icon size={16} />
             <span>{label}</span>
             {key === 'orders' && pendingOrders > 0 && (
-              <span className="bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
+              <span className="bg-red-500 text-white text-sm font-black w-5 h-5 rounded-full flex items-center justify-center">
                 {pendingOrders}
               </span>
             )}
@@ -573,7 +573,7 @@ export default function AdminDashboard() {
 
         {/* ── Stats Row ── */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 animate-fade-in-up">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
               { label: 'المطاعم', value: restaurants.length, color: '#3B82F6', emoji: '🏪' },
               { label: 'التصنيفات', value: platformCategories.length, color: '#10B981', emoji: '🗂️' },
@@ -586,7 +586,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
-                  <p className="text-xs font-bold text-slate-400">{s.label}</p>
+                  <p className="text-sm font-bold text-muted">{s.label}</p>
                 </div>
               </div>
             ))}
@@ -597,7 +597,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm font-bold text-slate-400">جاري تحميل البيانات...</p>
+              <p className="text-sm font-bold text-muted">جاري تحميل البيانات...</p>
             </div>
           </div>
         )}
@@ -622,19 +622,19 @@ export default function AdminDashboard() {
             RESTAURANTS TAB
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'restaurants' && (
-          <div className="animate-fade-in-up space-y-4">
+          <div className="space-y-4">
             {/* Header & Controls Toolbar */}
-            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs flex flex-col gap-4">
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
-                    <Store className="text-orange-500" size={20} />
+                    <Store className="text-brand" size={20} />
                     <span>المتاجر المسجلة</span>
-                    <span className="text-xs font-black bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full border border-orange-100">
+                    <span className="text-sm font-black bg-orange-50 text-brand px-2.5 py-0.5 rounded-full border border-orange-100">
                       {restaurants.length} متجر
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  <p className="text-sm text-muted font-medium mt-0.5">
                     إدارة بيانات المتاجر، الاشتراكات، ساعات العمل، وحسابات الدخول
                   </p>
                 </div>
@@ -645,10 +645,10 @@ export default function AdminDashboard() {
                     <button
                       type="button"
                       onClick={() => setResViewMode('grid')}
-                      className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                      className={`p-2 rounded-xl text-sm font-bold flex items-center gap-1  cursor-pointer ${
                         resViewMode === 'grid'
-                          ? 'bg-white text-slate-900 shadow-xs font-black'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-white text-slate-900  font-black'
+                          : 'text-muted hover:text-slate-800'
                       }`}
                       title="عرض بطاقات مضغوطة"
                     >
@@ -658,10 +658,10 @@ export default function AdminDashboard() {
                     <button
                       type="button"
                       onClick={() => setResViewMode('table')}
-                      className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                      className={`p-2 rounded-xl text-sm font-bold flex items-center gap-1  cursor-pointer ${
                         resViewMode === 'table'
-                          ? 'bg-white text-slate-900 shadow-xs font-black'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-white text-slate-900  font-black'
+                          : 'text-muted hover:text-slate-800'
                       }`}
                       title="عرض جدول سريع"
                     >
@@ -672,7 +672,7 @@ export default function AdminDashboard() {
 
                   <button
                     onClick={() => { setShowResForm(!showResForm); setEditResId(null); setSelectedCatIds([]); setResForm(emptyRes) }}
-                    className="btn btn-primary text-xs font-black py-2.5 px-4 rounded-2xl flex items-center gap-1.5 shadow-sm"
+                    className="btn btn-primary text-sm font-black py-2.5 px-4 rounded-2xl flex items-center gap-1.5"
                   >
                     <Plus size={16} />
                     <span>متجر جديد</span>
@@ -684,18 +684,18 @@ export default function AdminDashboard() {
               <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-100">
                 {/* Search Input */}
                 <div className="relative flex-1 min-w-[220px]">
-                  <Search size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" />
                   <input
                     type="text"
                     placeholder="ابحث باسم المتجر، الرابط (Slug)، أو رقم الهاتف..."
                     value={resSearchQuery}
                     onChange={e => setResSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pr-9 pl-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-orange-500 transition"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pr-9 pl-3 py-2 text-sm font-bold text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-orange-500"
                   />
                   {resSearchQuery && (
                     <button
                       onClick={() => setResSearchQuery('')}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted hover:text-slate-600 text-sm font-bold"
                     >
                       ✕
                     </button>
@@ -703,12 +703,12 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Status Filter */}
-                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
+                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-200 text-sm font-bold">
                   <button
                     type="button"
                     onClick={() => setResFilterStatus('all')}
-                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                      resFilterStatus === 'all' ? 'bg-white text-slate-900 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                    className={`px-3 py-1.5 rounded-xl  cursor-pointer ${
+                      resFilterStatus === 'all' ? 'bg-white text-slate-900 font-black ' : 'text-muted hover:text-slate-800'
                     }`}
                   >
                     الكل ({restaurants.length})
@@ -716,22 +716,22 @@ export default function AdminDashboard() {
                   <button
                     type="button"
                     onClick={() => setResFilterStatus('active')}
-                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
-                      resFilterStatus === 'active' ? 'bg-emerald-500 text-white font-black shadow-xs' : 'text-slate-500 hover:text-emerald-600'
+                    className={`px-3 py-1.5 rounded-xl  cursor-pointer flex items-center gap-1 ${
+                      resFilterStatus === 'active' ? 'bg-emerald-500 text-white font-black ' : 'text-muted hover:text-emerald-600'
                     }`}
                   >
                     <span>نشط</span>
-                    <span className="text-[10px] opacity-80">({restaurants.filter(r => r.is_subscription_active !== false).length})</span>
+                    <span className="text-sm opacity-80">({restaurants.filter(r => r.is_subscription_active !== false).length})</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setResFilterStatus('inactive')}
-                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
-                      resFilterStatus === 'inactive' ? 'bg-rose-500 text-white font-black shadow-xs' : 'text-slate-500 hover:text-rose-600'
+                    className={`px-3 py-1.5 rounded-xl  cursor-pointer flex items-center gap-1 ${
+                      resFilterStatus === 'inactive' ? 'bg-rose-500 text-white font-black ' : 'text-muted hover:text-rose-600'
                     }`}
                   >
                     <span>معلق</span>
-                    <span className="text-[10px] opacity-80">({restaurants.filter(r => r.is_subscription_active === false).length})</span>
+                    <span className="text-sm opacity-80">({restaurants.filter(r => r.is_subscription_active === false).length})</span>
                   </button>
                 </div>
 
@@ -740,7 +740,7 @@ export default function AdminDashboard() {
                   <select
                     value={resFilterType}
                     onChange={e => setResFilterType(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-orange-500 cursor-pointer"
+                    className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-orange-500 cursor-pointer"
                   >
                     <option value="all">جميع أنواع الأنشطة (الكل)</option>
                     {businessTypes.map(bt => (
@@ -755,7 +755,7 @@ export default function AdminDashboard() {
 
             {/* Restaurant Form */}
             {showResForm && (
-              <div className="c-card mb-6 animate-slide-down border-t-4 border-t-orange-500">
+              <div className="c-card mb-6 border-t-4 border-t-orange-500">
                 <div className="c-card-header">
                   <h3 className="font-black text-slate-800">{editResId ? '✏️ تعديل بيانات المطعم' : '🏪 إضافة مطعم جديد'}</h3>
                   <button onClick={() => { setShowResForm(false); setEditResId(null) }} className="btn btn-ghost btn-sm">
@@ -795,7 +795,7 @@ export default function AdminDashboard() {
                         <label className="f-label">اللون الأساسي</label>
                         <div className="flex items-center gap-2">
                           <input type="color" value={resForm.primary_color} onChange={e => setResForm({ ...resForm, primary_color: e.target.value })} className="w-10 h-10 rounded-xl border border-gray-200 cursor-pointer p-0.5 bg-white" />
-                          <span className="text-xs font-mono text-slate-500 uppercase">{resForm.primary_color}</span>
+                          <span className="text-sm font-mono text-muted uppercase">{resForm.primary_color}</span>
                         </div>
                       </div>
                       <div>
@@ -813,7 +813,7 @@ export default function AdminDashboard() {
                             const isSelected = selectedCatIds.includes(c.id)
                             return (
                               <button key={c.id} type="button" onClick={() => toggleCat(c.id)}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${isSelected ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-bold  ${isSelected ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
                               >
                                 <span>{c.icon}</span>
                                 <span>{c.name}</span>
@@ -829,15 +829,15 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="f-label mb-1">لوجو المطعم / المتجر 🖼️</label>
-                        <p className="text-[10px] text-slate-400 font-bold mb-2">
-                          💡 المقاس المثالي: <span className="text-orange-600">500 × 500 بكسل</span> (نسبة 1:1 مربع)
+                        <p className="text-sm text-muted font-bold mb-2">
+                          💡 المقاس المثالي: <span className="text-brand">500 × 500 بكسل</span> (نسبة 1:1 مربع)
                         </p>
                         <ImageUpload value={resForm.logo_url} onChange={(url) => setResForm({ ...resForm, logo_url: url })} />
                       </div>
                       <div>
                         <label className="f-label mb-1">صورة الغلاف 🏙️</label>
-                        <p className="text-[10px] text-slate-400 font-bold mb-2">
-                          💡 المقاس المثالي: <span className="text-orange-600">1200 × 675 بكسل</span> (نسبة 16:9 عريض)
+                        <p className="text-sm text-muted font-bold mb-2">
+                          💡 المقاس المثالي: <span className="text-brand">1200 × 675 بكسل</span> (نسبة 16:9 عريض)
                         </p>
                         <ImageUpload value={resForm.cover_url} onChange={(url) => setResForm({ ...resForm, cover_url: url })} />
                       </div>
@@ -850,28 +850,28 @@ export default function AdminDashboard() {
                         id="has_delivery"
                         checked={resForm.has_delivery}
                         onChange={e => setResForm({ ...resForm, has_delivery: e.target.checked })}
-                        className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer"
+                        className="w-4 h-4 text-brand rounded border-slate-300 focus:ring-orange-500 cursor-pointer"
                       />
-                      <label htmlFor="has_delivery" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                      <label htmlFor="has_delivery" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
                         🛵 يقدّم خدمة التوصيل للمنازل (عند إلغاء التفعيل سيظهر كـ &quot;استلام من الفرع / تصفح فقط&quot;)
                       </label>
                     </div>
 
                     {/* Subscription & Menu Status Controls */}
-                    <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 space-y-3 border border-slate-700 shadow-sm">
-                      <h4 className="font-black text-xs sm:text-sm text-white flex items-center gap-2">
+                    <div className="bg-ink text-white rounded-2xl p-4 space-y-3 border border-slate-700">
+                      <h4 className="font-black text-sm sm:text-sm text-white flex items-center gap-2">
                         <span>🛡️</span> حالة الاشتراك وإتاحة المنيو للزبائن
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {/* 1. Subscription Active Toggle */}
-                        <div className={`p-3 rounded-xl border transition flex items-center justify-between gap-2 ${
+                        <div className={`p-3 rounded-xl border  flex items-center justify-between gap-2 ${
                           resForm.is_subscription_active !== false
                             ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
                             : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
                         }`}>
                           <div className="min-w-0">
-                            <h5 className="font-black text-xs">اشتراك لوحة التحكم</h5>
-                            <p className="text-[10px] opacity-75">
+                            <h5 className="font-black text-sm">اشتراك لوحة التحكم</h5>
+                            <p className="text-sm opacity-75">
                               {resForm.is_subscription_active !== false ? '✅ نشط (يسمح بالتعديل)' : '⛔ معلق (يمنع التعديل)'}
                             </p>
                           </div>
@@ -884,14 +884,14 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* 2. Menu Active Toggle */}
-                        <div className={`p-3 rounded-xl border transition flex items-center justify-between gap-2 ${
+                        <div className={`p-3 rounded-xl border  flex items-center justify-between gap-2 ${
                           resForm.is_menu_active !== false
                             ? 'bg-blue-950/40 border-blue-500/40 text-blue-300'
                             : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
                         }`}>
                           <div className="min-w-0">
-                            <h5 className="font-black text-xs">منيو الزبائن العام</h5>
-                            <p className="text-[10px] opacity-75">
+                            <h5 className="font-black text-sm">منيو الزبائن العام</h5>
+                            <p className="text-sm opacity-75">
                               {resForm.is_menu_active !== false ? '🟢 منشور ومتاح' : '🔴 معلق ومخفي'}
                             </p>
                           </div>
@@ -905,13 +905,13 @@ export default function AdminDashboard() {
                       </div>
 
                       <div>
-                        <label className="text-[11px] font-bold text-slate-300 mb-1 block">ملاحظات الاشتراك (اختياري)</label>
+                        <label className="text-sm font-bold text-slate-300 mb-1 block">ملاحظات الاشتراك (اختياري)</label>
                         <input
                           type="text"
                           value={resForm.subscription_notes || ''}
                           onChange={e => setResForm({ ...resForm, subscription_notes: e.target.value })}
                           placeholder="مثال: اشتراك شهري مدفوع حتى تاريخ..."
-                          className="f-input bg-slate-950 text-white border-slate-700 text-xs placeholder:text-slate-500"
+                          className="f-input bg-slate-950 text-white border-slate-700 text-sm placeholder:text-slate-500"
                         />
                       </div>
 
@@ -924,7 +924,7 @@ export default function AdminDashboard() {
                         <h4 className="font-black text-sm text-slate-800 flex items-center gap-1.5">
                           <span>⏰</span> ساعات العمل وأيام العطلة الرسمية
                         </h4>
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-black text-amber-900">
+                        <label className="flex items-center gap-2 cursor-pointer text-sm font-black text-amber-900">
                           <input
                             type="checkbox"
                             checked={resForm.is_on_holiday}
@@ -968,9 +968,9 @@ export default function AdminDashboard() {
                                   const next = current.includes(day) ? current.filter(d => d !== day) : [...current, day]
                                   setResForm({ ...resForm, days_off: next })
                                 }}
-                                className={`px-3 py-1 rounded-xl text-xs font-black transition-all border ${
+                                className={`px-3 py-1 rounded-xl text-sm font-black  border ${
                                   isSelected
-                                    ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                                    ? 'bg-amber-500 border-amber-500 text-white '
                                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
                                 }`}
                               >
@@ -987,7 +987,7 @@ export default function AdminDashboard() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <h4 className="font-black text-sm text-slate-800 flex items-center gap-1.5"><MapPin size={15} className="text-blue-500" />موقع المطعم</h4>
-                          <p className="text-xs text-slate-400 mt-0.5">مطلوب لإظهار المطعم للمستخدمين القريبين</p>
+                          <p className="text-sm text-muted mt-0.5">مطلوب لإظهار المطعم للمستخدمين القريبين</p>
                         </div>
                         <button type="button" onClick={() => {
                           if (!navigator.geolocation) return notifyError('المتصفح لا يدعم تحديد الموقع')
@@ -1027,24 +1027,24 @@ export default function AdminDashboard() {
                           <label className="f-label">الحد الأقصى للعروض</label>
                           <input type="number" min="1" max="100" value={resForm.max_offers_limit}
                             onChange={e => setResForm({ ...resForm, max_offers_limit: e.target.value })}
-                            className="f-input bg-white font-black text-orange-600" placeholder="5" />
+                            className="f-input bg-white font-black text-brand" placeholder="5" />
                         </div>
                         <div>
                           <div className="flex items-center justify-between">
                             <label className="f-label">شريط ملاحظة / إعلان المنيو (📢)</label>
-                            <span className="text-[10px] text-slate-400 font-bold">{(resForm.menu_note || '').length} / 100 حرف</span>
+                            <span className="text-sm text-muted font-bold">{(resForm.menu_note || '').length} / 100 حرف</span>
                           </div>
                           <input type="text" maxLength={100} value={resForm.menu_note || ''}
                             onChange={e => setResForm({ ...resForm, menu_note: e.target.value.slice(0, 100) })}
-                            className="f-input bg-white text-xs font-bold" placeholder="شريط إعلان رفيع أعلى المنيو (حد أقصى 100 حرف)..." />
+                            className="f-input bg-white text-sm font-bold" placeholder="شريط إعلان رفيع أعلى المنيو (حد أقصى 100 حرف)..." />
                         </div>
                       </div>
                       {resForm.latitude && resForm.longitude ? (
-                        <a href={`https://www.google.com/maps?q=${resForm.latitude},${resForm.longitude}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                        <a href={`https://www.google.com/maps?q=${resForm.latitude},${resForm.longitude}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 font-bold flex items-center gap-1 hover:underline">
                           <ExternalLink size={12} /> معاينة على Google Maps
                         </a>
                       ) : (
-                        <p className="text-xs text-amber-600 font-bold">⚠️ لم يتم تحديد الموقع — المطعم لن يظهر للمستخدمين</p>
+                        <p className="text-sm text-brand font-bold">⚠️ لم يتم تحديد الموقع — المطعم لن يظهر للمستخدمين</p>
                       )}
                     </div>
 
@@ -1086,11 +1086,11 @@ export default function AdminDashboard() {
                   <div className="c-card text-center py-16 bg-white rounded-3xl border border-slate-200/80">
                     <p className="text-4xl mb-2">🏪</p>
                     <p className="font-black text-slate-700 text-base">لا توجد متاجر مطابقة للبحث أو الفلتر</p>
-                    <p className="text-xs text-slate-400 mt-1">جرّب مسح كلمات البحث أو تغيير الفلتر</p>
+                    <p className="text-sm text-muted mt-1">جرّب مسح كلمات البحث أو تغيير الفلتر</p>
                     {resSearchQuery && (
                       <button
                         onClick={() => { setResSearchQuery(''); setResFilterStatus('all'); setResFilterType('all') }}
-                        className="mt-3 text-xs font-bold text-orange-600 bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 hover:bg-orange-100 transition cursor-pointer"
+                        className="mt-3 text-sm font-bold text-brand bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 hover:bg-orange-100 cursor-pointer"
                       >
                         مسح الفلاتر ✕
                       </button>
@@ -1101,11 +1101,11 @@ export default function AdminDashboard() {
 
               if (resViewMode === 'table') {
                 return (
-                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
+                  <div className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="data-table w-full text-xs">
+                      <table className="data-table w-full text-sm">
                         <thead>
-                          <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold">
+                          <tr className="bg-slate-50/80 border-b border-slate-200 text-muted font-bold">
                             <th className="py-3 px-4 text-right">المتجر</th>
                             <th className="py-3 px-3 text-center">النشاط</th>
                             <th className="py-3 px-3 text-right">هاتف الدخول / واتساب</th>
@@ -1122,7 +1122,7 @@ export default function AdminDashboard() {
                             const storeTypeLabel = bt ? `${bt.icon} ${bt.name}` : (r.store_type === 'supermarket' ? '🛒 سوبرماركت' : r.store_type === 'clothing' ? '👗 ألبسة' : r.store_type === 'other' ? '🎁 متجر' : '🍔 مطعم')
 
                             return (
-                              <tr key={r.id} className="hover:bg-slate-50/60 transition">
+                              <tr key={r.id} className="hover:bg-slate-50/60">
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-lg shrink-0 overflow-hidden">
@@ -1137,7 +1137,7 @@ export default function AdminDashboard() {
                                       <Link
                                         href={`/m/${r.slug}`}
                                         target="_blank"
-                                        className="text-[11px] font-mono text-slate-400 hover:text-orange-600 inline-flex items-center gap-0.5 dir-ltr"
+                                        className="text-sm font-mono text-muted hover:text-orange-600 inline-flex items-center gap-0.5 dir-ltr"
                                       >
                                         <span>/m/{r.slug}</span>
                                         <ExternalLink size={10} />
@@ -1147,21 +1147,21 @@ export default function AdminDashboard() {
                                 </td>
 
                                 <td className="py-3 px-3 text-center">
-                                  <span className="badge badge-gray font-bold text-[10px]">
+                                  <span className="badge badge-gray font-bold text-sm">
                                     {storeTypeLabel}
                                   </span>
                                 </td>
 
                                 <td className="py-3 px-3">
-                                  <div className="space-y-0.5 text-[11px]">
+                                  <div className="space-y-0.5 text-sm">
                                     <div className="font-mono text-slate-800 font-bold dir-ltr flex items-center gap-1 justify-end">
                                       <span>{formatPhoneDisplay(ownerPhoneMap[r.id] || r.owner_phone) || '-'}</span>
-                                      <Phone size={11} className="text-amber-500" />
+                                      <Phone size={11} className="text-brand" />
                                     </div>
                                     {r.whatsapp_number && (
-                                      <div className="font-mono text-slate-400 text-[10px] dir-ltr flex items-center gap-1 justify-end">
+                                      <div className="font-mono text-muted text-sm dir-ltr flex items-center gap-1 justify-end">
                                         <span>{formatPhoneDisplay(r.whatsapp_number)}</span>
-                                        <span className="text-emerald-500 text-[9px] font-bold">WA</span>
+                                        <span className="text-emerald-500 text-sm font-bold">WA</span>
                                       </div>
                                     )}
                                   </div>
@@ -1171,7 +1171,7 @@ export default function AdminDashboard() {
                                   <button
                                     type="button"
                                     onClick={() => toggleRestaurantSubscription(r)}
-                                    className={`px-2.5 py-1 rounded-xl text-[10px] font-black border transition cursor-pointer active:scale-95 ${
+                                    className={`px-2.5 py-1 rounded-xl text-sm font-black border  cursor-pointer  ${
                                       r.is_subscription_active !== false
                                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                                         : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
@@ -1185,7 +1185,7 @@ export default function AdminDashboard() {
                                   <button
                                     type="button"
                                     onClick={() => toggleRestaurantMenu(r)}
-                                    className={`px-2.5 py-1 rounded-xl text-[10px] font-black border transition cursor-pointer active:scale-95 ${
+                                    className={`px-2.5 py-1 rounded-xl text-sm font-black border  cursor-pointer  ${
                                       r.is_menu_active !== false
                                         ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                                         : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
@@ -1196,7 +1196,7 @@ export default function AdminDashboard() {
                                 </td>
 
                                 <td className="py-3 px-3 text-center">
-                                  <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
+                                  <span className={`px-2 py-0.5 rounded-full border text-sm font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
                                     <span>{status.statusText}</span>
                                   </span>
@@ -1206,7 +1206,7 @@ export default function AdminDashboard() {
                                   <div className="flex items-center justify-center gap-1.5">
                                     <Link
                                       href={`/restaurant-panel/${r.id}`}
-                                      className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-black rounded-xl text-xs flex items-center gap-1 transition"
+                                      className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-black rounded-xl text-sm flex items-center gap-1"
                                       title="إدارة المنيو والعروض"
                                     >
                                       <Utensils size={13} />
@@ -1214,28 +1214,28 @@ export default function AdminDashboard() {
                                     </Link>
                                     <button
                                       onClick={() => handleImpersonateOwner(r)}
-                                      className="p-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition"
+                                      className="p-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl"
                                       title="دخول كصاحب متجر"
                                     >
                                       <Store size={13} />
                                     </button>
                                     <button
                                       onClick={() => setSelectedStoreForSettings(r)}
-                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
                                       title="ساعات الدوام والعطلات"
                                     >
                                       <Settings size={13} />
                                     </button>
                                     <button
                                       onClick={() => handleEditRes(r)}
-                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-blue-600 rounded-xl transition"
+                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-blue-600 rounded-xl"
                                       title="تعديل البيانات"
                                     >
                                       <Edit size={13} />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteRes(r.id, r.name)}
-                                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition"
+                                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl"
                                       title="حذف المتجر"
                                     >
                                       <Trash2 size={13} />
@@ -1262,12 +1262,12 @@ export default function AdminDashboard() {
                     return (
                       <div
                         key={r.id}
-                        className="bg-white rounded-3xl p-4 border border-slate-200/90 hover:border-orange-300 hover:shadow-md transition-all flex flex-col justify-between gap-3 group"
+                        className="bg-white rounded-3xl p-4 border border-slate-200/90 hover:border-orange-300 flex flex-col justify-between gap-3 group"
                       >
                         {/* Header: Logo + Name + Slug + Status */}
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-xl shrink-0 overflow-hidden shadow-2xs">
+                            <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-xl shrink-0 overflow-hidden">
                               {r.logo_url ? (
                                 <img src={r.logo_url} alt="" className="w-full h-full object-cover" />
                               ) : (
@@ -1275,14 +1275,14 @@ export default function AdminDashboard() {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <h3 className="font-black text-sm text-slate-900 truncate leading-tight group-hover:text-orange-600 transition-colors">
+                              <h3 className="font-black text-sm text-slate-900 truncate leading-tight group-hover:text-orange-600">
                                 {r.name}
                               </h3>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <Link
                                   href={`/m/${r.slug}`}
                                   target="_blank"
-                                  className="text-[11px] font-mono text-slate-400 hover:text-orange-600 truncate inline-flex items-center gap-0.5 dir-ltr"
+                                  className="text-sm font-mono text-muted hover:text-orange-600 truncate inline-flex items-center gap-0.5 dir-ltr"
                                 >
                                   <span>/m/{r.slug}</span>
                                   <ExternalLink size={10} className="shrink-0" />
@@ -1292,24 +1292,24 @@ export default function AdminDashboard() {
                           </div>
 
                           <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className={`px-2 py-0.5 rounded-full border text-[9px] font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
+                            <span className={`px-2 py-0.5 rounded-full border text-sm font-black inline-flex items-center gap-1 ${status.badgeClass}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
                               <span>{status.statusText}</span>
                             </span>
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
+                            <span className="text-sm font-bold text-muted bg-slate-100 px-2 py-0.5 rounded-lg">
                               {storeTypeLabel}
                             </span>
                           </div>
                         </div>
 
                         {/* Contact details */}
-                        <div className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-slate-600">
+                        <div className="flex items-center justify-between gap-2 text-sm bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-slate-600">
                           <span className="flex items-center gap-1 font-bold truncate">
-                            <Phone size={11} className="text-amber-500 shrink-0" />
+                            <Phone size={11} className="text-brand shrink-0" />
                             <span dir="ltr" className="font-mono text-slate-800">{formatPhoneDisplay(ownerPhoneMap[r.id] || r.owner_phone) || 'لا يوجد هاتف'}</span>
                           </span>
                           {r.whatsapp_number && (
-                            <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold shrink-0">
+                            <span className="flex items-center gap-1 text-sm text-emerald-600 font-bold shrink-0">
                               <Phone size={10} className="text-emerald-500" />
                               <span>واتساب ✅</span>
                             </span>
@@ -1321,7 +1321,7 @@ export default function AdminDashboard() {
                           <button
                             type="button"
                             onClick={() => toggleRestaurantSubscription(r)}
-                            className={`px-2 py-1 rounded-xl text-[10px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
+                            className={`px-2 py-1 rounded-xl text-sm font-black border  flex items-center justify-between cursor-pointer  ${
                               r.is_subscription_active !== false
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                                 : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
@@ -1334,7 +1334,7 @@ export default function AdminDashboard() {
                           <button
                             type="button"
                             onClick={() => toggleRestaurantMenu(r)}
-                            className={`px-2 py-1 rounded-xl text-[10px] font-black border transition flex items-center justify-between cursor-pointer active:scale-95 ${
+                            className={`px-2 py-1 rounded-xl text-sm font-black border  flex items-center justify-between cursor-pointer  ${
                               r.is_menu_active !== false
                                 ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                                 : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
@@ -1350,14 +1350,14 @@ export default function AdminDashboard() {
                           <div className="flex items-center gap-1.5">
                             <Link
                               href={`/restaurant-panel/${r.id}`}
-                              className="flex-1 py-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200/80 font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                              className="flex-1 py-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200/80 font-black text-sm flex items-center justify-center gap-1.5"
                             >
                               <Utensils size={13} />
                               <span>المنيو والعروض</span>
                             </Link>
                             <button
                               onClick={() => handleImpersonateOwner(r)}
-                              className="py-2 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1 transition active:scale-95"
+                              className="py-2 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm flex items-center justify-center gap-1"
                               title="دخول كصاحب متجر"
                             >
                               <Store size={13} />
@@ -1368,16 +1368,16 @@ export default function AdminDashboard() {
                           <div className="flex items-center justify-between gap-1">
                             <button
                               onClick={() => setSelectedStoreForSettings(r)}
-                              className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                              className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold flex items-center justify-center gap-1 cursor-pointer"
                               title="ساعات الدوام والعطلات"
                             >
-                              <Settings size={12} className="text-slate-500" />
+                              <Settings size={12} className="text-muted" />
                               <span>الدوام</span>
                             </button>
 
                             <button
                               onClick={() => handleEditRes(r)}
-                              className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                              className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold flex items-center justify-center gap-1 cursor-pointer"
                               title="تعديل بيانات المتجر"
                             >
                               <Edit size={12} className="text-blue-500" />
@@ -1386,7 +1386,7 @@ export default function AdminDashboard() {
 
                             <button
                               onClick={() => handleDeleteRes(r.id, r.name)}
-                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold transition cursor-pointer"
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-sm font-bold cursor-pointer"
                               title="حذف المتجر"
                             >
                               <Trash2 size={13} />
@@ -1406,7 +1406,7 @@ export default function AdminDashboard() {
             MAP TAB
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'map' && (
-          <div className="animate-fade-in-up">
+          <div className="">
             <AdminInteractiveMap
               restaurants={restaurants}
               serviceZones={serviceZones}
@@ -1419,11 +1419,11 @@ export default function AdminDashboard() {
             CATEGORIES TAB
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'categories' && (
-          <div className="animate-fade-in-up max-w-2xl">
+          <div className="max-w-2xl">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-lg font-black text-slate-800">تصنيفات المنصة</h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">{platformCategories.length} تصنيف مضاف</p>
+                <p className="text-sm text-muted font-medium mt-0.5">{platformCategories.length} تصنيف مضاف</p>
               </div>
               <button onClick={() => setShowCatForm(!showCatForm)} className="btn btn-primary">
                 <Plus size={16} /> تصنيف جديد
@@ -1431,7 +1431,7 @@ export default function AdminDashboard() {
             </div>
 
             {showCatForm && (
-              <div className="c-card mb-5 animate-slide-down">
+              <div className="c-card mb-5">
                 <div className="c-card-body">
                   <form onSubmit={handleCatSubmit} className="flex gap-3 items-end">
                     <div className="flex-1">
@@ -1451,19 +1451,19 @@ export default function AdminDashboard() {
 
             <div className="c-card overflow-hidden">
               {platformCategories.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">
+                <div className="text-center py-12 text-muted">
                   <p className="text-4xl mb-2">🗂️</p>
                   <p className="font-bold">لا توجد تصنيفات بعد</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {platformCategories.map(cat => (
-                    <div key={cat.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition">
+                    <div key={cat.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-xl">{cat.icon}</div>
                         <div>
                           <p className="font-black text-sm text-slate-900">{cat.name}</p>
-                          <p className="text-xs text-slate-400">{Object.values(restaurantCategoryMap).filter(ids => ids.includes(cat.id)).length} مطعم</p>
+                          <p className="text-sm text-muted">{Object.values(restaurantCategoryMap).filter(ids => ids.includes(cat.id)).length} مطعم</p>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -1486,11 +1486,11 @@ export default function AdminDashboard() {
             SERVICE ZONES TAB
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'zones' && (
-          <div className="animate-fade-in-up">
+          <div className="">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-lg font-black text-slate-800">المناطق الجغرافية والمسميات</h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">{serviceZones.length} منطقة معرفة في النظام</p>
+                <p className="text-sm text-muted font-medium mt-0.5">{serviceZones.length} منطقة معرفة في النظام</p>
               </div>
               <button
                 onClick={() => {
@@ -1505,7 +1505,7 @@ export default function AdminDashboard() {
             </div>
 
             {showZoneForm && (
-              <div className="c-card mb-6 animate-slide-down">
+              <div className="c-card mb-6">
                 <div className="c-card-header">
                   <h3 className="font-black text-slate-800">{editZoneId ? 'تعديل منطقة جغرافية' : 'إضافة منطقة جغرافية جديدة'}</h3>
                   <button onClick={() => { setShowZoneForm(false); setEditZoneId(null) }} className="btn btn-ghost btn-sm"><X size={16} /></button>
@@ -1526,7 +1526,7 @@ export default function AdminDashboard() {
 
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
                       <div>
-                        <label className="block text-[11px] text-slate-500 font-bold mb-1">
+                        <label className="block text-sm text-muted font-bold mb-1">
                           🔗 لصق الإحداثيات مباشرة أو رابط Google Maps
                         </label>
                         <input
@@ -1591,9 +1591,9 @@ export default function AdminDashboard() {
                         id="zone_active"
                         checked={zoneForm.is_active}
                         onChange={e => setZoneForm({ ...zoneForm, is_active: e.target.checked })}
-                        className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500"
+                        className="w-4 h-4 text-brand rounded border-slate-300 focus:ring-orange-500"
                       />
-                      <label htmlFor="zone_active" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                      <label htmlFor="zone_active" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
                         تفعيل التغطية لهذه المنطقة
                       </label>
                     </div>
@@ -1611,7 +1611,7 @@ export default function AdminDashboard() {
 
             <div className="c-card overflow-hidden">
               {serviceZones.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">
+                <div className="text-center py-12 text-muted">
                   <p className="text-4xl mb-2">📍</p>
                   <p className="font-bold">لا توجد مناطق جغرافية بعد</p>
                 </div>
@@ -1631,7 +1631,7 @@ export default function AdminDashboard() {
                       {serviceZones.map(zone => (
                         <tr key={zone.id}>
                           <td className="font-black text-slate-900">{zone.name}</td>
-                          <td className="font-mono text-xs text-slate-600" dir="ltr">
+                          <td className="font-mono text-sm text-slate-600" dir="ltr">
                             {zone.latitude}, {zone.longitude}
                           </td>
                           <td>
@@ -1640,7 +1640,7 @@ export default function AdminDashboard() {
                           <td>
                             <button
                               onClick={() => toggleZoneActive(zone)}
-                              className={`badge cursor-pointer transition ${zone.is_active ? 'badge-green' : 'badge-amber'}`}
+                              className={`badge cursor-pointer  ${zone.is_active ? 'badge-green' : 'badge-amber'}`}
                             >
                               {zone.is_active ? 'مفعّلة' : 'معطّلة'}
                             </button>
@@ -1675,11 +1675,11 @@ export default function AdminDashboard() {
             ADS TAB
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'ads' && (
-          <div className="animate-fade-in-up">
+          <div className="">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-lg font-black text-slate-800">الإعلانات والسلايدر</h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">{platformAds.length} إعلان نشط</p>
+                <p className="text-sm text-muted font-medium mt-0.5">{platformAds.length} إعلان نشط</p>
               </div>
               <button
                 onClick={() => {
@@ -1694,7 +1694,7 @@ export default function AdminDashboard() {
             </div>
 
             {showAdForm && (
-              <div className="c-card mb-6 animate-slide-down">
+              <div className="c-card mb-6">
                 <div className="c-card-header">
                   <h3 className="font-black text-slate-800">{editAdId ? 'تعديل الإعلان' : 'إضافة إعلان جديد'}</h3>
                   <button onClick={() => { setShowAdForm(false); setEditAdId(null) }} className="btn btn-ghost btn-sm"><X size={16} /></button>
@@ -1729,9 +1729,9 @@ export default function AdminDashboard() {
 
                         {/* GPS Geofence Settings */}
                         {adForm.latitude !== null && (
-                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3 animate-fade-in text-xs font-bold text-slate-800">
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3 text-sm font-bold text-slate-800">
                             <div>
-                              <label className="block text-[11px] text-slate-500 mb-1">
+                              <label className="block text-sm text-muted mb-1">
                                 🔗 لصق الإحداثيات مباشرة أو رابط Google Maps
                               </label>
                               <input
@@ -1751,7 +1751,7 @@ export default function AdminDashboard() {
 
                             <div className="grid grid-cols-3 gap-2">
                               <div>
-                                <label className="block text-[10px] text-slate-400 mb-1">خط العرض Lat</label>
+                                <label className="block text-sm text-muted mb-1">خط العرض Lat</label>
                                 <input
                                   type="number"
                                   step="any"
@@ -1761,7 +1761,7 @@ export default function AdminDashboard() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] text-slate-400 mb-1">خط الطول Lng</label>
+                                <label className="block text-sm text-muted mb-1">خط الطول Lng</label>
                                 <input
                                   type="number"
                                   step="any"
@@ -1771,7 +1771,7 @@ export default function AdminDashboard() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] text-slate-400 mb-1">نصف القطر (كم)</label>
+                                <label className="block text-sm text-muted mb-1">نصف القطر (كم)</label>
                                 <input
                                   type="number"
                                   step="0.5"
@@ -1805,17 +1805,17 @@ export default function AdminDashboard() {
             {platformAds.length === 0 ? (
               <div className="c-card text-center py-16">
                 <p className="text-5xl mb-3">📣</p>
-                <p className="font-bold text-slate-400">لا توجد إعلانات حتى الآن</p>
+                <p className="font-bold text-muted">لا توجد إعلانات حتى الآن</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {platformAds.map(ad => (
-                  <div key={ad.id} className="relative group rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-[21/9]">
+                  <div key={ad.id} className="relative group rounded-2xl overflow-hidden border border-slate-200 aspect-[21/9]">
                     <img src={ad.image_url} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute top-2.5 right-2.5 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black px-2.5 py-1 rounded-full border border-white/20 z-10">
+                    <div className="absolute top-2.5 right-2.5 bg-slate-900/80 text-white text-sm font-black px-2.5 py-1 rounded-full border border-white/20 z-10">
                       📍 {ad.latitude !== null && ad.longitude !== null ? `موقع جغرافي (${ad.radius_km || 15} كم)` : (ad.target_region || 'جميع المناطق')}
                     </div>
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 z-20">
                       <button
                         onClick={() => handleEditAd(ad)}
                         className="btn btn-ghost btn-sm text-blue-600 bg-white hover:bg-slate-100 font-bold border-0"
@@ -1838,14 +1838,14 @@ export default function AdminDashboard() {
             OFFERS TAB (Super Admin Platform Offers Management & Reordering)
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'offers' && (
-          <div className="animate-fade-in-up space-y-5">
+          <div className="space-y-5">
             {/* Header & Stats */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-100">
               <div>
                 <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
                   <span>🔥</span> قسم العروض والتخفيضات بالمنصة
                 </h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                <p className="text-sm text-muted font-medium mt-0.5">
                   إجمالي {allOffers.length} عرض بالمنصة — التحكم بالأولوية لـ {allOffers.filter(o => o.is_active).length} عرض نشط
                 </p>
               </div>
@@ -1863,7 +1863,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Notice Banner */}
-            <div className="p-4 bg-amber-50 border border-amber-200/80 rounded-2xl text-amber-800 text-xs font-bold flex items-center gap-2 shadow-2xs">
+            <div className="p-4 bg-amber-50 border border-amber-200/80 rounded-2xl text-amber-800 text-sm font-bold flex items-center gap-2">
               <span className="text-lg">💡</span>
               <div>
                 <strong>الترتيب المباشر للسوبر أدمن:</strong>
@@ -1877,7 +1877,7 @@ export default function AdminDashboard() {
             {allOffers.filter(o => !offerSearchQuery || o.title.toLowerCase().includes(offerSearchQuery.toLowerCase()) || o.restaurants?.name?.toLowerCase().includes(offerSearchQuery.toLowerCase())).length === 0 ? (
               <div className="c-card text-center py-16">
                 <p className="text-5xl mb-3">🏷️</p>
-                <p className="font-bold text-slate-400">لا توجد عروض ترويجية مطابقة للبحث</p>
+                <p className="font-bold text-muted">لا توجد عروض ترويجية مطابقة للبحث</p>
               </div>
             ) : (
               <div className="c-card overflow-hidden">
@@ -1906,7 +1906,7 @@ export default function AdminDashboard() {
                                     type="button"
                                     disabled={idx === 0}
                                     onClick={() => movePlatformOfferToRank(offer.id, idx)}
-                                    className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] flex items-center justify-center transition disabled:opacity-20 disabled:pointer-events-none"
+                                    className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center disabled:opacity-20 disabled:pointer-events-none"
                                     title="ترتيب للأعلى"
                                   >
                                     ▲
@@ -1914,7 +1914,7 @@ export default function AdminDashboard() {
                                   <select
                                     value={offer.sort_order || (idx + 1)}
                                     onChange={e => movePlatformOfferToRank(offer.id, parseInt(e.target.value))}
-                                    className="bg-amber-50 border border-amber-300 font-black text-orange-600 text-center py-1 px-2 rounded-xl text-xs outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer"
+                                    className="bg-amber-50 border border-amber-300 font-black text-brand text-center py-1 px-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer"
                                   >
                                     {allOffers.map((_, i) => (
                                       <option key={i + 1} value={i + 1}>
@@ -1926,7 +1926,7 @@ export default function AdminDashboard() {
                                     type="button"
                                     disabled={idx === allOffers.length - 1}
                                     onClick={() => movePlatformOfferToRank(offer.id, idx + 2)}
-                                    className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] flex items-center justify-center transition disabled:opacity-20 disabled:pointer-events-none"
+                                    className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center disabled:opacity-20 disabled:pointer-events-none"
                                     title="ترتيب للأسفل"
                                   >
                                     ▼
@@ -1946,30 +1946,30 @@ export default function AdminDashboard() {
                                     className="w-12 h-12 rounded-xl shrink-0 border border-slate-200"
                                   />
                                   <div>
-                                    <h4 className="font-black text-xs text-slate-900 line-clamp-1">{offer.title}</h4>
-                                    <span className="text-[10px] text-slate-400 font-medium">
+                                    <h4 className="font-black text-sm text-slate-900 line-clamp-1">{offer.title}</h4>
+                                    <span className="text-sm text-muted font-medium">
                                       {offer.min_quantity > 1 ? `${offer.min_quantity}X ` : ''}{offer.primary_item?.name || 'منتج'}
                                     </span>
                                   </div>
                                 </div>
                               </td>
                               <td>
-                                <span className="font-black text-xs text-slate-800 bg-slate-100 px-2.5 py-1 rounded-xl">
+                                <span className="font-black text-sm text-slate-800 bg-slate-100 px-2.5 py-1 rounded-xl">
                                   {store?.name || 'غير معروف'}
                                 </span>
                               </td>
                               <td>
                                 <div className="flex items-baseline gap-1.5">
-                                  <span className="font-black text-orange-600 text-xs">{offer.offer_price} ₺</span>
+                                  <span className="font-black text-brand text-sm">{offer.offer_price} ₺</span>
                                   {offer.original_price && (
-                                    <span className="text-[10px] text-slate-400 line-through">{offer.original_price} ₺</span>
+                                    <span className="text-sm text-muted line-through">{offer.original_price} ₺</span>
                                   )}
                                 </div>
                               </td>
                               <td>
                                 <button
                                   onClick={() => togglePlatformOfferActive(offer)}
-                                  className={`badge cursor-pointer transition ${offer.is_active ? 'badge-green' : 'badge-red'}`}
+                                  className={`badge cursor-pointer  ${offer.is_active ? 'badge-green' : 'badge-red'}`}
                                 >
                                   {offer.is_active ? 'نشط' : 'معطّل'}
                                 </button>
@@ -2043,16 +2043,16 @@ export default function AdminDashboard() {
             ORDERS TAB
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'orders' && (
-          <div className="animate-fade-in-up">
+          <div className="">
             <div className="mb-5">
               <h2 className="text-lg font-black text-slate-800">الطلبات الواردة</h2>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">{orders.length} طلب — {pendingOrders} بانتظار التأكيد</p>
+              <p className="text-sm text-muted font-medium mt-0.5">{orders.length} طلب — {pendingOrders} بانتظار التأكيد</p>
             </div>
             <div className="c-card overflow-hidden">
               {orders.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-5xl mb-3">📦</p>
-                  <p className="font-bold text-slate-400">لا توجد طلبات حتى الآن</p>
+                  <p className="font-bold text-muted">لا توجد طلبات حتى الآن</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -2072,13 +2072,13 @@ export default function AdminDashboard() {
                       {orders.map(order => (
                         <tr key={order.id}>
                           <td>
-                            <span className="font-mono text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
+                            <span className="font-mono text-sm text-muted bg-slate-100 px-2 py-1 rounded-lg">
                               {order.id.split('-')[0].toUpperCase()}
                             </span>
                           </td>
                           <td className="font-black text-slate-900">{order.restaurants?.name}</td>
                           <td>
-                            <ul className="space-y-0.5 text-xs text-slate-600">
+                            <ul className="space-y-0.5 text-sm text-slate-600">
                               {order.items.map((item: any, i: number) => (
                                 <li key={i}>
                                   <span className="badge badge-gray">{item.quantity}x</span> {item.name}
@@ -2087,7 +2087,7 @@ export default function AdminDashboard() {
                             </ul>
                           </td>
                           <td>
-                            <span className="font-black text-orange-600">{order.total_price?.toFixed(2)} ₺</span>
+                            <span className="font-black text-brand">{order.total_price?.toFixed(2)} ₺</span>
                           </td>
                           <td>
                             {order.location_url ? (
@@ -2095,12 +2095,12 @@ export default function AdminDashboard() {
                                 <MapPin size={12} /> خريطة
                               </a>
                             ) : (
-                              <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
+                              <span className="text-sm font-bold text-muted bg-slate-100 px-2 py-1 rounded-lg">
                                 غير مرفق
                               </span>
                             )}
                           </td>
-                          <td className="text-xs text-slate-400 font-medium">
+                          <td className="text-sm text-muted font-medium">
                             {new Date(order.created_at).toLocaleString('ar-SA', { hour12: true })}
                           </td>
                           <td>
@@ -2113,7 +2113,7 @@ export default function AdminDashboard() {
                                 ))
                                 reportWriteResult(await supabase.from('orders').update({ status: 'completed' }).eq('id', order.id))
                               }}
-                              className={`badge cursor-pointer transition ${order.status === 'completed' ? 'badge-green' : 'badge-amber hover:bg-amber-100'}`}
+                              className={`badge cursor-pointer  ${order.status === 'completed' ? 'badge-green' : 'badge-amber hover:bg-amber-100'}`}
                             >
                               <CheckCircle size={12} />
                               {order.status === 'completed' ? 'مكتمل' : 'قيد الانتظار'}

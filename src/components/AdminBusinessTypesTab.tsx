@@ -122,23 +122,23 @@ export default function AdminBusinessTypesTab({
   }
 
   return (
-    <div className="space-y-6 dir-rtl animate-fade-in">
+    <div className="space-y-6 dir-rtl">
       
       {/* ── Section Header ── */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white rounded-3xl p-5 border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
-            <Tag className="text-orange-500" size={20} />
+            <Tag className="text-brand" size={20} />
             <span>إدارة أنواع الأنشطة التجارية (الفئات)</span>
           </h3>
-          <p className="text-xs text-slate-400 font-medium mt-1">
+          <p className="text-sm text-muted font-medium mt-1">
             يمكنك هنا إضافة وتعديل الفئات والأنشطة التجارية التي تظهر للمستخدمين وعند إنشاء المتاجر.
           </p>
         </div>
 
         <button
           onClick={handleOpenNewForm}
-          className="btn btn-primary text-xs font-black py-2.5 px-4 rounded-2xl flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
+          className="btn btn-primary text-sm font-black py-2.5 px-4 rounded-2xl flex items-center gap-1.5 cursor-pointer"
         >
           <Plus size={16} />
           <span>إضافة فئة نشاط جديدة</span>
@@ -147,15 +147,15 @@ export default function AdminBusinessTypesTab({
 
       {/* ── Add / Edit Form Modal / Card ── */}
       {showForm && (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 border border-slate-800 shadow-xl animate-slide-down">
+        <div className="bg-slate-900 text-white rounded-3xl p-5 border border-slate-800">
           <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-            <h4 className="font-black text-sm text-amber-400 flex items-center gap-2">
+            <h4 className="font-black text-sm text-brand flex items-center gap-2">
               <Sparkles size={16} />
               <span>{editId ? 'تعديل فئة النشاط التجاري' : 'إضافة فئة نشاط تجاري جديدة'}</span>
             </h4>
             <button
               onClick={() => setShowForm(false)}
-              className="text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 transition"
+              className="text-muted hover:text-white p-1 rounded-full bg-slate-800"
             >
               ✕
             </button>
@@ -172,7 +172,7 @@ export default function AdminBusinessTypesTab({
                   placeholder="مثال: صيدلية / مستلزمات طبية"
                   value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white placeholder-slate-500 outline-none focus:border-orange-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white placeholder-slate-500 outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -183,7 +183,7 @@ export default function AdminBusinessTypesTab({
                   placeholder="مثال: 💊 أو ☕ أو 📱"
                   value={form.icon}
                   onChange={e => setForm({ ...form, icon: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white text-center placeholder-slate-500 outline-none focus:border-orange-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white text-center placeholder-slate-500 outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -194,14 +194,14 @@ export default function AdminBusinessTypesTab({
                   placeholder="مثال: pharmacy (سيُولّد تلقائياً إن تركته فارغاً)"
                   value={form.slug}
                   onChange={e => setForm({ ...form, slug: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white placeholder-slate-500 outline-none focus:border-orange-500 dir-ltr text-right"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white placeholder-slate-500 outline-none focus:border-orange-500 dir-ltr text-right"
                 />
               </div>
 
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-800/80">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-200">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-200">
                 <input
                   type="checkbox"
                   checked={form.is_active}
@@ -215,14 +215,14 @@ export default function AdminBusinessTypesTab({
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm rounded-xl"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs rounded-xl transition shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 bg-brand hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {saving ? (
                     <>
@@ -244,7 +244,7 @@ export default function AdminBusinessTypesTab({
         {businessTypes.map((bt) => (
           <div
             key={bt.id}
-            className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs hover:shadow-md transition flex items-center justify-between gap-3"
+            className="bg-white rounded-2xl p-4 border border-slate-200/80 flex items-center justify-between gap-3"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center text-2xl shrink-0">
@@ -253,13 +253,13 @@ export default function AdminBusinessTypesTab({
               <div className="min-w-0">
                 <h4 className="font-black text-sm text-slate-900 truncate">{bt.name}</h4>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-bold font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md dir-ltr">
+                  <span className="text-sm font-bold font-mono text-muted bg-slate-100 px-2 py-0.5 rounded-md dir-ltr">
                     {bt.slug}
                   </span>
                   <button
                     onClick={() => toggleActive(bt)}
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full cursor-pointer transition ${
-                      bt.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
+                    className={`text-sm font-bold px-2 py-0.5 rounded-full cursor-pointer  ${
+                      bt.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-muted'
                     }`}
                   >
                     {bt.is_active ? 'مفعّل' : 'معطّل'}
@@ -271,14 +271,14 @@ export default function AdminBusinessTypesTab({
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => handleEdit(bt)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition cursor-pointer"
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl cursor-pointer"
                 title="تعديل"
               >
                 <Edit size={16} />
               </button>
               <button
                 onClick={() => handleDelete(bt)}
-                className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                className="p-2 text-red-500 hover:bg-red-50 rounded-xl cursor-pointer"
                 title="حذف"
               >
                 <Trash2 size={16} />

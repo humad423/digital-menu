@@ -2,7 +2,7 @@
 
 import { useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
+import { publicInsert } from '@/utils/publicInsert'
 
 interface MenuQrTrackerProps {
   restaurantId: string
@@ -38,8 +38,7 @@ function MenuQrTrackerContent({ restaurantId }: MenuQrTrackerProps) {
           deviceType = 'desktop'
         }
 
-        const supabase = createClient()
-        await supabase.from('qr_scans').insert({
+        await publicInsert('qr_scans', {
           restaurant_id: restaurantId,
           source: visitSource,
           device_type: deviceType,

@@ -139,12 +139,12 @@ export default function MultiImageUpload({
             <button
               type="button"
               onClick={() => removeImage(idx)}
-              className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-90 hover:opacity-100 shadow-sm transition"
+              className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-90 hover:opacity-100"
             >
               <X size={12} />
             </button>
             {idx === 0 && (
-              <span className="absolute bottom-1 right-1 bg-slate-900/80 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md">
+              <span className="absolute bottom-1 right-1 bg-slate-900/80 text-white text-sm font-black px-1.5 py-0.5 rounded-md">
                 الرئيسية
               </span>
             )}
@@ -152,16 +152,16 @@ export default function MultiImageUpload({
         ))}
 
         {/* Add Image Button */}
-        <label className="h-24 rounded-2xl border-2 border-dashed border-slate-300 hover:border-orange-500 bg-slate-50 hover:bg-orange-50/40 flex flex-col items-center justify-center cursor-pointer transition p-2 text-center">
+        <label className="h-24 rounded-2xl border-2 border-dashed border-slate-300 hover:border-orange-500 bg-slate-50 hover:bg-orange-50/40 flex flex-col items-center justify-center cursor-pointer p-2 text-center">
           {uploading ? (
             <div className="flex flex-col items-center gap-1">
               <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-[10px] font-bold text-slate-500">رفع...</span>
+              <span className="text-sm font-bold text-muted">رفع...</span>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-1 text-slate-500 hover:text-orange-600">
+            <div className="flex flex-col items-center gap-1 text-muted hover:text-orange-600">
               <ImagePlus size={18} />
-              <span className="text-[10px] font-black">+ إضافة صورة</span>
+              <span className="text-sm font-black">+ إضافة صورة</span>
             </div>
           )}
           <input
@@ -174,7 +174,7 @@ export default function MultiImageUpload({
           />
         </label>
       </div>
-      <p className="text-[10px] text-slate-400 font-bold">
+      <p className="text-sm text-muted font-bold">
         💡 يمكنك رفع أكثر من صورة للموديل (مثال: صورة أمامية، صورة خلفية، تفاصيل القماش). الصورة الأولى هي الرئيسية.
       </p>
     </div>

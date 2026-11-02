@@ -464,8 +464,8 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in dir-rtl">
-      <div className="bg-white border border-slate-200 text-slate-900 rounded-3xl w-full max-w-md max-h-[94vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 dir-rtl">
+      <div className="bg-white border border-slate-200 text-slate-900 rounded-3xl w-full max-w-md max-h-[94vh] overflow-hidden flex flex-col">
         
         {/* Header */}
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50">
@@ -473,7 +473,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
             type="button"
             onClick={handleShuffle}
             disabled={generating}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition cursor-pointer disabled:opacity-50"
+            className="px-3 py-1.5 rounded-xl bg-brand hover:brightness-105 text-slate-950 font-black text-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             title="توليد قالب وشكل وتصميم مختلف"
           >
             <Dices size={15} />
@@ -483,7 +483,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-slate-300 flex items-center justify-center transition cursor-pointer"
+              className="w-8 h-8 rounded-xl bg-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-slate-300 flex items-center justify-center cursor-pointer"
             >
               <X size={16} />
             </button>
@@ -494,9 +494,9 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 items-center bg-slate-50/50">
           
           {/* 1. Live Poster Preview Card */}
-          <div className="relative w-full max-w-[270px] sm:max-w-[300px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-white flex items-center justify-center shrink-0">
+          <div className="relative w-full max-w-[270px] sm:max-w-[300px] rounded-2xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center shrink-0">
             {generating && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2 text-xs font-bold text-orange-600">
+              <div className="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center gap-2 text-sm font-bold text-brand">
                 <div className="w-7 h-7 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
                 <span>جاري توليد البوستر المشرق...</span>
               </div>
@@ -508,35 +508,35 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
                 className="w-full h-auto object-contain block max-h-[460px]"
               />
             ) : (
-              <div className="h-80 flex items-center justify-center text-slate-400 text-xs font-bold">
+              <div className="h-80 flex items-center justify-center text-muted text-sm font-bold">
                 جاري التجهيز...
               </div>
             )}
           </div>
 
           {/* 2. Marketing Caption Card */}
-          <div className="w-full bg-white border border-slate-200 rounded-2xl p-3 flex flex-col gap-1.5 shadow-xs">
+          <div className="w-full bg-white border border-slate-200 rounded-2xl p-3 flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
+              <span className="text-sm font-black text-slate-700 flex items-center gap-1">
                 📝 نص الرسالة المرفقة
               </span>
               <button
                 type="button"
                 onClick={handleCopyCaption}
-                className="text-[11px] font-black text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                className="text-sm font-black text-brand hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
               >
                 {copiedCaption ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
                 <span className={copiedCaption ? 'text-emerald-600' : ''}>{copiedCaption ? 'تم النسخ!' : 'نسخ النص'}</span>
               </button>
             </div>
 
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 whitespace-pre-line leading-relaxed max-h-24 overflow-y-auto">
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-800 whitespace-pre-line leading-relaxed max-h-24 overflow-y-auto">
               {marketingCaption}
             </div>
           </div>
 
           {shareFeedback && (
-            <div className="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 flex items-center justify-center gap-2 animate-fade-in text-center">
+            <div className="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold text-emerald-700 flex items-center justify-center gap-2 text-center">
               <span>{shareFeedback}</span>
             </div>
           )}
@@ -547,7 +547,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
               type="button"
               onClick={handleShare}
               disabled={generating || sharing}
-              className="w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:brightness-105 text-white font-black py-3 rounded-2xl shadow-md shadow-emerald-600/30 flex items-center justify-center gap-2 active:scale-98 transition disabled:opacity-50 cursor-pointer text-sm"
+              className="w-full bg-whatsapp hover:brightness-105 text-white font-black py-3 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer text-sm"
             >
               <Share2 size={17} />
               <span>{sharing ? 'جاري المعالجة...' : '📲 مشاركة في واتساب / ستوري'}</span>
@@ -557,7 +557,7 @@ export default function OfferPosterModal({ isOpen, onClose, offer, restaurant }:
               type="button"
               onClick={handleDownload}
               disabled={generating}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl border border-slate-200 flex items-center justify-center gap-1.5 active:scale-98 transition disabled:opacity-50 cursor-pointer text-xs"
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl border border-slate-200 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer text-sm"
               title="تحميل الصورة بجودة عالية"
             >
               <Download size={14} />

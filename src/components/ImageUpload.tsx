@@ -121,12 +121,12 @@ export default function ImageUpload({
   return (
     <div className="flex flex-col items-start gap-3">
       {value ? (
-        <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+        <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
           <img src={value} alt="Upload" className="w-full h-full object-cover" />
           <button 
             type="button"
             onClick={() => onChange('')}
-            className="absolute top-1.5 right-1.5 bg-white/90 backdrop-blur-md p-1.5 rounded-full text-red-500 shadow-md hover:bg-white transition"
+            className="absolute top-1.5 right-1.5 bg-white/90 p-1.5 rounded-full text-red-500 hover:bg-white"
           >
             <X size={16} />
           </button>
@@ -135,9 +135,9 @@ export default function ImageUpload({
         <div className="space-y-3 w-full">
           <div className="flex items-center gap-3">
             {/* File Upload Input */}
-            <label className="w-32 h-32 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 transition cursor-pointer shrink-0">
+            <label className="w-32 h-32 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-muted hover:bg-gray-50 hover:border-orange-500 hover:text-orange-500 cursor-pointer shrink-0">
               <Upload size={24} className="mb-2" />
-              <span className="text-xs font-bold text-center px-2">{uploading ? 'جاري الرفع...' : 'رفع صورة (Cloudinary) ☁️'}</span>
+              <span className="text-sm font-bold text-center px-2">{uploading ? 'جاري الرفع...' : 'رفع صورة (Cloudinary) ☁️'}</span>
               <input 
                 type="file" 
                 accept="image/png, image/jpeg, image/webp, image/gif, image/svg+xml" 
@@ -150,21 +150,21 @@ export default function ImageUpload({
             <button
               type="button"
               onClick={() => setShowUrlInput(!showUrlInput)}
-              className="px-3.5 py-2.5 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition flex items-center gap-2"
+              className="px-3.5 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center gap-2"
             >
-              <LinkIcon size={14} className="text-orange-500" />
+              <LinkIcon size={14} className="text-brand" />
               <span>إدخال رابط صورة مباشرة (URL)</span>
             </button>
           </div>
 
           {showUrlInput && (
-            <div className="flex gap-2 w-full max-w-md animate-fade-in">
+            <div className="flex gap-2 w-full max-w-md">
               <input
                 type="text"
                 placeholder="أدخل رابط الصورة (https://...)"
                 value={urlText}
                 onChange={e => setUrlText(e.target.value)}
-                className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs bg-white focus:outline-none focus:border-orange-500 font-medium"
+                className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:border-orange-500 font-medium"
               />
               <button
                 type="button"
@@ -175,7 +175,7 @@ export default function ImageUpload({
                     setShowUrlInput(false)
                   }
                 }}
-                className="px-4 py-2.5 bg-orange-500 text-white font-bold text-xs rounded-xl shadow-sm hover:bg-orange-600 transition"
+                className="px-4 py-2.5 bg-brand text-white font-bold text-sm rounded-xl hover:bg-brand"
               >
                 تعيين
               </button>

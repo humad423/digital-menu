@@ -170,26 +170,26 @@ export default function StoreSettingsModal({
   return (
     <div
       dir="rtl"
-      className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4 overflow-y-auto"
       onClick={e => { if (e.target === e.currentTarget && !saving) onClose() }}
     >
-      <div className="bg-white w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl border border-slate-200 my-8 animate-in fade-in zoom-in duration-200">
+      <div className="bg-white w-full max-w-xl rounded-3xl overflow-hidden border border-slate-200 my-8 fade-in zoom-in">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+        <div className="px-6 py-4 bg-white text-ink flex items-center justify-between border-b border-line">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center font-bold text-sm">
               ⚙️
             </div>
             <div>
-              <h3 className="font-black text-sm text-white">إعدادات المتجر ونطاقات التوصيل</h3>
-              <p className="text-[11px] text-slate-400 font-medium">الاسم، الهاتف، ساعات الدوام، العطلات، وشرايح التوصيل</p>
+              <h3 className="font-black text-lg text-ink">إعدادات المتجر ونطاقات التوصيل</h3>
+              <p className="text-sm text-muted font-medium">الاسم، الهاتف، ساعات الدوام، العطلات، وشرايح التوصيل</p>
             </div>
           </div>
 
           <button
             onClick={() => !saving && onClose()}
             disabled={saving}
-            className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition"
+            className="w-8 h-8 rounded-full bg-slate-100 text-ink hover:bg-slate-200 flex items-center justify-center"
           >
             <X size={16} />
           </button>
@@ -198,7 +198,7 @@ export default function StoreSettingsModal({
         {/* Form Body */}
         <form onSubmit={handleSave} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
           {restaurant?.is_subscription_active === false && (
-            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2 text-xs font-black text-amber-800">
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2 text-sm font-black text-amber-800">
               <div className="flex items-center gap-2">
                 <span className="text-base">⚠️</span>
                 <span>اشتراك المتجر معلق حالياً — لا يمكنك حفظ التعديلات حتى يتم تجديد الاشتراك.</span>
@@ -207,7 +207,7 @@ export default function StoreSettingsModal({
           )}
 
           {errorMsg && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2 text-xs font-black text-red-700">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2 text-sm font-black text-red-700">
               <AlertCircle size={16} className="shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -217,7 +217,7 @@ export default function StoreSettingsModal({
           <div className="space-y-3">
             <div>
               <label className="f-label flex items-center gap-1 mb-1">
-                <Store size={13} className="text-orange-500" />
+                <Store size={13} className="text-brand" />
                 <span>اسم المتجر / المطعم *</span>
               </label>
               <input
@@ -232,7 +232,7 @@ export default function StoreSettingsModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="f-label flex items-center gap-1 mb-1">
-                  <Phone size={13} className="text-orange-500" />
+                  <Phone size={13} className="text-brand" />
                   <span>رقم الهاتف للتواصل</span>
                 </label>
                 <input
@@ -246,7 +246,7 @@ export default function StoreSettingsModal({
               </div>
               <div>
                 <label className="f-label flex items-center gap-1 mb-1">
-                  <Phone size={13} className="text-orange-500" />
+                  <Phone size={13} className="text-brand" />
                   <span>رقم الواتساب للطلبات</span>
                 </label>
                 <input
@@ -263,13 +263,13 @@ export default function StoreSettingsModal({
 
           {/* Working Hours */}
           <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5">
-            <h4 className="font-black text-xs text-slate-800 flex items-center gap-1.5">
-              <Clock size={14} className="text-orange-500" />
+            <h4 className="font-black text-sm text-slate-800 flex items-center gap-1.5">
+              <Clock size={14} className="text-brand" />
               <span>ساعات الدوام اليومية</span>
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 mb-1 block">وقت الفتح ⏰</label>
+                <label className="text-sm font-bold text-muted mb-1 block">وقت الفتح ⏰</label>
                 <input
                   type="time"
                   value={openingTime}
@@ -278,7 +278,7 @@ export default function StoreSettingsModal({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 mb-1 block">وقت الإغلاق 🌙</label>
+                <label className="text-sm font-bold text-muted mb-1 block">وقت الإغلاق 🌙</label>
                 <input
                   type="time"
                   value={closingTime}
@@ -291,11 +291,11 @@ export default function StoreSettingsModal({
 
           {/* Days Off */}
           <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-            <h4 className="font-black text-xs text-slate-800 flex items-center gap-1.5">
-              <Calendar size={14} className="text-orange-500" />
+            <h4 className="font-black text-sm text-slate-800 flex items-center gap-1.5">
+              <Calendar size={14} className="text-brand" />
               <span>أيام العطلة الأسبوعية</span>
             </h4>
-            <p className="text-[10px] text-slate-400 font-medium">حدد الأيام التي يكون فيها المحل مغلقاً رسمياً:</p>
+            <p className="text-sm text-muted font-medium">حدد الأيام التي يكون فيها المحل مغلقاً رسمياً:</p>
             <div className="flex flex-wrap gap-1.5 pt-1">
               {DAYS_OF_WEEK.map(day => {
                 const isSelected = daysOff.includes(day.key)
@@ -304,9 +304,9 @@ export default function StoreSettingsModal({
                     key={day.key}
                     type="button"
                     onClick={() => toggleDayOff(day.key)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 border ${
+                    className={`px-3 py-1.5 rounded-xl text-sm font-black   border ${
                       isSelected
-                        ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                        ? 'bg-amber-500 border-amber-500 text-white '
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
@@ -321,28 +321,28 @@ export default function StoreSettingsModal({
           <div className="p-4 bg-orange-50/60 border border-orange-200/80 rounded-2xl space-y-3">
             
             {/* Delivery Active Toggle */}
-            <div className="flex items-center justify-between p-3 bg-white border border-orange-200 rounded-xl shadow-2xs">
+            <div className="flex items-center justify-between p-3 bg-white border border-orange-200 rounded-xl">
               <div>
-                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                  <Bike size={16} className="text-orange-500" />
+                <span className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+                  <Bike size={16} className="text-brand" />
                   <span>خدمة التوصيل (الدليفري)</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${hasDelivery ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-sm font-bold ${hasDelivery ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                     {hasDelivery ? 'مفعلة ✅' : 'معطلة 🚫'}
                   </span>
                 </span>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                <p className="text-sm text-muted font-medium mt-0.5">
                   {hasDelivery ? 'تظهر شارة وخدمة التوصيل للزبائن في المنيو' : 'إخفاء التوصيل والاعتماد على الاستلام من المحل فقط'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setHasDelivery(!hasDelivery)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent   ease-in-out focus:outline-none ${
                   hasDelivery ? 'bg-emerald-500' : 'bg-slate-300'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white  ring-0   ease-in-out ${
                     hasDelivery ? 'translate-x-0' : '-translate-x-5'
                   }`}
                 />
@@ -352,63 +352,63 @@ export default function StoreSettingsModal({
             {hasDelivery && (
               <>
                 <div className="flex items-center justify-between pt-1">
-                  <h4 className="font-black text-xs text-slate-900 flex items-center gap-1.5">
+                  <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                     <span>شرائح ونطاق التغطية 🗺️</span>
                   </h4>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-500">أقصى نطاق:</span>
+                    <span className="text-sm font-bold text-muted">أقصى نطاق:</span>
                     <input
                       type="number"
                       value={deliveryRadiusKm}
                       onChange={e => setDeliveryRadiusKm(Number(e.target.value))}
-                      className="w-16 p-1 text-center bg-white border border-slate-300 rounded-lg text-xs font-black text-orange-600 outline-none"
+                      className="w-16 p-1 text-center bg-white border border-slate-300 rounded-lg text-sm font-black text-brand outline-none"
                     />
-                    <span className="text-xs font-bold text-slate-600">كم</span>
+                    <span className="text-sm font-bold text-slate-600">كم</span>
                   </div>
                 </div>
 
             {/* Add Tier Form */}
             <div className="p-3 bg-white border border-orange-200 rounded-xl space-y-2">
-              <span className="text-[11px] font-black text-orange-700 block">إضافة شريحة جديدة:</span>
+              <span className="text-sm font-black text-orange-700 block">إضافة شريحة جديدة:</span>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">من (كم)</label>
+                  <label className="text-sm font-bold text-muted block mb-0.5">من (كم)</label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="0"
                     value={newTier.min_km}
                     onChange={e => setNewTier({ ...newTier, min_km: e.target.value })}
-                    className="f-input text-center text-xs font-bold"
+                    className="f-input text-center text-sm font-bold"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">إلى (كم)</label>
+                  <label className="text-sm font-bold text-muted block mb-0.5">إلى (كم)</label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="10"
                     value={newTier.max_km}
                     onChange={e => setNewTier({ ...newTier, max_km: e.target.value })}
-                    className="f-input text-center text-xs font-bold"
+                    className="f-input text-center text-sm font-bold"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">الأجرة TL</label>
+                  <label className="text-sm font-bold text-muted block mb-0.5">الأجرة TL</label>
                   <input
                     type="number"
                     step="0.5"
                     placeholder="25"
                     value={newTier.fee}
                     onChange={e => setNewTier({ ...newTier, fee: e.target.value })}
-                    className="f-input text-center text-xs font-bold text-emerald-600"
+                    className="f-input text-center text-sm font-bold text-emerald-600"
                   />
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleAddTier}
-                className="w-full mt-2 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1 active:scale-98"
+                className="w-full mt-2 py-2 bg-brand hover:bg-brand text-white font-black text-sm rounded-xl flex items-center justify-center gap-1"
               >
                 <Plus size={14} />
                 <span>إضافة شريحة</span>
@@ -418,34 +418,34 @@ export default function StoreSettingsModal({
             {/* Current Tiers List */}
             {deliveryTiers.length > 0 ? (
               <div className="space-y-1.5 pt-1">
-                <p className="text-[11px] font-black text-slate-700">الشرائح الحالية ({deliveryTiers.length}):</p>
+                <p className="text-sm font-black text-slate-700">الشرائح الحالية ({deliveryTiers.length}):</p>
                 {deliveryTiers.map((tier, idx) => (
-                  <div key={idx} className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-2xs">
+                  <div key={idx} className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => toggleTierActive(idx)}
-                        className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                        className={`px-2 py-0.5 rounded-lg text-sm font-black  ${
                           tier.is_active !== false
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : 'bg-slate-100 text-slate-400 border border-slate-300'
+                            : 'bg-slate-100 text-muted border border-slate-300'
                         }`}
                       >
                         {tier.is_active !== false ? 'مفعلة ✓' : 'معطلة ✕'}
                       </button>
-                      <span className="text-xs font-black text-slate-800">
-                        من <b className="text-orange-600">{tier.min_km}</b> كم إلى <b className="text-orange-600">{tier.max_km}</b> كم
+                      <span className="text-sm font-black text-slate-800">
+                        من <b className="text-brand">{tier.min_km}</b> كم إلى <b className="text-brand">{tier.max_km}</b> كم
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                         {tier.fee} ₺
                       </span>
                       <button
                         type="button"
                         onClick={() => deleteTier(idx)}
-                        className="text-slate-400 hover:text-red-500 transition p-1"
+                        className="text-muted hover:text-red-500 p-1"
                         title="حذف الشريحة"
                       >
                         <Trash2 size={14} />
@@ -455,7 +455,7 @@ export default function StoreSettingsModal({
                 ))}
               </div>
             ) : (
-              <p className="text-center text-xs text-slate-400 font-bold py-2">لا توجد شرائح توصيل مضافة بعد</p>
+              <p className="text-center text-sm text-muted font-bold py-2">لا توجد شرائح توصيل مضافة بعد</p>
             )}
             </>
             )}
@@ -465,14 +465,14 @@ export default function StoreSettingsModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="f-label flex items-center gap-1 mb-1">
-                <ImageIcon size={13} className="text-orange-500" />
+                <ImageIcon size={13} className="text-brand" />
                 <span>شعار المتجر (Logo)</span>
               </label>
               <ImageUpload value={logoUrl} onChange={url => setLogoUrl(url)} />
             </div>
             <div>
               <label className="f-label flex items-center gap-1 mb-1">
-                <ImageIcon size={13} className="text-orange-500" />
+                <ImageIcon size={13} className="text-brand" />
                 <span>غلاف المتجر (Cover)</span>
               </label>
               <ImageUpload value={coverUrl} onChange={url => setCoverUrl(url)} />
@@ -480,29 +480,29 @@ export default function StoreSettingsModal({
           </div>
 
           {/* ── Collapsible Advanced Settings ── */}
-          <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/60 transition-all">
+          <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/60">
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full p-3.5 px-4 flex items-center justify-between text-right hover:bg-slate-100/80 transition cursor-pointer"
+              className="w-full p-3.5 px-4 flex items-center justify-between text-right hover:bg-slate-100/80 cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-orange-500/15 text-orange-600 flex items-center justify-center text-xs font-bold">
+                <div className="w-7 h-7 rounded-xl bg-orange-500/15 text-brand flex items-center justify-center text-sm font-bold">
                   ⚙️
                 </div>
                 <div>
-                  <h4 className="font-black text-xs text-slate-800">إعدادات متقدمة</h4>
-                  <p className="text-[10px] text-slate-400 font-medium">الطلب عبر الواتساب، وضع العطلة، وشريط ملاحظات المنيو</p>
+                  <h4 className="font-black text-sm text-slate-800">إعدادات متقدمة</h4>
+                  <p className="text-sm text-muted font-medium">الطلب عبر الواتساب، وضع العطلة، وشريط ملاحظات المنيو</p>
                 </div>
               </div>
               <ChevronDown
                 size={16}
-                className={`text-slate-400 transition-transform duration-200 ${showAdvanced ? 'rotate-180 text-orange-500' : ''}`}
+                className={`text-muted   ${showAdvanced ? 'rotate-180 text-brand' : ''}`}
               />
             </button>
 
             {showAdvanced && (
-              <div className="p-3.5 pt-2 space-y-3 border-t border-slate-200/80 bg-white animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="p-3.5 pt-2 space-y-3 border-t border-slate-200/80 bg-white fade-in slide-in-from-top-1">
                 {/* WhatsApp Order Toggle */}
                 <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
@@ -510,8 +510,8 @@ export default function StoreSettingsModal({
                       💬
                     </div>
                     <div>
-                      <h4 className="font-black text-xs text-slate-900">تفعيل زر الطلب عبر الواتساب</h4>
-                      <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                      <h4 className="font-black text-sm text-slate-900">تفعيل زر الطلب عبر الواتساب</h4>
+                      <p className="text-sm text-muted font-medium leading-relaxed">
                         عند إيقاف هذا الخيار، سيظهر المنيو للزوار للعرض والتصفح فقط ولن يظهر زر إرسال الطلب.
                       </p>
                     </div>
@@ -530,8 +530,8 @@ export default function StoreSettingsModal({
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🌴</span>
                       <div>
-                        <h4 className="font-black text-xs text-amber-900">وضع العطلة المؤقتة (إغلاق طارئ)</h4>
-                        <p className="text-[10px] text-amber-700 font-medium">عند التفعيل سيظهر للمستخدمين أن المحل في عطلة ويمنع إرسال الطلبات</p>
+                        <h4 className="font-black text-sm text-amber-900">وضع العطلة المؤقتة (إغلاق طارئ)</h4>
+                        <p className="text-sm text-amber-700 font-medium">عند التفعيل سيظهر للمستخدمين أن المحل في عطلة ويمنع إرسال الطلبات</p>
                       </div>
                     </div>
                     <input
@@ -547,7 +547,7 @@ export default function StoreSettingsModal({
                       placeholder="رسالة العطلة (مثال: مغلق بمناسبة العيد السعيد)..."
                       value={holidayMessage}
                       onChange={e => setHolidayMessage(e.target.value)}
-                      className="f-input text-xs font-bold bg-white"
+                      className="f-input text-sm font-bold bg-white"
                     />
                   )}
                 </div>
@@ -558,11 +558,11 @@ export default function StoreSettingsModal({
                     <div className="flex items-center gap-2">
                       <span className="text-base">📢</span>
                       <div>
-                        <h4 className="font-black text-xs text-slate-900">شريط ملاحظة / إعلان المنيو</h4>
-                        <p className="text-[10px] text-slate-500 font-medium">يظهر كشريط رفيع وأنيق أعلى المنيو للزبائن</p>
+                        <h4 className="font-black text-sm text-slate-900">شريط ملاحظة / إعلان المنيو</h4>
+                        <p className="text-sm text-muted font-medium">يظهر كشريط رفيع وأنيق أعلى المنيو للزبائن</p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${menuNote.length >= 100 ? 'bg-rose-100 text-rose-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                    <span className={`text-sm font-black px-2 py-0.5 rounded-full ${menuNote.length >= 100 ? 'bg-rose-100 text-rose-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
                       {menuNote.length} / 100 حرف
                     </span>
                   </div>
@@ -572,7 +572,7 @@ export default function StoreSettingsModal({
                     placeholder="مثال: يرجى كتابة ملاحظات الحساسية عند الطلب / عروض خاصة يومياً..."
                     value={menuNote}
                     onChange={e => setMenuNote(e.target.value.slice(0, 100))}
-                    className="f-input text-xs font-bold bg-white"
+                    className="f-input text-sm font-bold bg-white"
                   />
                 </div>
               </div>
@@ -591,7 +591,7 @@ export default function StoreSettingsModal({
             <button
               type="submit"
               disabled={saving}
-              className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
+              className="btn btn-primary btn-sm flex items-center gap-1.5"
             >
               <Save size={14} />
               <span>{saving ? 'حفظ...' : 'حفظ الإعدادات'}</span>

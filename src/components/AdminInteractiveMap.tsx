@@ -202,7 +202,7 @@ export default function AdminInteractiveMap({
                 font-size: 11px;
                 cursor: pointer;
                 font-family: inherit;
-                transition: all 0.2s;
+                : all 0.2s;
                 background: ${isCircleEnabled ? '#FEF2F2' : '#EFF6FF'};
                 color: ${isCircleEnabled ? '#DC2626' : '#2563EB'};
                 border: 1.5px solid ${isCircleEnabled ? '#FECACA' : '#BFDBFE'};
@@ -297,7 +297,7 @@ export default function AdminInteractiveMap({
                   font-size: 11px;
                   cursor: pointer;
                   font-family: inherit;
-                  transition: all 0.2s;
+                  : all 0.2s;
                   background: ${isCircleEnabled ? '#FEF2F2' : '#FFF7ED'};
                   color: ${isCircleEnabled ? '#DC2626' : '#C2410C'};
                   border: 1.5px solid ${isCircleEnabled ? '#FECACA' : '#FFEDD5'};
@@ -383,7 +383,7 @@ export default function AdminInteractiveMap({
                 font-size: 11px;
                 cursor: pointer;
                 font-family: inherit;
-                transition: all 0.2s;
+                : all 0.2s;
                 background: ${isCircleEnabled ? '#FEF2F2' : '#FFFBEB'};
                 color: ${isCircleEnabled ? '#DC2626' : '#D97706'};
                 border: 1.5px solid ${isCircleEnabled ? '#FECACA' : '#FDE68A'};
@@ -407,26 +407,26 @@ export default function AdminInteractiveMap({
       className={
         isFullScreen
           ? 'fixed inset-0 z-[99999] bg-slate-900 flex flex-col w-screen h-screen overflow-hidden'
-          : 'c-card overflow-hidden shadow-xl border border-slate-200'
+          : 'c-card overflow-hidden  border border-slate-200'
       }
       dir="rtl"
     >
       {/* Map Control Bar Header */}
       <div className="p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-base shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center font-bold text-base">
             🗺️
           </div>
           <div>
             <h3 className="font-black text-sm text-white flex items-center gap-2">
               <span>الخريطة التفاعلية الفاخرة للمنصة</span>
               {isFullScreen && (
-                <span className="bg-orange-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
+                <span className="bg-brand text-white text-sm font-black px-2.5 py-0.5 rounded-full">
                   وضع ملء الشاشة الكامل ⛶
                 </span>
               )}
             </h3>
-            <p className="text-[11px] text-slate-400 font-medium">
+            <p className="text-sm text-muted font-medium">
               انقر على أي محل أو منطقة لتفعيل دائرة نطاقها المخصصة ⭕
             </p>
           </div>
@@ -434,12 +434,12 @@ export default function AdminInteractiveMap({
 
         {/* Enabled Circles Active Reset Counter */}
         {enabledCircleKeys.length > 0 && !showAllRadiusCircles && (
-          <div className="bg-slate-800 text-orange-400 border border-orange-500/40 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-sm animate-fade-in">
+          <div className="bg-slate-800 text-brand border border-orange-500/40 px-3 py-1.5 rounded-xl text-sm font-black flex items-center gap-2">
             <span>⭕ الدوائر المفعلة حالياً: ({enabledCircleKeys.length})</span>
             <button
               type="button"
               onClick={() => setEnabledCircleKeys([])}
-              className="text-red-400 hover:text-red-300 font-black text-xs flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-lg border border-red-500/20"
+              className="text-red-400 hover:text-red-300 font-black text-sm flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-lg border border-red-500/20"
               title="إلغاء تفعيل جميع الدوائر"
             >
               <RotateCcw size={11} />
@@ -449,14 +449,14 @@ export default function AdminInteractiveMap({
         )}
 
         {/* Layer Filters & Fullscreen Toggle */}
-        <div className="flex items-center gap-2 flex-wrap text-xs">
+        <div className="flex items-center gap-2 flex-wrap text-sm">
           <button
             type="button"
             onClick={() => setShowStores(!showStores)}
-            className={`px-3 py-1.5 rounded-xl font-black transition border flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-black  border flex items-center gap-1.5 cursor-pointer ${
               showStores
-                ? 'bg-orange-500 text-white border-orange-500 shadow-xs'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                ? 'bg-brand text-white border-orange-500 '
+                : 'bg-slate-800 text-muted border-slate-700 hover:text-white'
             }`}
           >
             <span>🏪 المتاجر ({validStores.length})</span>
@@ -465,10 +465,10 @@ export default function AdminInteractiveMap({
           <button
             type="button"
             onClick={() => setShowZones(!showZones)}
-            className={`px-3 py-1.5 rounded-xl font-black transition border flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-black  border flex items-center gap-1.5 cursor-pointer ${
               showZones
-                ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                ? 'bg-blue-600 text-white border-blue-600 '
+                : 'bg-slate-800 text-muted border-slate-700 hover:text-white'
             }`}
           >
             <span>📍 المناطق الجغرافية ({validZones.length})</span>
@@ -477,10 +477,10 @@ export default function AdminInteractiveMap({
           <button
             type="button"
             onClick={() => setShowAds(!showAds)}
-            className={`px-3 py-1.5 rounded-xl font-black transition border flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-black  border flex items-center gap-1.5 cursor-pointer ${
               showAds
-                ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                ? 'bg-amber-500 text-white border-amber-500 '
+                : 'bg-slate-800 text-muted border-slate-700 hover:text-white'
             }`}
           >
             <span>📣 إعلانات السلايدر ({validAds.length})</span>
@@ -489,10 +489,10 @@ export default function AdminInteractiveMap({
           <button
             type="button"
             onClick={() => setShowAllRadiusCircles(!showAllRadiusCircles)}
-            className={`px-3 py-1.5 rounded-xl font-black transition border flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-black  border flex items-center gap-1.5 cursor-pointer ${
               showAllRadiusCircles
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                ? 'bg-emerald-600 text-white border-emerald-600 '
+                : 'bg-slate-800 text-muted border-slate-700 hover:text-white'
             }`}
           >
             <span>{showAllRadiusCircles ? '⭕ إخفاء كافة الدوائر' : '⭕ إظهار كافة الدوائر معا'}</span>
@@ -502,7 +502,7 @@ export default function AdminInteractiveMap({
           <button
             type="button"
             onClick={() => setIsFullScreen(!isFullScreen)}
-            className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs flex items-center gap-1.5 transition shadow-sm ml-1 active:scale-95 cursor-pointer"
+            className="px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand text-white font-black text-sm flex items-center gap-1.5 ml-1 cursor-pointer"
             title={isFullScreen ? 'إلغاء ملء الشاشة (Esc)' : 'تكبير الشاشة بالكامل'}
           >
             {isFullScreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -516,9 +516,9 @@ export default function AdminInteractiveMap({
         <div ref={mapRef} className="w-full h-full z-10" />
 
         {/* Floating Legend Overlay at bottom left */}
-        <div className="absolute bottom-6 left-6 z-20 bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl border border-white/10 shadow-2xl text-[11px] font-bold space-y-1.5 pointer-events-none">
+        <div className="absolute bottom-6 left-6 z-20 bg-slate-900/95 text-white p-3.5 rounded-2xl border border-white/10 text-sm font-bold space-y-1.5 pointer-events-none">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-orange-500 border border-white" />
+            <span className="w-3 h-3 rounded-full bg-brand border border-white" />
             <span>🏪 انقر على المتجر واستخدم زر رسم الدائرة</span>
           </div>
           <div className="flex items-center gap-2">

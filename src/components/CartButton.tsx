@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
-import { supabase } from '@/lib/supabase'
+import { publicInsert } from '@/utils/publicInsert'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 import { getStoreStatus, type StoreStatus } from '@/utils/storeStatus'
 import { trackGAWhatsAppOrder } from '@/utils/analytics'
@@ -120,18 +120,13 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
     trackGAWhatsAppOrder(restaurant.name, subtotal)
 
     // The real order lives on WhatsApp, so a failed statistics insert must never hold it up
-    supabase
-      .from('orders')
-      .insert({
-        restaurant_id: restaurant.id,
-        total_price: subtotal,
-        items,
-        location_url: locationUrl,
-        status: 'pending',
-      })
-      .then(({ error }) => {
-        if (error) console.warn('Could not record order:', error.message)
-      })
+    publicInsert('orders', {
+      restaurant_id: restaurant.id,
+      total_price: subtotal,
+      items,
+      location_url: locationUrl,
+      status: 'pending',
+    }).catch(error => console.warn(error.message))
 
     cartStore.clearCart()
     setNote('')
