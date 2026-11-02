@@ -329,7 +329,7 @@ export default function AdminDashboard() {
           // A store has one owner, so anyone else linked to it loses access
           reportWriteResult(await supabase
             .from('profiles')
-            .update({ role: 'customer', restaurant_id: null })
+            .delete()
             .eq('restaurant_id', restaurantId)
             .neq('phone', formattedPhone))
 

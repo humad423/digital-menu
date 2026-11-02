@@ -232,7 +232,7 @@ export default function PlatformClient({
   const [searchQuery, setSearchQuery]     = useState('')
   const [activeStoreType, setActiveStoreType] = useState<string>('all')
   const [businessTypes, setBusinessTypes] = useState<any[]>(initialBusinessTypes)
-  const [sortBy, setSortBy]               = useState<'distance' | 'rating' | 'delivery_fee' | 'newest'>('distance')
+  const [sortBy, setSortBy]               = useState<'distance' | 'delivery_fee' | 'newest'>('distance')
   const [showAllRanked, setShowAllRanked] = useState(false)
   const [showAllLatest, setShowAllLatest] = useState(false)
   const [showZoneModal, setShowZoneModal] = useState(false)

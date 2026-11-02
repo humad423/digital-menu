@@ -151,7 +151,7 @@ export default async function RestaurantLayout({
               )}
             </div>
 
-            {/* Meta - name + status + rating next to logo */}
+            {/* Meta - name + status next to logo */}
             <div className="flex-1 min-w-0">
               <h2 className="text-sm font-black text-slate-900 truncate mb-1 leading-tight">{restaurant.name}</h2>
               <div className="flex items-center gap-3 flex-wrap text-xs mt-0">
