@@ -40,16 +40,15 @@ export default function InstallSuggestion() {
   }
 
   return (
-    <aside className="bg-white border border-slate-200/90 rounded-2xl p-3 flex items-center gap-3 shadow-2xs">
-      <img src="/icon-192.png" alt="" width={40} height={40} className="w-10 h-10 rounded-xl shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-black text-slate-900">ألف سوق على شاشتك الرئيسية</p>
-        <p className="text-[11px] font-medium text-slate-500 truncate">افتحه بلمسة واحدة في المرة القادمة</p>
+    <aside className="card p-4 space-y-3">
+      <p className="font-bold">هل تريد ألف سوق على شاشتك الرئيسية؟ يفتح بلمسة واحدة.</p>
+      <div className="grid grid-cols-2 gap-2">
+        <InstallAppButton variant="solid" label="تثبيت" />
+        <button onClick={dismiss} className="btn btn-secondary btn-sm">
+          <X size={16} />
+          <span>لا، شكراً</span>
+        </button>
       </div>
-      <InstallAppButton variant="solid" label="تثبيت" />
-      <button onClick={dismiss} aria-label="إخفاء" className="text-slate-400 hover:text-slate-600 p-1 shrink-0">
-        <X size={15} />
-      </button>
     </aside>
   )
 }

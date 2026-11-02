@@ -1,25 +1,21 @@
-import { getRestaurantBySlug } from '@/utils/menuCache'
-import CartButton from '@/components/CartButton'
-import StoreHeaderBanner from '@/components/StoreHeaderBanner'
-import StoreDeliveryBadge from '@/components/StoreDeliveryBadge'
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowRight, MapPin } from 'lucide-react'
-import StoreStatusLine from '@/components/StoreStatusLine'
+import { ArrowRight, MapPin, MessageCircle } from 'lucide-react'
+import CartButton from '@/components/CartButton'
 import CartHydrator from '@/components/CartHydrator'
-import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
-import MenuLocationNotice from '@/components/MenuLocationNotice'
 import MenuQrTracker from '@/components/MenuQrTracker'
+import StoreInfo from '@/components/StoreInfo'
+import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
+import { getRestaurantBySlug } from '@/utils/menuCache'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  // Reuses the same cache as RestaurantLayout — no extra Supabase query
   const r = await getRestaurantBySlug(slug)
   if (!r) return { title: 'المتجر غير موجود', robots: { index: false } }
 
   const title = `${r.name} | ألف سوق`
-  const description = r.menu_note || `تصفح منيو ${r.name} واطلب مباشرة عبر واتساب على منصة ألف سوق.`
+  const description = r.menu_note || `منتجات ${r.name} وأسعارها على ألف سوق.`
   const image = getOptimizedImageUrl(r.cover_url || r.logo_url, 1200)
 
   return {
@@ -38,161 +34,99 @@ export default async function RestaurantLayout({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  // Single cached Supabase query shared with generateMetadata above
   const restaurant = await getRestaurantBySlug(slug)
 
   if (!restaurant) notFound()
 
+  const whatsappUrl = `https://wa.me/${(restaurant.whatsapp_number || '').replace(/\D/g, '')}`
+
   // A store is hidden when the admin suspends its menu or its subscription ends
   if (restaurant.is_menu_active === false || restaurant.is_subscription_active === false) {
     return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-5 text-center" dir="rtl">
-        <div className="max-w-md w-full bg-white rounded-3xl p-7 sm:p-8 shadow-xl border border-slate-200/90 flex flex-col items-center">
-          {restaurant.logo_url ? (
-            <img
-              src={getOptimizedImageUrl(restaurant.logo_url, 160)}
-              alt={restaurant.name}
-              className="w-20 h-20 rounded-2xl object-contain p-1 border-2 border-slate-100 shadow-xs mb-4"
-            />
-          ) : (
-            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-xs">
-              ⚠️
-            </div>
-          )}
-          <h1 className="text-lg sm:text-xl font-black text-slate-900 mb-1.5">{restaurant.name}</h1>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 mb-4">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            <span>تم تعليق هذا المنيو مؤقتاً</span>
-          </div>
-          <p className="text-xs text-slate-500 font-bold max-w-xs mb-6 leading-relaxed">
-            عذراً، تم تعليق خدمة المنيو الرقمي لهذا المتجر مؤقتاً. يمكنك التواصل مباشرة مع إدارة المتجر أو العودة لتصفح باقي المتاجر على المنصة.
-          </p>
-          <div className="w-full flex flex-col gap-2.5">
+      <div dir="rtl" className="min-h-screen bg-page">
+        <main className="page-narrow py-8 space-y-4">
+          <h1 className="text-2xl font-black">{restaurant.name}</h1>
+          <p className="notice notice-warn">هذا المتجر غير متاح حالياً على ألف سوق.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Link href="/" className="btn btn-primary">تصفح المتاجر الأخرى</Link>
             {restaurant.whatsapp_number && (
-              <a
-                href={`https://wa.me/${restaurant.whatsapp_number.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
-              >
-                <span>💬 تواصل مع المتجر عبر الواتساب</span>
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                مراسلة المتجر على واتساب
               </a>
             )}
-            <Link
-              href="/"
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-2xl shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
-            >
-              العودة للرئيسية وتصفح المتاجر 🏠
-            </Link>
           </div>
-        </div>
+        </main>
       </div>
     )
   }
 
-  const primary = restaurant.primary_color || '#F97316'
+  const hasCoords = restaurant.latitude && restaurant.longitude
 
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen bg-slate-200 text-slate-800 font-sans pb-28"
-      style={{ '--color-primary': primary } as React.CSSProperties}
-    >
+    <div dir="rtl" className="min-h-screen bg-page pb-28">
       <CartHydrator />
       <MenuQrTracker restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
-      {/* Centered mobile-frame wrapper */}
-      <div className="max-w-md sm:max-w-lg mx-auto bg-slate-50 min-h-screen relative shadow-2xl">
-        <MenuLocationNotice restaurant={restaurant} />
 
-        {/* Cover Header */}
-        <div className="relative">
-        <div className="h-44 sm:h-52 w-full bg-slate-900 relative overflow-hidden">
-          {restaurant.cover_url ? (
-            <img src={getOptimizedImageUrl(restaurant.cover_url, 1000)} alt="" className="w-full h-full object-cover opacity-90" />
-          ) : (
-            <div
-              className="w-full h-full opacity-90"
-              style={{
-                background: `linear-gradient(135deg, ${primary}ee, ${primary}66)`
-              }}
-            />
-          )}
-
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-slate-950/40" />
-
-          {/* Back Button */}
-          <Link
-            href="/"
-            className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-slate-900/70 backdrop-blur-md text-white border border-white/25 flex items-center justify-center shadow-md active:scale-90 hover:bg-slate-900/90 transition"
-            title="العودة للرئيسية"
-          >
-            <ArrowRight size={19} />
+      <header className="bg-white border-b border-line">
+        <div className="page-narrow py-3">
+          <Link href="/" className="btn btn-secondary btn-sm">
+            <ArrowRight size={18} />
+            <span>كل المتاجر</span>
           </Link>
-
-          {/* Subtle gradient at bottom only for visual polish */}
-          <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-slate-950/60 to-transparent" />
         </div>
 
-        {/* Info Box */}
-        <div className="max-w-md sm:max-w-lg mx-auto px-4 -mt-4 relative z-20">
-          <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex items-center gap-3">
-            {/* Logo */}
-            <div className="w-14 h-14 rounded-2xl bg-white p-1 border-2 border-slate-100 shadow-xs shrink-0 overflow-hidden">
-              {restaurant.logo_url ? (
-                <img src={getOptimizedImageUrl(restaurant.logo_url, 200)} alt="" className="w-full h-full object-contain rounded-xl" />
-              ) : (
-                <div
-                  className="w-full h-full rounded-xl flex items-center justify-center text-lg font-black text-white"
-                  style={{ background: primary }}
-                >
-                  {restaurant.name.charAt(0)}
-                </div>
-              )}
-            </div>
+        {restaurant.cover_url && (
+          <div className="page-narrow">
+            <img
+              src={getOptimizedImageUrl(restaurant.cover_url, 800)}
+              alt=""
+              decoding="async"
+              className="w-full h-36 sm:h-48 object-cover rounded-2xl bg-slate-200"
+            />
+          </div>
+        )}
 
-            {/* Meta - name + status next to logo */}
-            <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-black text-slate-900 truncate mb-1 leading-tight">{restaurant.name}</h2>
-              <div className="flex items-center gap-3 flex-wrap text-xs mt-0">
-                <StoreStatusLine restaurant={restaurant} />
-                <StoreDeliveryBadge restaurant={restaurant} />
-              </div>
-            </div>
+        <div className="page-narrow py-4 space-y-3">
+          <div className="flex items-center gap-3">
+            {restaurant.logo_url && (
+              <img
+                src={getOptimizedImageUrl(restaurant.logo_url, 120)}
+                alt=""
+                width={56}
+                height={56}
+                className="w-14 h-14 rounded-xl object-contain border border-line bg-white shrink-0"
+              />
+            )}
+            <h1 className="text-2xl font-black leading-snug min-w-0">{restaurant.name}</h1>
+          </div>
 
-            {/* Google Maps Store Location Button */}
-            {(() => {
-              const hasCoords = restaurant.latitude && restaurant.longitude && Number(restaurant.latitude) !== 0
-              const mapUrl = hasCoords 
-                ? `https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`
-                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.name)}`
-              
-              return (
-                <a
-                  href={mapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-orange-50 hover:bg-orange-500 hover:text-white border border-orange-200/80 text-orange-600 transition-all duration-150 active:scale-95 shadow-2xs group"
-                  title="فتح موقع المحل على الخرائط"
-                >
-                  <MapPin size={18} className="group-hover:scale-110 transition-transform" />
-                  <span className="text-[9px] font-black mt-0.5 whitespace-nowrap">الخريطة</span>
-                </a>
-              )
-            })()}
+          <StoreInfo restaurant={restaurant} />
+
+          <div className="grid grid-cols-2 gap-2">
+            {restaurant.whatsapp_number && (
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                <MessageCircle size={18} className="shrink-0" />
+                <span>مراسلة</span>
+              </a>
+            )}
+            {hasCoords && (
+              <a
+                href={`https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary"
+              >
+                <MapPin size={18} className="shrink-0" />
+                <span>الموقع</span>
+              </a>
+            )}
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main Content Container */}
-      <main className="px-4 mt-4">
-        <StoreHeaderBanner restaurant={restaurant} />
-        {children}
-      </main>
+      <main className="page-narrow pt-4">{children}</main>
 
       <CartButton restaurant={restaurant} />
-
-      </div>{/* end mobile-frame wrapper */}
     </div>
   )
 }

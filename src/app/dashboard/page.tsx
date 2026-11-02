@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { CheckCircle, AlertCircle, MessageSquare } from 'lucide-react'
-import Link from 'next/link'
 import BrandLogo from '@/components/BrandLogo'
 
 import { auth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from '@/lib/firebase'
@@ -172,152 +170,102 @@ export default function CompletelyStandaloneDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 dir-rtl text-white">
+      <main dir="rtl" className="min-h-screen bg-page flex items-center justify-center p-4">
         <div id="dashboard-recaptcha"></div>
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-bold text-gray-400">جاري تحميل بوابة أصحاب المطاعم...</p>
-        </div>
-      </div>
+        <p className="font-bold">جاري التحميل...</p>
+      </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black flex items-center justify-center p-5 dir-rtl text-white">
+    <main dir="rtl" className="min-h-screen bg-page flex items-center justify-center p-4">
       {/* Invisible Recaptcha Container */}
       <div id="dashboard-recaptcha"></div>
 
-      <div className="w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-3xl p-7 sm:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
-        {/* Decorative ambient glow */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Top Header Logo */}
-        <div className="text-center mb-7 flex flex-col items-center">
-          <BrandLogo size="lg" variant="light" className="mb-3" />
-          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3.5 py-1 rounded-full border border-emerald-500/20 flex items-center gap-1.5">
-            <MessageSquare size={13} />
-            <span>بوابة شركاء ألف سوق Alfsouq Partner Portal</span>
-          </span>
-          <p className="text-xs text-gray-400 font-medium mt-2">إدارة المنيو والطلبات والعروض الخاصة بمتجرك</p>
+      <div className="card p-5 w-full max-w-md space-y-5">
+        <div className="space-y-2">
+          <BrandLogo />
+          <h1 className="section-title">دخول أصحاب المتاجر</h1>
+          <p className="text-muted font-medium">أضف منتجاتك وأسعارك وعدّلها من هنا.</p>
         </div>
 
-        {/* Unregistered Store Error Box */}
         {unregisteredError && (
-          <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-2xl text-xs font-bold leading-relaxed space-y-3">
-            <div className="flex items-start gap-2.5">
-              <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-400" />
-              <div>
-                <p className="text-white font-black text-sm mb-1">الرقم غير مسجل كشريك حتى الآن</p>
-                <p className="text-amber-200/90 text-xs font-normal">
-                  رقم الهاتف <span className="dir-ltr inline-block font-mono font-bold text-white">({unregisteredError})</span> غير مسجل كمتجر في المنصة. لتسجيل متجرك وتفعيل المنيو الخاص بك، يرجى التواصل مع إدارة المنصة.
-                </p>
-              </div>
-            </div>
-
+          <div className="notice notice-warn space-y-3">
+            <p>
+              الرقم <span dir="ltr" className="inline-block">{unregisteredError}</span> غير مسجل لدينا. تواصل معنا لإضافة متجرك.
+            </p>
             <a
-              href={supportWhatsappUrl(`مرحباً، أود تسجيل وتفعيل متجري الجديد في منصة ألف سوق برقم الهاتف: ${unregisteredError}`)}
+              href={supportWhatsappUrl(`مرحباً، أود تسجيل متجري في منصة ألف سوق برقم الهاتف: ${unregisteredError}`)}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition shadow-md no-underline cursor-pointer"
+              className="btn btn-whatsapp btn-block"
             >
-              <MessageSquare size={15} />
-              <span>تواصل معنا عبر الواتساب لتسجيل متجرك 💬</span>
+              تواصل معنا على واتساب
             </a>
           </div>
         )}
 
-        {/* General Error Alert */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl text-xs font-bold leading-relaxed flex items-start gap-2.5">
-            <AlertCircle size={18} className="shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
+        {error && <p className="notice notice-bad">{error}</p>}
+        {infoMessage && step === 'otp' && <p className="notice notice-info">{infoMessage}</p>}
 
-
-        {/* Standalone Login Form */}
         {step === 'phone' ? (
-          <form onSubmit={handleSendOtp} className="space-y-5">
+          <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-300 mb-2">رقم هاتف صاحب المتجر المسجل</label>
-              
-              {/* LTR Country & Phone Input */}
-              <div className="flex items-center gap-2 dir-ltr">
+              <label htmlFor="owner-phone" className="field-label">رقم هاتفك المسجل</label>
+              <div className="flex gap-2" dir="ltr">
                 <select
+                  aria-label="رمز الدولة"
                   value={countryCode}
                   onChange={e => setCountryCode(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 text-white text-xs font-bold py-3.5 px-3 rounded-2xl focus:border-emerald-500 outline-none cursor-pointer"
+                  className="field !w-auto shrink-0"
                 >
-                  <option value="+90">🇹🇷 +90</option>
-                  <option value="+963">🇸🇾 +963</option>
-                  <option value="+966">🇸🇦 +966</option>
-                  <option value="+971">🇦🇪 +971</option>
-                  <option value="+965">🇰🇼 +965</option>
+                  <option value="+90">+90</option>
+                  <option value="+963">+963</option>
+                  <option value="+966">+966</option>
+                  <option value="+971">+971</option>
+                  <option value="+965">+965</option>
                 </select>
-
-                <div className="relative flex-1">
-                  <span className="absolute right-3.5 top-3.5 text-gray-400">📱</span>
-                  <input
-                    type="tel"
-                    required
-                    value={phoneNumber}
-                    onChange={e => handlePhoneChange(e.target.value)}
-                    placeholder="000 000 0000"
-                    className="w-full bg-gray-800 border border-gray-700 text-white font-bold text-sm pr-10 pl-4 py-3.5 rounded-2xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition placeholder-gray-500 dir-ltr text-right"
-                  />
-                </div>
+                <input
+                  id="owner-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  required
+                  value={phoneNumber}
+                  onChange={e => handlePhoneChange(e.target.value)}
+                  placeholder="000 000 0000"
+                  className="field min-w-0"
+                />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting || !phoneNumber}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <MessageSquare size={18} />
-                  <span>إرسال الرمز 💬</span>
-                </>
-              )}
+            <button type="submit" disabled={isSubmitting || !phoneNumber} className="btn btn-primary btn-lg btn-block">
+              {isSubmitting ? 'جاري الإرسال...' : 'أرسل لي رمز الدخول'}
             </button>
           </form>
         ) : (
-          /* OTP Verification Step (Simplified & Clean) */
-          <form onSubmit={handleVerifyOtp} className="space-y-5 animate-fade-in">
-            <div className="text-center pb-1">
-              <p className="text-xs text-gray-400 font-medium">أدخل رمز تفعيل الـ SMS المرسل إلى الرقم:</p>
-              <p className="text-sm font-black text-emerald-400 dir-ltr mt-0.5">{formattedPhoneState}</p>
-            </div>
-
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
+              <label htmlFor="owner-otp" className="field-label">
+                اكتب الرمز الذي وصلك في رسالة إلى <span dir="ltr" className="inline-block">{formattedPhoneState}</span>
+              </label>
               <input
+                id="owner-otp"
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength={6}
                 required
                 value={otpCode}
                 onChange={e => setOtpCode(e.target.value)}
                 placeholder="000000"
-                className="w-full bg-gray-800 border border-gray-700 text-emerald-400 font-black text-2xl tracking-[0.4em] text-center py-3.5 rounded-2xl focus:border-emerald-500 outline-none transition"
+                dir="ltr"
+                className="field text-center text-2xl font-black tracking-[0.3em]"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting || otpCode.length < 6}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-98 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <CheckCircle size={18} />
-                  <span>تأكيد الرمز ودخول اللوحة</span>
-                </>
-              )}
+            <button type="submit" disabled={isSubmitting || otpCode.length < 6} className="btn btn-primary btn-lg btn-block">
+              {isSubmitting ? 'جاري التحقق...' : 'دخول'}
             </button>
 
             <button
@@ -328,37 +276,26 @@ export default function CompletelyStandaloneDashboardPage() {
                 setError(null)
                 setInfoMessage(null)
               }}
-              className="w-full text-xs text-gray-400 font-bold hover:text-white transition text-center block pt-1 cursor-pointer"
+              className="btn btn-secondary btn-block"
             >
-              تغيير رقم الهاتف ↩️
+              تغيير رقم الهاتف
             </button>
           </form>
         )}
 
-        {/* CTA Box for New Store WhatsApp Contact (ONLY on phone input step) */}
         {step === 'phone' && (
-          <div className="mt-6 pt-5 border-t border-gray-800 text-center space-y-2.5">
-            <p className="text-xs text-gray-300 font-bold">تريد الحصول على منيو رقمي جديد لمتجرك؟</p>
+          <p className="text-center pt-1">
             <a
-              href={supportWhatsappUrl('مرحباً، أرغب في إنشاء منيو رقمي جديد لمتجري عبر منصة ألف سوق')}
+              href={supportWhatsappUrl('مرحباً، أرغب في إضافة متجري إلى منصة ألف سوق')}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer no-underline"
+              className="font-bold text-brand underline underline-offset-4"
             >
-              <MessageSquare size={16} />
-              <span>تواصل معنا لإنشاء منيو جديد عبر الواتساب 💬</span>
+              ليس عندك حساب؟ تواصل معنا لإضافة متجرك
             </a>
-          </div>
+          </p>
         )}
-
-        {/* Footer info */}
-        <div className="mt-6 pt-4 border-t border-gray-800 flex items-center justify-between text-xs font-bold text-gray-500">
-          <Link href="/" className="hover:text-emerald-400 transition flex items-center gap-1">
-            <span>المنصة الرئيسية</span>
-          </Link>
-          <span className="text-[10px] text-gray-600">Alfsouq Partner Portal</span>
-        </div>
       </div>
-    </div>
+    </main>
   )
 }

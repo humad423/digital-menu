@@ -20,15 +20,13 @@ export default async function AdminDashboardLayout({
       {/* ── Header ── */}
       <header className="dash-header">
         <div className="flex items-center gap-3">
-          <BrandLogo size="sm" variant="light" showSubtitle={false} />
-          <span className="text-xs bg-orange-500/20 text-orange-400 font-bold px-2.5 py-1 rounded-full border border-orange-500/30 hidden sm:block">
-            Super Admin
-          </span>
+          <BrandLogo size="sm" />
+          <span className="badge badge-gray hidden sm:inline-flex">الإدارة</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 font-medium hidden md:block">{data.user.email}</span>
+          <span className="text-muted font-medium hidden md:block">{data.user.email}</span>
           <form action="/auth/signout" method="post">
-            <button className="btn btn-ghost text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white text-xs">
+            <button className="btn btn-secondary btn-sm">
               خروج
             </button>
           </form>

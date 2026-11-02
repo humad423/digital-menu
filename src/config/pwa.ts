@@ -9,7 +9,7 @@ export const partnerAppMetadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black',
+    statusBarStyle: 'default',
     title: 'لوحة الشريك',
   },
 }

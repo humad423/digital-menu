@@ -10,15 +10,13 @@ export default async function Home() {
   }))
 
   return (
-    <main className="min-h-screen bg-slate-50 w-full font-sans overflow-x-hidden" dir="rtl">
-      <PlatformClient
-        restaurants={restaurantsWithCats}
-        categories={categories}
-        ads={ads}
-        offers={offers}
-        serviceZones={serviceZones}
-        businessTypes={businessTypes}
-      />
-    </main>
+    <PlatformClient
+      restaurants={restaurantsWithCats}
+      categories={categories}
+      ads={ads}
+      offers={offers}
+      serviceZones={serviceZones}
+      businessTypes={businessTypes}
+    />
   )
 }

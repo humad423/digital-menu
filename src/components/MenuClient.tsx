@@ -1,22 +1,21 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
-
+import { useEffect, useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import MenuItem from '@/components/MenuItem'
-import { Search, X } from 'lucide-react'
 import { trackEvent, usePageDurationTracker } from '@/utils/analytics'
-import { matchesSearch } from '@/utils/text'
 import { offerToMenuItem } from '@/utils/offerItems'
+import { matchesSearch } from '@/utils/text'
 
+const OFFERS_SECTION_ID = 'offers-special'
 
 export default function MenuClient({
   restaurantId,
-  restaurantName = 'المطعم',
   storeType = 'restaurant',
   restaurant,
   categories,
   menuItems,
-  offers = []
+  offers = [],
 }: {
   restaurantId: string
   restaurantName?: string
@@ -27,152 +26,80 @@ export default function MenuClient({
   offers?: any[]
 }) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeCat, setActiveCat]     = useState(categories[0]?.id)
-  const observer = useRef<IntersectionObserver | null>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    observer.current = new IntersectionObserver(entries => {
-      const visible = entries.find(e => e.isIntersecting)
-      if (visible) setActiveCat(visible.target.id.replace('cat-sec-', ''))
-    }, { rootMargin: '-80px 0px -55% 0px' })
-
-    const secs = document.querySelectorAll('section[id^="cat-sec-"]')
-    secs.forEach(s => observer.current?.observe(s))
-    return () => observer.current?.disconnect()
-  }, [categories])
-
-  useEffect(() => {
-    if (restaurantId) {
-      trackEvent({ event_type: 'menu_view', store_id: restaurantId })
-    }
+    if (restaurantId) trackEvent({ event_type: 'menu_view', store_id: restaurantId })
   }, [restaurantId])
 
   usePageDurationTracker({ store_id: restaurantId, store_slug: restaurant?.slug })
 
-  const scrollTo = (id: string) => {
-    setActiveCat(id)
-    const el = document.getElementById(`cat-sec-${id}`)
-    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 110, behavior: 'smooth' })
-  }
-
-  const displayCats = useMemo(() => {
+  const sections = useMemo(() => {
     const query = searchQuery.trim()
-    const sortedCategories = [...categories].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    const filteredCats = sortedCategories.map(cat => ({
-      ...cat,
-      items: menuItems.filter(i =>
-        i.category_id === cat.id &&
-        matchesSearch(query, i.name, i.description)
-      )
-    })).filter(c => c.items.length > 0)
+    const productSections = [...categories]
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map(category => ({
+        id: category.id,
+        name: category.name,
+        items: menuItems.filter(item => item.category_id === category.id && matchesSearch(query, item.name, item.description)),
+      }))
+      .filter(section => section.items.length > 0)
 
-    if (offers.length > 0 && !query) {
-      return [{
-        id: 'offers-special',
-        name: 'العروض والتخفيضات',
-        icon: '🔥',
-        items: offers.map(offerToMenuItem)
-      }, ...filteredCats]
-    }
-
-    return filteredCats
+    return offers.length > 0 && !query
+      ? [{ id: OFFERS_SECTION_ID, name: 'العروض', items: offers.map(offerToMenuItem) }, ...productSections]
+      : productSections
   }, [categories, menuItems, offers, searchQuery])
 
-  return (
-    <div className="pb-10">
+  const goToSection = (id: string) => {
+    document.getElementById(`section-${id}`)?.scrollIntoView()
+  }
 
-      {/* ── Search Bar ── */}
-      <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2.5 border-b border-slate-200/80 shadow-2xs transform-gpu will-change-transform">
+  return (
+    <div className="space-y-5">
+      <div>
+        <label htmlFor="product-search" className="field-label">ابحث عن منتج</label>
         <div className="relative">
+          <Search size={20} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
           <input
-            ref={searchRef}
-            type="text"
-            placeholder={
-              storeType === 'supermarket'
-                ? 'ابحث في منتجات وعروض السوبرماركت...'
-                : storeType === 'clothing'
-                ? 'ابحث في تشكيلة الموديلات والألبسة...'
-                : 'ابحث في المنتجات والكتالوج...'
-            }
+            id="product-search"
+            type="search"
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200/90 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 shadow-2xs transition-all"
+            onChange={event => setSearchQuery(event.target.value)}
+            placeholder={storeType === 'clothing' ? 'مثال: قميص' : 'اكتب اسم المنتج'}
+            className="field pr-11"
           />
-          <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition p-1"
-            >
-              <X size={15} />
-            </button>
-          )}
         </div>
       </div>
 
-      {/* ── Category Pill Tabs (Mobile Optimized Horizontal Scroll) ── */}
-      {!searchQuery && categories.length > 1 && (
-        <div className="sticky top-[54px] z-20 bg-slate-50/95 backdrop-blur-md py-2.5 -mx-4 px-4 border-b border-slate-200/70 flex gap-2 overflow-x-auto hide-scrollbar scroll-smooth transform-gpu will-change-transform">
-          {displayCats.map(cat => {
-            const isActive = activeCat === cat.id
-            return (
-              <button
-                key={cat.id}
-                onClick={() => scrollTo(cat.id)}
-                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black transition-all duration-200 active:scale-95 select-none ${
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-xs ring-2 ring-slate-900/20 scale-[1.02]'
-                    : 'bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-100/80 shadow-2xs'
-                }`}
-              >
-                <span className="text-sm">{cat.id === 'offers-special' ? '🔥' : (cat.icon || '🍽️')}</span>
-                <span>{cat.name}</span>
-              </button>
-            )
-          })}
-        </div>
+      {/* Stays visible while scrolling, so any section is one tap away */}
+      {!searchQuery && sections.length > 1 && (
+        <nav aria-label="أقسام المتجر" className="sticky top-0 z-20 bg-page py-2 -mx-4 px-4 flex gap-2 overflow-x-auto hide-scrollbar">
+          {sections.map(section => (
+            <button key={section.id} onClick={() => goToSection(section.id)} className="chip">
+              {section.name}
+            </button>
+          ))}
+        </nav>
       )}
 
-      {/* ── Menu Sections ── */}
-      <div className="mt-5 space-y-7">
-        {displayCats.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 p-6">
-            <div className="text-4xl mb-2">🔍</div>
-            <p className="font-black text-slate-800 text-sm mb-1">لا توجد نتائج</p>
-            <p className="text-xs text-slate-400 font-bold">جرّب كلمة بحث مختلفة</p>
-          </div>
-        ) : (
-          displayCats.map(cat => (
-            <section key={cat.id} id={`cat-sec-${cat.id}`} className="scroll-mt-28">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">{cat.id === 'offers-special' ? '🔥' : (cat.icon || (storeType === 'clothing' ? '👗' : storeType === 'supermarket' ? '🛒' : '🍽️'))}</span>
-                <h2 className="text-base font-black text-slate-900 flex-1 truncate">
-                  {cat.id === 'offers-special' ? 'العروض والتخفيضات' : cat.name}
-                </h2>
-                <span className="bg-slate-200 text-slate-700 text-xs font-black px-2.5 py-0.5 rounded-full">
-                  {cat.items.length}
-                </span>
-              </div>
-
-              {/* Always single column - mobile-first experience */}
-              <div className="grid grid-cols-1 gap-3.5">
-                {cat.items.map((item: any) => (
-                  <MenuItem
-                    key={item.id}
-                    item={item}
-                    restaurantId={restaurantId}
-                    storeType={storeType}
-                    enableWhatsappOrders={restaurant?.enable_whatsapp_orders !== false}
-                  />
-                ))}
-              </div>
-            </section>
-          ))
-        )}
-      </div>
-
-
+      {sections.length === 0 ? (
+        <p className="notice notice-info text-center">لا توجد منتجات مطابقة.</p>
+      ) : (
+        sections.map(section => (
+          <section key={section.id} id={`section-${section.id}`} className="space-y-3 scroll-mt-16">
+            <h2 className="section-title">{section.name}</h2>
+            <div className="space-y-3">
+              {section.items.map((item: any) => (
+                <MenuItem
+                  key={item.id}
+                  item={item}
+                  restaurantId={restaurantId}
+                  canOrder={restaurant?.enable_whatsapp_orders !== false}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
     </div>
   )
 }

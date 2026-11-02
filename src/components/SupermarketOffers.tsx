@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Minus, Plus, Search, X } from 'lucide-react'
+import { Minus, Plus, Search } from 'lucide-react'
 import { confirmCartStoreSwitch, useCartStore } from '@/store/cartStore'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { matchesSearch } from '@/utils/text'
@@ -32,76 +32,40 @@ function DealCard({ item, restaurantId, canOrder }: { item: any; restaurantId: s
   }
 
   return (
-    <article className={`relative bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs flex flex-col ${isOutOfStock ? 'opacity-60' : ''}`}>
-      {discount !== null && (
-        <div className="absolute top-2 right-2 z-10 bg-red-600 text-white font-black text-sm px-2 py-1 rounded-xl shadow-sm leading-none">
-          -{discount}%
-        </div>
-      )}
-
-      <div className="aspect-square bg-slate-100">
-        {item.image_url ? (
-          <img
-            src={getOptimizedImageUrl(item.image_url, 400)}
-            alt={item.name}
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl">🛒</div>
+    <article className={`card flex flex-col ${isOutOfStock ? 'opacity-70' : ''}`}>
+      <div className="relative aspect-square bg-slate-200">
+        {item.image_url && (
+          <img src={getOptimizedImageUrl(item.image_url, 400)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+        )}
+        {discount !== null && (
+          <span className="absolute top-2 right-2 bg-red-700 text-white font-black px-2 py-0.5 rounded-lg">خصم {discount}%</span>
         )}
       </div>
 
-      <div className="p-2.5 flex-1 flex flex-col gap-1.5">
-        <h3 className="font-black text-xs text-slate-900 leading-snug line-clamp-2">{item.name}</h3>
-        {item.description && (
-          <p className="text-[10px] text-slate-500 font-medium line-clamp-1">{item.description}</p>
-        )}
-
+      <div className="p-3 flex-1 flex flex-col gap-1">
+        <h3 className="font-black leading-snug">{item.name}</h3>
         <div className="mt-auto">
           {discount !== null && (
-            <span className="block text-[11px] font-bold text-slate-400 line-through leading-none">
-              {item.original_price} {CURRENCY_SYMBOL}
-            </span>
+            <p className="text-muted font-medium line-through">كان {item.original_price} {CURRENCY_SYMBOL}</p>
           )}
-          <span className="text-lg font-black text-red-600 leading-tight">
+          <p className="text-xl font-black text-brand leading-snug">
             {item.price} {CURRENCY_SYMBOL}
-            {isKilo && <span className="text-[10px] font-bold text-slate-400"> / كغ</span>}
-          </span>
+            {isKilo && <span className="text-base text-muted font-medium"> للكيلو</span>}
+          </p>
         </div>
 
         {isOutOfStock ? (
-          <span className="text-center text-[11px] font-black text-rose-600 bg-rose-50 border border-rose-200 py-1.5 rounded-xl">
-            نفد
-          </span>
+          <p className="notice notice-info text-center !p-2">غير متوفر</p>
         ) : !canOrder ? null : quantity === 0 ? (
-          <button
-            onClick={add}
-            className="w-full py-1.5 rounded-xl text-white font-black text-xs flex items-center justify-center gap-1 transition active:scale-95"
-            style={{ background: 'var(--color-primary, #F97316)' }}
-          >
-            <Plus size={14} />
-            <span>أضف للسلة</span>
-          </button>
+          <button onClick={add} className="btn btn-primary btn-block mt-1">أضف إلى السلة</button>
         ) : (
-          <div
-            className="flex items-center justify-between p-1 rounded-xl text-white"
-            style={{ background: 'var(--color-primary, #F97316)' }}
-          >
-            <button
-              onClick={() => updateQuantity(item.id, quantity - 1)}
-              aria-label="إنقاص الكمية"
-              className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center active:scale-90 transition"
-            >
-              <Minus size={13} />
+          <div className="grid grid-cols-3 items-center border border-line rounded-xl overflow-hidden mt-1">
+            <button onClick={() => updateQuantity(item.id, quantity - 1)} aria-label="إنقاص الكمية" className="min-h-12 flex items-center justify-center bg-slate-100">
+              <Minus size={20} />
             </button>
-            <span className="font-black text-xs">{quantity}</span>
-            <button
-              onClick={add}
-              aria-label="زيادة الكمية"
-              className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center active:scale-90 transition"
-            >
-              <Plus size={13} />
+            <span className="text-center text-lg font-black">{quantity}</span>
+            <button onClick={add} aria-label="زيادة الكمية" className="min-h-12 flex items-center justify-center bg-slate-100">
+              <Plus size={20} />
             </button>
           </div>
         )}
@@ -131,72 +95,54 @@ export default function SupermarketOffers({
 
   const deals = useMemo(() => {
     // Biggest discounts first, because that is what a flyer leads with
-    const byDiscount = (a: any, b: any) => (discountPercent(b) ?? 0) - (discountPercent(a) ?? 0)
     const bundles = activeCategory ? [] : offers.map(offerToMenuItem)
     const items = activeCategory ? menuItems.filter(i => i.category_id === activeCategory) : menuItems
     return [...bundles, ...items]
       .filter(item => matchesSearch(query, item.name, item.description))
-      .sort(byDiscount)
+      .sort((a, b) => (discountPercent(b) ?? 0) - (discountPercent(a) ?? 0))
   }, [activeCategory, menuItems, offers, query])
 
   const categoriesWithDeals = categories.filter(c => menuItems.some(i => i.category_id === c.id))
   const canOrder = restaurant.enable_whatsapp_orders !== false
 
   return (
-    <div className="pb-10">
-      <div className="rounded-3xl p-4 mb-3 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #DC2626 0%, #F97316 100%)' }}>
-        <p className="text-[11px] font-black opacity-90">🔥 عروض {restaurant.name}</p>
-        <h2 className="text-xl font-black leading-tight mt-0.5">أقوى العروض والتخفيضات</h2>
-        <p className="text-[11px] font-bold opacity-90 mt-1">{deals.length} عرض متوفر حالياً</p>
-      </div>
+    <div className="space-y-4">
+      <h2 className="section-title">عروض {restaurant.name} ({deals.length})</h2>
 
-      <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md py-2 space-y-2">
+      <div>
+        <label htmlFor="deal-search" className="field-label">ابحث في العروض</label>
         <div className="relative">
+          <Search size={20} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
           <input
-            type="text"
-            placeholder="ابحث في العروض..."
+            id="deal-search"
+            type="search"
             value={query}
-            onChange={e => setQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200/90 rounded-2xl py-2.5 pr-10 pl-9 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-orange-500 shadow-2xs transition-all"
+            onChange={event => setQuery(event.target.value)}
+            placeholder="اكتب اسم المنتج"
+            className="field pr-11"
           />
-          <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              aria-label="مسح البحث"
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-            >
-              <X size={15} />
-            </button>
-          )}
         </div>
-
-        {categoriesWithDeals.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
-            {[{ id: null, name: 'كل العروض' }, ...categoriesWithDeals].map(category => (
-              <button
-                key={category.id ?? 'all'}
-                onClick={() => setActiveCategory(category.id)}
-                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-black transition active:scale-95 ${
-                  activeCategory === category.id
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-white text-slate-700 border border-slate-200/90'
-                }`}
-              >
-                {category.name}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+
+      {categoriesWithDeals.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1">
+          {[{ id: null, name: 'كل العروض' }, ...categoriesWithDeals].map(category => (
+            <button
+              key={category.id ?? 'all'}
+              aria-pressed={activeCategory === category.id}
+              onClick={() => setActiveCategory(category.id)}
+              className="chip"
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {deals.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 p-6 mt-3">
-          <div className="text-4xl mb-2">🏷️</div>
-          <p className="font-black text-slate-800 text-sm">لا توجد عروض مطابقة</p>
-        </div>
+        <p className="notice notice-info text-center">لا توجد عروض مطابقة.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9.5rem),1fr))] gap-3">
           {deals.map(item => (
             <DealCard key={item.id} item={item} restaurantId={restaurant.id} canOrder={canOrder} />
           ))}

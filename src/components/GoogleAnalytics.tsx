@@ -1,15 +1,15 @@
 'use client'
 
-import { GoogleAnalytics as NextGoogleAnalytics } from '@next/third-parties/google'
+import Script from 'next/script'
 import { usePathname } from 'next/navigation'
 
-export default function GoogleAnalytics({ gaId }: { gaId?: string }) {
-  const pathname = usePathname()
-  const measurementId = gaId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-6QKRPVXYRJ'
+const MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
 
-  // Completely exclude GA script on Admin Panel, Partner Dashboard, or Restaurant Panel
+export default function GoogleAnalytics() {
+  const pathname = usePathname()
+
   if (
-    !measurementId ||
+    !MEASUREMENT_ID ||
     !pathname ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard') ||
@@ -18,5 +18,16 @@ export default function GoogleAnalytics({ gaId }: { gaId?: string }) {
     return null
   }
 
-  return <NextGoogleAnalytics gaId={measurementId} />
+  // Loads only after the page has finished, so slow connections get content first
+  return (
+    <>
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`} strategy="lazyOnload" />
+      <Script id="ga-init" strategy="lazyOnload">
+        {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${MEASUREMENT_ID}');`}
+      </Script>
+    </>
+  )
 }

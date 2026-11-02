@@ -130,7 +130,7 @@ export const getHomePageData = cache(
           .eq('is_active', true)
           .order('sort_order', { ascending: true })
           .order('created_at', { ascending: false })
-          .limit(50),
+          .limit(12),
 
         supabase
           .from('service_zones')

@@ -11,7 +11,8 @@ import { SITE_URL } from "@/config/site";
 const tajawal = Tajawal({
   variable: "--font-tajawal",
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "700", "800", "900"],
+  weight: ["500", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -25,13 +26,13 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black",
+    statusBarStyle: "default",
     title: "ألف سوق",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F172A",
+  themeColor: "#FFFFFF",
 };
 
 export default function RootLayout({
@@ -45,7 +46,7 @@ export default function RootLayout({
       dir="rtl"
       className={`${tajawal.variable} h-full antialiased`}
     >
-      <body className="min-h-full w-full bg-slate-950 text-slate-900 antialiased overflow-x-hidden">
+      <body className="min-h-full w-full overflow-x-hidden">
         <GoogleAnalytics />
         <Suspense fallback={null}>
           <TopProgressBar />

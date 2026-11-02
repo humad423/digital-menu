@@ -9,25 +9,13 @@ export default function ErrorPage({ error, reset }: { error: Error; reset: () =>
   }, [error])
 
   return (
-    <div dir="rtl" className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-6 text-center">
-      <h1 className="text-2xl font-black mb-2">حدث خطأ غير متوقع</h1>
-      <p className="text-gray-400 font-medium text-xs max-w-xs mb-8 leading-relaxed">
-        يرجى إعادة المحاولة، وإذا تكرر الخطأ تواصل معنا.
-      </p>
-      <div className="flex gap-3">
-        <button
-          onClick={reset}
-          className="px-6 py-3 bg-orange-500 text-white font-black text-xs rounded-2xl active:scale-95 transition"
-        >
-          إعادة المحاولة
-        </button>
-        <Link
-          href="/"
-          className="px-6 py-3 bg-gray-800 text-white font-black text-xs rounded-2xl active:scale-95 transition"
-        >
-          الرئيسية
-        </Link>
+    <main dir="rtl" className="min-h-screen bg-page page-narrow flex flex-col items-center justify-center text-center gap-3 py-10">
+      <h1 className="text-2xl font-black">حدث خطأ</h1>
+      <p className="text-muted font-medium">تأكد من اتصالك بالإنترنت وحاول مرة أخرى.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-sm mt-2">
+        <button onClick={reset} className="btn btn-primary">حاول مرة أخرى</button>
+        <Link href="/" className="btn btn-secondary">الرئيسية</Link>
       </div>
-    </div>
+    </main>
   )
 }
