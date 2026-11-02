@@ -80,7 +80,7 @@ export default function MenuItem({
 
   // Parse sizes
   let sizesList: string[] = []
-  if (Array.isArray(item.sizes)) sizesList = item.sizes.filter(Boolean)
+  if (Array.isArray(item.sizes)) sizesList = (item.sizes as string[]).filter(Boolean)
   else if (typeof item.sizes === 'string') {
     try {
       const parsed = JSON.parse(item.sizes)
