@@ -1,0 +1,36 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { WifiOff } from 'lucide-react'
+// Imported here so install events are captured on every page, not only where a button shows
+import '@/utils/pwaInstall'
+
+export default function PwaManager() {
+  const [isOffline, setIsOffline] = useState(false)
+
+  useEffect(() => {
+    // The admin panel isn't an installable app and needs nothing offline
+    const isAdmin = window.location.hostname.startsWith('admin.') || window.location.pathname.startsWith('/admin')
+    if ('serviceWorker' in navigator && !isAdmin) {
+      navigator.serviceWorker.register('/sw.js').catch(error => console.warn('Service worker failed:', error))
+    }
+
+    const update = () => setIsOffline(!navigator.onLine)
+    update()
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
+
+  if (!isOffline) return null
+
+  return (
+    <div dir="rtl" role="status" className="fixed bottom-0 inset-x-0 z-[80] bg-slate-900 text-white text-[11px] font-bold py-2 px-4 flex items-center justify-center gap-2">
+      <WifiOff size={13} className="shrink-0 text-amber-400" />
+      <span>لا يوجد اتصال بالإنترنت. قد لا تكون الأسعار محدّثة.</span>
+    </div>
+  )
+}

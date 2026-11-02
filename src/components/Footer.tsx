@@ -2,7 +2,8 @@ import React from 'react'
 import Link from 'next/link'
 import BrandLogo from './BrandLogo'
 import { ShieldCheck, FileText } from 'lucide-react'
-import { supportWhatsappUrl } from '@/config/site'
+import { PARTNER_URL, supportWhatsappUrl } from '@/config/site'
+import InstallAppButton from '@/components/pwa/InstallAppButton'
 
 export default function Footer() {
   return (
@@ -24,6 +25,10 @@ export default function Footer() {
           >
             💬 واتساب الدعم الفني
           </a>
+        </div>
+
+        <div className="flex justify-center empty:hidden">
+          <InstallAppButton variant="link" label="ثبّت ألف سوق على هاتفك" />
         </div>
 
         {/* Quick Links Grid */}
@@ -52,7 +57,7 @@ export default function Footer() {
           </Link>
 
           <Link
-            href="/dashboard"
+            href={`${PARTNER_URL}/dashboard`}
             className="p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 hover:text-orange-400 border border-slate-700/50 transition"
           >
             بوابة الشركاء

@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "icons:pwa": "node generate-pwa-icons.mjs",
-    "icons:partner": "node generate-partner-icons.mjs",
-    "icons:all": "node generate-pwa-icons.mjs && node generate-partner-icons.mjs",
+    "icons": "node scripts/generate-pwa-icons.mjs",
     "test": "node --test tests/*.test.ts"
   },
   "dependencies": {

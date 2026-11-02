@@ -53,23 +53,23 @@ export default function AdminLogin() {
         {error && <div className="bg-red-500/20 border border-red-500/40 text-red-300 p-3.5 rounded-2xl mb-5 text-sm font-bold text-center">{error}</div>}
         <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">البريد الإلكتروني</label>
+            <label className="block text-sm font-bold text-slate-200 mb-1.5">البريد الإلكتروني</label>
             <input 
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
+              className="w-full px-4 py-3 rounded-xl border border-slate-600 bg-slate-900/70 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-left"
               required
               dir="ltr"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">كلمة المرور</label>
+            <label className="block text-sm font-bold text-slate-200 mb-1.5">كلمة المرور</label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
+              className="w-full px-4 py-3 rounded-xl border border-slate-600 bg-slate-900/70 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-left"
               required
               dir="ltr"
             />
@@ -77,7 +77,7 @@ export default function AdminLogin() {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-gray-900 text-white rounded-xl py-4 font-bold text-lg hover:bg-gray-800 transition disabled:opacity-70"
+            className="w-full bg-orange-500 text-white rounded-xl py-3.5 font-bold text-base hover:bg-orange-600 transition disabled:opacity-70"
           >
             {loading ? 'جاري الدخول...' : 'دخول'}
           </button>

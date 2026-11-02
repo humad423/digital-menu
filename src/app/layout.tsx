@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Tajawal } from "next/font/google";
 import "./globals.css";
 import TopProgressBar from "@/components/TopProgressBar";
-import InstallPwaPrompt from "@/components/InstallPwaPrompt";
+import PwaManager from "@/components/pwa/PwaManager";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import Toaster from "@/components/Toaster";
 import { Suspense } from "react";
@@ -19,15 +19,19 @@ export const metadata: Metadata = {
   title: "ألف سوق | Alfsouq - المنصة التجارية الشاملة للمتاجر والعروض",
   description: "ألف سوق (alfsouq.com) - المنصة التجارية الشاملة لتصفح أحدث المتاجر والمطاعم والمنتجات والعروض التنافسية وتسهيل الطلب المباشر.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
     title: "ألف سوق",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F97316",
+  themeColor: "#0F172A",
 };
 
 export default function RootLayout({
@@ -47,7 +51,7 @@ export default function RootLayout({
           <TopProgressBar />
         </Suspense>
         {children}
-        <InstallPwaPrompt />
+        <PwaManager />
         <Toaster />
       </body>
     </html>

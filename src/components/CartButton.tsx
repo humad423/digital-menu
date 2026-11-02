@@ -9,6 +9,7 @@ import { getStoreStatus, type StoreStatus } from '@/utils/storeStatus'
 import { trackGAWhatsAppOrder } from '@/utils/analytics'
 import { getPrecisePosition, readUserLocation } from '@/utils/userLocation'
 import { CURRENCY_SYMBOL } from '@/config/site'
+import InstallAppButton from '@/components/pwa/InstallAppButton'
 
 const money = (value: number) => `${value.toFixed(2)} ${CURRENCY_SYMBOL}`
 
@@ -231,6 +232,7 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
                 >
                   تم إرسال الطلب، أفرغ السلة
                 </button>
+                <InstallAppButton variant="link" label="لطلب أسرع المرة القادمة، ثبّت التطبيق" />
               </div>
             ) : (
               <>

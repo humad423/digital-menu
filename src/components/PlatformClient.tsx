@@ -13,6 +13,8 @@ import { calculateDistance, getDeliveryFeeForDistance, isStoreWithinRange } from
 import { getStoreStatus } from '@/utils/storeStatus'
 import { trackEvent } from '@/utils/analytics'
 import Footer from '@/components/Footer'
+import InstallAppButton from '@/components/pwa/InstallAppButton'
+import InstallSuggestion from '@/components/pwa/InstallSuggestion'
 import { matchesSearch } from '@/utils/text'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { supportWhatsappUrl } from '@/config/site'
@@ -585,8 +587,10 @@ export default function PlatformClient({
               </button>
             </div>
 
-            {/* Left: balances the centered location pill */}
-            <div />
+            {/* Left: quiet install entry, empty when the app can't be installed */}
+            <div className="flex items-center justify-end">
+              <InstallAppButton variant="header" label="التطبيق" />
+            </div>
           </div>
 
           {/* Row 2: Search Bar (Collapses smoothly on scroll) */}
@@ -1090,6 +1094,8 @@ export default function PlatformClient({
             </div>
           )}
         </section>
+
+        <InstallSuggestion />
 
       </main>
 

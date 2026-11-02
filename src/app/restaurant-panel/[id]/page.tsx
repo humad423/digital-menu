@@ -7,7 +7,8 @@ import ImageUpload from '@/components/ImageUpload'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import dynamic from 'next/dynamic'
-import { Plus, Trash2, Edit, LogOut, X, Settings, Eye, Download, Share, Share2, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Edit, LogOut, X, Settings, Eye, Share, Share2, QrCode, ChevronUp, ChevronDown } from 'lucide-react'
+import InstallAppButton from '@/components/pwa/InstallAppButton'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getMainDomainMenuUrl } from '@/utils/url'
@@ -83,72 +84,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [showQrModal, setShowQrModal] = useState(false)
   const [todayVisits, setTodayVisits] = useState<number>(0)
   const [panelTab, setPanelTab] = useState<'items' | 'offers' | 'categories' | 'delivery'>('items')
-
-  // ── Partner PWA App Install State ─────────────────────────────
-  const [canInstallPwa, setCanInstallPwa] = useState(true)
-  const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(null)
-  const [showInstallModal, setShowInstallModal] = useState(false)
-  const [isIosDevice, setIsIosDevice] = useState(false)
-
-  useEffect(() => {
-    const isStandalone = typeof window !== 'undefined' && (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true ||
-      document.referrer.includes('android-app://')
-    )
-
-    // Hide install button ONLY inside installed app
-    if (isStandalone) {
-      setCanInstallPwa(false)
-      return
-    }
-
-    const ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
-    const isIos = /iphone|ipad|ipod/i.test(ua) && !(window as any).MSStream
-    setIsIosDevice(isIos)
-
-    // 1. Check if early captured beforeinstallprompt exists
-    if (typeof window !== 'undefined' && (window as any).deferredPwaPrompt) {
-      setDeferredPwaPrompt((window as any).deferredPwaPrompt)
-    }
-
-    // 2. Listen for beforeinstallprompt
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault()
-      ;(window as any).deferredPwaPrompt = e
-      setDeferredPwaPrompt(e)
-    }
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
-    }
-  }, [])
-
-  const handleInstallPartnerPwa = async () => {
-    if (isIosDevice) {
-      setShowInstallModal(true)
-      return
-    }
-
-    // Direct synchronous invocation inside user gesture
-    const promptObj = (typeof window !== 'undefined' ? (window as any).deferredPwaPrompt : null) || deferredPwaPrompt
-
-    if (promptObj) {
-      try {
-        await promptObj.prompt()
-        const { outcome } = await promptObj.userChoice
-        if (outcome === 'accepted') {
-          setCanInstallPwa(false)
-        }
-      } catch {
-        setShowInstallModal(true)
-      }
-    } else {
-      setShowInstallModal(true)
-    }
-  }
 
   // ── Sub-category State ─────────────────────────────────────────
   const [newCatName, setNewCatName] = useState('')
@@ -1008,16 +943,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
           {/* Action Pills Row (Scrollable on Mobile) */}
           <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-0.5 pb-0.5 -mx-1 px-1">
-            {canInstallPwa && (
-              <button
-                onClick={handleInstallPartnerPwa}
-                className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95"
-                title="تثبيت لوحة التحكم كتطبيق على هاتفك"
-              >
-                <Download size={13} />
-                <span>تثبيت التطبيق 📲</span>
-              </button>
-            )}
+            <InstallAppButton variant="panel" appName="لوحة الشريك" label="تثبيت التطبيق" />
 
             <button
               onClick={() => {
@@ -2060,54 +1986,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           onClose={() => setShowQrModal(false)}
           restaurant={restaurant}
         />
-      )}
-
-      {/* Device-Specific Install Guide Modal */}
-      {showInstallModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 dir-rtl animate-fade-in">
-          <div className="bg-slate-900 text-white rounded-3xl p-5 border border-slate-700 shadow-2xl max-w-sm w-full space-y-4 relative">
-            <button
-              onClick={() => setShowInstallModal(false)}
-              className="absolute top-3 left-3 p-1 text-slate-400 hover:text-white rounded-full bg-slate-800 cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-xl font-black shadow-md">
-              📲
-            </div>
-
-            {isIosDevice ? (
-              <>
-                <h3 className="font-black text-base text-white">تثبيت لوحة التحكم على آيفون</h3>
-                <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                  لتثبيت لوحة تحكم المطعم كتطبيق على شاشة هاتفك الرئيسية:
-                </p>
-                <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
-                  <p>1. اضغط على زر المشاركة <Share size={13} className="inline text-orange-400 mx-1" /> بالأسفل.</p>
-                  <p>2. اختر <span className="text-white underline font-black">&quot;إضافة إلى الشاشة الرئيسية ➕&quot;</span>.</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="font-black text-base text-white">ثبّت لوحة التحكم كتطبيق 📲</h3>
-                <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                  لتثبيت لوحة تحكم المطعم بنقرة واحدة على شاشة هاتفك:
-                </p>
-                <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700 text-xs font-bold space-y-2 text-slate-200">
-                  <p>1. اضغط على خيارات المتصفح <span className="text-orange-400 font-black">⋮</span> بأعلى شاشة Chrome.</p>
-                  <p>2. اختر <span className="text-white underline font-black">&quot;تثبيت التطبيق 📲&quot;</span> أو <span className="text-white underline font-black">&quot;إضافة إلى الشاشة الرئيسية ➕&quot;</span>.</p>
-                </div>
-              </>
-            )}
-
-            <button
-              onClick={() => setShowInstallModal(false)}
-              className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl cursor-pointer transition active:scale-95"
-            >
-              حسناً، فهمت
-            </button>
-          </div>
-        </div>
       )}
 
       {/* ── Quick Out-of-Stock Duration Selector Modal ── */}
