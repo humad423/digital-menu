@@ -25,6 +25,11 @@ function route(request: NextRequest): NextResponse {
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
 
+  // Sign-out lives at the same path on every host, so it must not be rewritten
+  if (pathname.startsWith('/auth/')) {
+    return NextResponse.next({ request })
+  }
+
   // 1. لوحة السوبر أدمن (Super Admin Domain: admin.alfsouq.com)
   if (isAdminHost(hostname)) {
     // The admin opens store panels on this host, where their session cookie lives
