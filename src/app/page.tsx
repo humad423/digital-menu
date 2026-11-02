@@ -2,7 +2,7 @@ import { getHomePageData } from '@/utils/menuCache'
 import PlatformClient from '@/components/PlatformClient'
 
 export default async function Home() {
-  const { restaurants, categories, ads, offers, serviceZones, businessTypes } = await getHomePageData()
+  const { restaurants, categories, ads, offers, businessTypes } = await getHomePageData()
 
   const restaurantsWithCats = restaurants.map(r => ({
     ...r,
@@ -15,7 +15,6 @@ export default async function Home() {
       categories={categories}
       ads={ads}
       offers={offers}
-      serviceZones={serviceZones}
       businessTypes={businessTypes}
     />
   )

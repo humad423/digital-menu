@@ -95,7 +95,7 @@ export const getHomePageData = cache(
   unstable_cache(
     async () => {
       const supabase = createPublicClient()
-      const [restaurants, categories, ads, offers, serviceZones, businessTypes] = await Promise.all([
+      const [restaurants, categories, ads, offers, businessTypes] = await Promise.all([
         supabase
           .from('restaurants')
           .select(
@@ -133,12 +133,6 @@ export const getHomePageData = cache(
           .limit(12),
 
         supabase
-          .from('service_zones')
-          .select('id, name, latitude, longitude, radius_km, is_active')
-          .eq('is_active', true)
-          .order('created_at', { ascending: true }),
-
-        supabase
           .from('business_types')
           .select('id, name, slug, icon, sort_order, is_active')
           .eq('is_active', true)
@@ -150,7 +144,6 @@ export const getHomePageData = cache(
         categories: dataOrThrow(categories) as any[],
         ads: dataOrThrow(ads) as any[],
         offers: (dataOrThrow(offers) as any[]).filter(offer => isStoreVisible(offer.restaurants)),
-        serviceZones: dataOrThrow(serviceZones) as any[],
         businessTypes: dataOrThrow(businessTypes) as any[],
       }
     },

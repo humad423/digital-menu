@@ -25,13 +25,12 @@ const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminIntera
 
 const TABS = [
   { key: 'restaurants', label: 'المتاجر', Icon: Store },
-  { key: 'qr_analytics', label: 'إحصائيات الـ QR 📊', Icon: QrCode },
+  { key: 'qr_analytics', label: 'إحصائيات الـ QR', Icon: QrCode },
   { key: 'offers', label: 'العروض والتخفيضات', Icon: Flame },
-  { key: 'business_types', label: 'أنواع الأنشطة 🏷️', Icon: Tag },
-  { key: 'legal', label: 'الخصوصية والشروط 📜', Icon: ShieldCheck },
-  { key: 'map', label: 'الخريطة التفاعلية 🗺️', Icon: MapIcon },
+  { key: 'business_types', label: 'أنواع الأنشطة', Icon: Tag },
+  { key: 'legal', label: 'الخصوصية والشروط', Icon: ShieldCheck },
+  { key: 'map', label: 'الخريطة التفاعلية', Icon: MapIcon },
   { key: 'categories', label: 'التصنيفات الفرعية', Icon: LayoutGrid },
-  { key: 'zones', label: 'المناطق الجغرافية', Icon: MapPin },
   { key: 'ads', label: 'الإعلانات', Icon: ImageIcon },
   { key: 'orders', label: 'الطلبات', Icon: ClipboardList },
 ] as const
@@ -44,7 +43,6 @@ export default function AdminDashboard() {
   const [platformAds, setPlatformAds] = useState<any[]>([])
   const [restaurantCategoryMap, setRestaurantCategoryMap] = useState<Record<string, string[]>>({})
   const [orders, setOrders] = useState<any[]>([])
-  const [serviceZones, setServiceZones] = useState<any[]>([])
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([])
   const [loading, setLoading] = useState(true)
   const [tabLoading, setTabLoading] = useState(false)
@@ -152,16 +150,6 @@ export default function AdminDashboard() {
     setTabLoading(false)
   }
 
-  const fetchZonesTab = async () => {
-    setTabLoading(true)
-    const zonesRes = await supabase
-      .from('service_zones')
-      .select('id, name, latitude, longitude, radius_km, is_active, created_at')
-      .order('created_at', { ascending: true })
-    if (zonesRes.data) setServiceZones(zonesRes.data)
-    setTabLoading(false)
-  }
-
   const fetchOrdersTab = async () => {
     setTabLoading(true)
     const ordRes = await supabase
@@ -175,12 +163,6 @@ export default function AdminDashboard() {
 
   const fetchMapTab = async () => {
     setTabLoading(true)
-    // restaurants already loaded from restaurants tab; just need zones
-    const zonesRes = await supabase
-      .from('service_zones')
-      .select('id, name, latitude, longitude, radius_km, is_active, created_at')
-      .order('created_at', { ascending: true })
-    if (zonesRes.data) setServiceZones(zonesRes.data)
     // also ensure ads loaded
     const adsRes = await supabase
       .from('platform_ads')
@@ -198,7 +180,6 @@ export default function AdminDashboard() {
     if (tab === 'offers') fetchOffersTab()
     else if (tab === 'ads') fetchAdsTab()
     else if (tab === 'categories') fetchCategoriesTab()
-    else if (tab === 'zones') fetchZonesTab()
     else if (tab === 'orders') fetchOrdersTab()
     else if (tab === 'map') fetchMapTab()
     // restaurants, qr_analytics, business_types, legal: use data already loaded
@@ -406,63 +387,6 @@ export default function AdminDashboard() {
       fetchCategoriesTab()
       triggerRevalidate(null, 'home')
     }
-  }
-
-  // ── Service Zones ────────────────────────────────────────────────
-  const [showZoneForm, setShowZoneForm] = useState(false)
-  const [editZoneId, setEditZoneId] = useState<string | null>(null)
-  const emptyZone = { name: '', latitude: '', longitude: '', radius_km: '15', is_active: true }
-  const [zoneForm, setZoneForm] = useState(emptyZone)
-  const [savingZone, setSavingZone] = useState(false)
-
-  const handleZoneSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSavingZone(true)
-    const payload = {
-      name: zoneForm.name.trim(),
-      latitude: parseFloat(zoneForm.latitude),
-      longitude: parseFloat(zoneForm.longitude),
-      radius_km: parseFloat(zoneForm.radius_km) || 15,
-      is_active: zoneForm.is_active
-    }
-    if (editZoneId) {
-      reportWriteResult(await supabase.from('service_zones').update(payload).eq('id', editZoneId))
-    } else {
-      reportWriteResult(await supabase.from('service_zones').insert([payload]))
-    }
-    setSavingZone(false)
-    setShowZoneForm(false)
-    setEditZoneId(null)
-    setZoneForm(emptyZone)
-    fetchZonesTab()
-    triggerRevalidate(null, 'home')
-  }
-
-  const handleEditZone = (z: any) => {
-    setEditZoneId(z.id)
-    setZoneForm({
-      name: z.name,
-      latitude: z.latitude.toString(),
-      longitude: z.longitude.toString(),
-      radius_km: z.radius_km.toString(),
-      is_active: z.is_active
-    })
-    setShowZoneForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const handleDeleteZone = async (id: string, name: string) => {
-    if (confirm(`هل أنت متأكد من حذف المنطقة الجغرافية "${name}"؟`)) {
-      reportWriteResult(await supabase.from('service_zones').delete().eq('id', id))
-      fetchZonesTab()
-      triggerRevalidate(null, 'home')
-    }
-  }
-
-  const toggleZoneActive = async (z: any) => {
-    reportWriteResult(await supabase.from('service_zones').update({ is_active: !z.is_active }).eq('id', z.id))
-    fetchZonesTab()
-    triggerRevalidate(null, 'home')
   }
 
   // ── Platform Ads ────────────────────────────────────────────────
@@ -1409,7 +1333,6 @@ export default function AdminDashboard() {
           <div className="">
             <AdminInteractiveMap
               restaurants={restaurants}
-              serviceZones={serviceZones}
               platformAds={platformAds}
             />
           </div>
@@ -1476,195 +1399,6 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════
-            SERVICE ZONES TAB
-        ══════════════════════════════════════ */}
-        {!loading && !tabLoading && activeTab === 'zones' && (
-          <div className="">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-lg font-black text-slate-800">المناطق الجغرافية والمسميات</h2>
-                <p className="text-sm text-muted font-medium mt-0.5">{serviceZones.length} منطقة معرفة في النظام</p>
-              </div>
-              <button
-                onClick={() => {
-                  setEditZoneId(null)
-                  setZoneForm(emptyZone)
-                  setShowZoneForm(!showZoneForm)
-                }}
-                className="btn btn-primary"
-              >
-                <Plus size={16} /> منطقة جديدة
-              </button>
-            </div>
-
-            {showZoneForm && (
-              <div className="c-card mb-6">
-                <div className="c-card-header">
-                  <h3 className="font-black text-slate-800">{editZoneId ? 'تعديل منطقة جغرافية' : 'إضافة منطقة جغرافية جديدة'}</h3>
-                  <button onClick={() => { setShowZoneForm(false); setEditZoneId(null) }} className="btn btn-ghost btn-sm"><X size={16} /></button>
-                </div>
-                <div className="c-card-body">
-                  <form onSubmit={handleZoneSubmit} className="space-y-4">
-                    <div>
-                      <label className="f-label">اسم المنطقة بالعربية (يظهر للزبون)</label>
-                      <input
-                        type="text"
-                        required
-                        value={zoneForm.name}
-                        onChange={e => setZoneForm({ ...zoneForm, name: e.target.value })}
-                        className="f-input"
-                        placeholder="مثال: شايروفا / كيبزة"
-                      />
-                    </div>
-
-                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
-                      <div>
-                        <label className="block text-sm text-muted font-bold mb-1">
-                          🔗 لصق الإحداثيات مباشرة أو رابط Google Maps
-                        </label>
-                        <input
-                          type="text"
-                          dir="ltr"
-                          placeholder="40.8167, 29.3750"
-                          onChange={e => {
-                            const val = e.target.value
-                            const match = val.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/)
-                            if (match) {
-                              setZoneForm(prev => ({ ...prev, latitude: match[1], longitude: match[2] }))
-                            }
-                          }}
-                          className="f-input text-left"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="f-label">خط العرض (Lat)</label>
-                          <input
-                            type="number"
-                            step="any"
-                            required
-                            value={zoneForm.latitude}
-                            onChange={e => setZoneForm({ ...zoneForm, latitude: e.target.value })}
-                            className="f-input"
-                            placeholder="40.8167"
-                          />
-                        </div>
-                        <div>
-                          <label className="f-label">خط الطول (Lng)</label>
-                          <input
-                            type="number"
-                            step="any"
-                            required
-                            value={zoneForm.longitude}
-                            onChange={e => setZoneForm({ ...zoneForm, longitude: e.target.value })}
-                            className="f-input"
-                            placeholder="29.3750"
-                          />
-                        </div>
-                        <div>
-                          <label className="f-label">نصف القطر (كم)</label>
-                          <input
-                            type="number"
-                            step="0.5"
-                            required
-                            min="0.5"
-                            value={zoneForm.radius_km}
-                            onChange={e => setZoneForm({ ...zoneForm, radius_km: e.target.value })}
-                            className="f-input"
-                            placeholder="15"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="zone_active"
-                        checked={zoneForm.is_active}
-                        onChange={e => setZoneForm({ ...zoneForm, is_active: e.target.checked })}
-                        className="w-4 h-4 text-brand rounded border-slate-300 focus:ring-orange-500"
-                      />
-                      <label htmlFor="zone_active" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
-                        تفعيل التغطية لهذه المنطقة
-                      </label>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-2">
-                      <button type="button" onClick={() => { setShowZoneForm(false); setEditZoneId(null) }} className="btn btn-ghost">إلغاء</button>
-                      <button type="submit" disabled={savingZone} className="btn btn-dark">
-                        {savingZone ? 'جاري الحفظ...' : editZoneId ? '💾 حفظ التعديلات' : '➕ إضافة المنطقة'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            <div className="c-card overflow-hidden">
-              {serviceZones.length === 0 ? (
-                <div className="text-center py-12 text-muted">
-                  <p className="text-4xl mb-2">📍</p>
-                  <p className="font-bold">لا توجد مناطق جغرافية بعد</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>اسم المنطقة</th>
-                        <th>خط العرض والطول</th>
-                        <th>نصف القطر</th>
-                        <th>الحالة</th>
-                        <th>الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {serviceZones.map(zone => (
-                        <tr key={zone.id}>
-                          <td className="font-black text-slate-900">{zone.name}</td>
-                          <td className="font-mono text-sm text-slate-600" dir="ltr">
-                            {zone.latitude}, {zone.longitude}
-                          </td>
-                          <td>
-                            <span className="badge badge-gray">{zone.radius_km} كم</span>
-                          </td>
-                          <td>
-                            <button
-                              onClick={() => toggleZoneActive(zone)}
-                              className={`badge cursor-pointer  ${zone.is_active ? 'badge-green' : 'badge-amber'}`}
-                            >
-                              {zone.is_active ? 'مفعّلة' : 'معطّلة'}
-                            </button>
-                          </td>
-                          <td>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleEditZone(zone)}
-                                className="btn btn-ghost btn-sm text-blue-600 border-blue-100 bg-blue-50 hover:bg-blue-100"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteZone(zone.id, zone.name)}
-                                className="btn btn-danger btn-sm"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
               )}
             </div>

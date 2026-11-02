@@ -15,13 +15,11 @@ declare global {
 
 interface AdminInteractiveMapProps {
   restaurants: any[]
-  serviceZones: any[]
   platformAds: any[]
 }
 
 export default function AdminInteractiveMap({
   restaurants = [],
-  serviceZones = [],
   platformAds = []
 }: AdminInteractiveMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -30,7 +28,6 @@ export default function AdminInteractiveMap({
 
   const [mounted, setMounted] = useState(false)
   const [showStores, setShowStores] = useState(true)
-  const [showZones, setShowZones] = useState(true)
   const [showAds, setShowAds] = useState(true)
   const [showAllRadiusCircles, setShowAllRadiusCircles] = useState(false)
   const [enabledCircleKeys, setEnabledCircleKeys] = useState<string[]>([])
@@ -38,12 +35,11 @@ export default function AdminInteractiveMap({
 
   // Filter items with valid coordinates
   const validStores = restaurants.filter(r => r.latitude && r.longitude && !isNaN(Number(r.latitude)) && !isNaN(Number(r.longitude)))
-  const validZones = serviceZones.filter(z => z.latitude && z.longitude && !isNaN(Number(z.latitude)) && !isNaN(Number(z.longitude)))
   const validAds = platformAds.filter(a => a.latitude && a.longitude && !isNaN(Number(a.latitude)) && !isNaN(Number(a.longitude)))
 
   // Calculate center
-  const defaultLat = validStores[0]?.latitude || validZones[0]?.latitude || 41.0082
-  const defaultLng = validStores[0]?.longitude || validZones[0]?.longitude || 28.9784
+  const defaultLat = validStores[0]?.latitude || 41.0082
+  const defaultLng = validStores[0]?.longitude || 28.9784
 
   useEffect(() => {
     setMounted(true)
@@ -130,90 +126,6 @@ export default function AdminInteractiveMap({
 
     layerGroup.clearLayers()
     const bounds: L.LatLngExpression[] = []
-
-    // 1. Render Service Zones
-    if (showZones) {
-      validZones.forEach(zone => {
-        const lat = Number(zone.latitude)
-        const lng = Number(zone.longitude)
-        const radiusKm = Number(zone.radius_km) || 15
-        const radiusMeters = radiusKm * 1000
-        const zoneKey = `zone-${zone.id}`
-        const isCircleEnabled = showAllRadiusCircles || enabledCircleKeys.includes(zoneKey)
-        bounds.push([lat, lng])
-
-        // Zone Circle (if enabled for this zone or all)
-        if (isCircleEnabled) {
-          L.circle([lat, lng], {
-            radius: radiusMeters,
-            color: '#2563EB',
-            fillColor: '#3B82F6',
-            fillOpacity: 0.22,
-            weight: 2.5,
-            dashArray: '6, 6'
-          }).addTo(layerGroup)
-        }
-
-        // Zone Marker Icon
-        const zoneIcon = L.divIcon({
-          className: 'custom-leaflet-zone-icon',
-          html: `
-            <div style="
-              background: ${isCircleEnabled ? '#1D4ED8' : '#2563EB'};
-              color: white;
-              padding: 4px 8px;
-              border-radius: 12px;
-              font-size: 11px;
-              font-weight: 900;
-              border: 2px solid white;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-              white-space: nowrap;
-              cursor: pointer;
-            ">
-              📍 ${zone.name} ${isCircleEnabled ? '⭕' : ''}
-            </div>
-          `,
-          iconSize: [110, 28],
-          iconAnchor: [55, 14]
-        })
-
-        const zoneMarker = L.marker([lat, lng], { icon: zoneIcon }).addTo(layerGroup)
-
-        zoneMarker.bindPopup(`
-          <div style="direction: rtl; font-family: inherit; text-align: right; min-width: 190px; padding: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px; font-weight: 900; color: #1E3A8A; font-size: 13px;">
-              📍 <span>منطقة: ${zone.name}</span>
-            </div>
-            <p style="margin-top: 4px; font-size: 11px; color: #4B5563; font-weight: 700;">
-              نطاق التغطية الجغرافية: <b>${radiusKm} كم (${radiusMeters.toLocaleString()} متر)</b>
-            </p>
-            <div style="margin-top: 4px; margin-bottom: 8px;">
-              <span style="background: ${zone.is_active ? '#DCFCE7' : '#FEE2E2'}; color: ${zone.is_active ? '#15803D' : '#B91C1C'}; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 12px;">
-                ${zone.is_active ? 'نشطة' : 'معطلة'}
-              </span>
-            </div>
-            <button
-              onclick="window.toggleMapItemCircle('${zoneKey}')"
-              style="
-                width: 100%;
-                padding: 6px 10px;
-                border-radius: 8px;
-                font-weight: 900;
-                font-size: 11px;
-                cursor: pointer;
-                font-family: inherit;
-                : all 0.2s;
-                background: ${isCircleEnabled ? '#FEF2F2' : '#EFF6FF'};
-                color: ${isCircleEnabled ? '#DC2626' : '#2563EB'};
-                border: 1.5px solid ${isCircleEnabled ? '#FECACA' : '#BFDBFE'};
-              "
-            >
-              ${isCircleEnabled ? 'إلغاء/إخفاء دائرة النطاق ✕' : 'رسم/إظهار دائرة النطاق ⭕ (' + radiusKm + ' كم)'}
-            </button>
-          </div>
-        `)
-      })
-    }
 
     // 2. Render Stores
     if (showStores) {
@@ -400,7 +312,7 @@ export default function AdminInteractiveMap({
     if (bounds.length > 0) {
       map.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [40, 40], maxZoom: 14 })
     }
-  }, [showStores, showZones, showAds, showAllRadiusCircles, enabledCircleKeys, restaurants, serviceZones, platformAds, isFullScreen])
+  }, [showStores, showAds, showAllRadiusCircles, enabledCircleKeys, restaurants, platformAds, isFullScreen])
 
   const mapContent = (
     <div
@@ -427,7 +339,7 @@ export default function AdminInteractiveMap({
               )}
             </h3>
             <p className="text-sm text-muted font-medium">
-              انقر على أي محل أو منطقة لتفعيل دائرة نطاقها المخصصة ⭕
+              انقر على أي محل لتفعيل دائرة نطاقها المخصصة ⭕
             </p>
           </div>
         </div>
@@ -460,18 +372,6 @@ export default function AdminInteractiveMap({
             }`}
           >
             <span>🏪 المتاجر ({validStores.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowZones(!showZones)}
-            className={`px-3 py-1.5 rounded-xl font-black  border flex items-center gap-1.5 cursor-pointer ${
-              showZones
-                ? 'bg-blue-600 text-white border-blue-600 '
-                : 'bg-slate-800 text-muted border-slate-700 hover:text-white'
-            }`}
-          >
-            <span>📍 المناطق الجغرافية ({validZones.length})</span>
           </button>
 
           <button
@@ -520,10 +420,6 @@ export default function AdminInteractiveMap({
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-brand border border-white" />
             <span>🏪 انقر على المتجر واستخدم زر رسم الدائرة</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-blue-500 border border-white" />
-            <span>📍 انقر على المنطقة واستخدم زر رسم الدائرة</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-amber-500 border border-white" />

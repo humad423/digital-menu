@@ -64,8 +64,8 @@ export function isStoreWithinRange(
   userLng: number,
   restaurant: any
 ): boolean {
-  // If no lat/lng set on restaurant → always show (not configured yet)
-  if (!restaurant.latitude || !restaurant.longitude) return true
+  // Without a position on the map we can't say it reaches anyone
+  if (!restaurant.latitude || !restaurant.longitude) return false
 
   const dist = calculateDistance(userLat, userLng, restaurant.latitude, restaurant.longitude)
 

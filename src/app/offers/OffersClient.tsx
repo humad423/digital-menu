@@ -35,8 +35,8 @@ export default function OffersClient({ offers, businessTypes }: { offers: any[];
   if (!userLoc) {
     return (
       <div className="notice notice-info space-y-3">
-        <p>حدد منطقتك أولاً لنعرض لك العروض القريبة منك.</p>
-        <Link href="/" className="btn btn-primary btn-block">تحديد منطقتي</Link>
+        <p>اسمح لنا بمعرفة موقعك لنعرض لك العروض القريبة منك.</p>
+        <Link href="/" className="btn btn-primary btn-block">تحديد موقعي</Link>
       </div>
     )
   }

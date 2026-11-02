@@ -67,7 +67,7 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
     if (!isOpen) return
     setStatus(getStoreStatus(restaurant))
 
-    // Delivery fee estimate comes from the exact position when shared, else the saved area
+    // Delivery fee estimate comes from the exact position when shared, else the last known one
     const from = position || readUserLocation()
     if (!isPickup && from && restaurant.latitude && restaurant.longitude) {
       const info = getDeliveryFeeForDistance(
