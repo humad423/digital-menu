@@ -258,11 +258,15 @@ body {
   background: #fff;
   border-bottom: 1px solid var(--color-line);
   display: flex;
+  /* One swipeable row on phones, so the tabs don't push the page down */
   overflow-x: auto;
+  scrollbar-width: thin;
   padding: 0 0.5rem;
-  scrollbar-width: none;
 }
-.dash-tab-bar::-webkit-scrollbar { display: none; }
+/* A mouse can't swipe, so on larger screens every tab shows */
+@media (min-width: 640px) {
+  .dash-tab-bar { flex-wrap: wrap; overflow-x: visible; }
+}
 
 .dash-tab {
   display: flex;
