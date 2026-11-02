@@ -67,17 +67,17 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
     if (!isOpen) return
     setStatus(getStoreStatus(restaurant))
 
-    // Delivery fee estimate comes from the visitor's saved area or GPS
-    const saved = readUserLocation()
-    if (!isPickup && saved && restaurant.latitude && restaurant.longitude) {
+    // Delivery fee estimate comes from the exact position when shared, else the saved area
+    const from = position || readUserLocation()
+    if (!isPickup && from && restaurant.latitude && restaurant.longitude) {
       const info = getDeliveryFeeForDistance(
-        calculateDistance(saved.lat, saved.lng, Number(restaurant.latitude), Number(restaurant.longitude)),
+        calculateDistance(from.lat, from.lng, Number(restaurant.latitude), Number(restaurant.longitude)),
         restaurant.delivery_tiers,
         restaurant.delivery_radius_km
       )
       setEstimate({ fee: info.available && info.hasTiers ? info.fee : null, outOfRange: !info.available })
     }
-  }, [isOpen, isPickup, restaurant])
+  }, [isOpen, isPickup, restaurant, position])
 
   // Ask for the exact location when the cart opens, so sending stays instant.
   // Browsers block new tabs opened after a delay, so the send button can't wait for GPS.

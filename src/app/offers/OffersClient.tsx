@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Search } from 'lucide-react'
 import OfferCard from '@/components/OfferCard'
 import { isStoreWithinRange } from '@/utils/distance'
@@ -14,9 +15,11 @@ export default function OffersClient({ offers, businessTypes }: { offers: any[];
   const [selectedType, setSelectedType] = useState('all')
   const [visibleCount, setVisibleCount] = useState(OFFERS_PER_BATCH)
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationChecked, setLocationChecked] = useState(false)
 
   useEffect(() => {
     setUserLoc(readUserLocation())
+    setLocationChecked(true)
   }, [])
 
   const filtered = offers.filter(offer => {
@@ -24,8 +27,19 @@ export default function OffersClient({ offers, businessTypes }: { offers: any[];
     if (!store) return false
     if (selectedType !== 'all' && store.store_type !== selectedType) return false
     if (!matchesSearch(query, offer.title, store.name)) return false
-    return !userLoc || isStoreWithinRange(userLoc.lat, userLoc.lng, store)
+    return !!userLoc && isStoreWithinRange(userLoc.lat, userLoc.lng, store)
   })
+
+  if (!locationChecked) return null
+
+  if (!userLoc) {
+    return (
+      <div className="notice notice-info space-y-3">
+        <p>حدد منطقتك أولاً لنعرض لك العروض القريبة منك.</p>
+        <Link href="/" className="btn btn-primary btn-block">تحديد منطقتي</Link>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">

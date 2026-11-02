@@ -14,6 +14,7 @@ import { calculateDistance, isStoreWithinRange } from '@/utils/distance'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { trackEvent } from '@/utils/analytics'
 import { matchesSearch } from '@/utils/text'
+import { zonesForCustomer } from '@/utils/zones'
 import { supportWhatsappUrl } from '@/config/site'
 import {
   getPositionIfPermitted,
@@ -77,7 +78,8 @@ export default function PlatformClient({
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState('')
   const [movedTo, setMovedTo] = useState<{ lat: number; lng: number } | null>(null)
-  const [browseAll, setBrowseAll] = useState(false)
+  // Where the phone actually is, known only when GPS confirmed it
+  const [gpsPosition, setGpsPosition] = useState<{ lat: number; lng: number } | null>(null)
   const userLoc = location ? { lat: location.lat, lng: location.lng } : null
 
   const applyGpsPosition = useCallback((pos: { lat: number; lng: number }) => {
@@ -87,8 +89,8 @@ export default function PlatformClient({
       .sort((a: any, b: any) => a.dist - b.dist)[0]
 
     setLocation(saveUserLocation({ ...pos, area: zone?.name, source: 'gps' }))
+    setGpsPosition(pos)
     setMovedTo(null)
-    setBrowseAll(false)
     setShowLocationSheet(false)
   }, [serviceZones])
 
@@ -110,7 +112,6 @@ export default function PlatformClient({
     }))
     setLocationError('')
     setMovedTo(null)
-    setBrowseAll(false)
     setShowLocationSheet(false)
   }
 
@@ -119,12 +120,14 @@ export default function PlatformClient({
 
     const saved = readUserLocation()
     setLocation(saved)
+    if (saved?.source === 'gps') setGpsPosition({ lat: saved.lat, lng: saved.lng })
     setLocationReady(true)
 
     // Without a prompt, see if the visitor moved. GPS-based locations just follow them;
     // a zone they picked by hand stays until they choose to change it.
     getPositionIfPermitted().then(pos => {
       if (!pos) return
+      setGpsPosition(pos)
       if (!saved || saved.source === 'gps') {
         applyGpsPosition(pos)
       } else if (
@@ -146,7 +149,9 @@ export default function PlatformClient({
     return <div className="min-h-screen bg-page" />
   }
 
-  if (!locating && !isInCoverage && !browseAll) {
+  if (!locating && !isInCoverage) {
+    const hasNearbyZone = zonesForCustomer(activeZones, gpsPosition).length > 0
+
     return (
       <div dir="rtl" className="min-h-screen flex flex-col bg-page">
         <header className="site-header">
@@ -157,7 +162,9 @@ export default function PlatformClient({
           {location ? (
             <div>
               <h1 className="text-2xl font-black leading-snug">ألف سوق غير متوفر في منطقتك بعد</h1>
-              <p className="text-muted font-medium mt-1">نعمل على الوصول إلى مناطق جديدة. يمكنك اختيار منطقة أخرى أو تصفح كل المتاجر.</p>
+              <p className="text-muted font-medium mt-1">
+                {hasNearbyZone ? 'يمكنك اختيار منطقة قريبة منك من القائمة.' : 'نعمل على الوصول إلى مناطق جديدة.'}
+              </p>
             </div>
           ) : (
             <div>
@@ -168,11 +175,7 @@ export default function PlatformClient({
 
           {locationError && <p className="notice notice-bad">{locationError}</p>}
 
-          <LocationPicker zones={activeZones} locating={locating} onUseGps={requestLocation} onSelectZone={selectZone} />
-
-          <button onClick={() => setBrowseAll(true)} className="btn btn-secondary btn-block">
-            تصفح كل المتاجر
-          </button>
+          <LocationPicker zones={activeZones} gpsPosition={gpsPosition} locating={locating} onUseGps={requestLocation} onSelectZone={selectZone} />
 
           <p className="text-center">
             <a href={supportWhatsappUrl('مرحباً، أرغب في إضافة متجري إلى منصة ألف سوق')} target="_blank" rel="noopener noreferrer" className="font-bold text-brand underline">
@@ -194,7 +197,7 @@ export default function PlatformClient({
   }))
 
   const nearbyStores = storesWithDistance.filter(r =>
-    browseAll || !userLoc || isStoreWithinRange(userLoc.lat, userLoc.lng, r)
+    !userLoc || isStoreWithinRange(userLoc.lat, userLoc.lng, r)
   )
   const nearbyIds = new Set(nearbyStores.map(r => r.id))
 
@@ -233,7 +236,7 @@ export default function PlatformClient({
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <p className="font-bold flex items-center gap-1.5 min-w-0">
             <MapPin size={18} className="text-brand shrink-0" />
-            <span>{browseAll ? 'كل المتاجر' : location?.area || 'موقعي الحالي'}</span>
+            <span>{location?.area || 'موقعي الحالي'}</span>
           </p>
           <button onClick={() => setShowLocationSheet(true)} className="btn btn-secondary btn-sm">
             تغيير المنطقة
@@ -376,7 +379,7 @@ export default function PlatformClient({
       {showLocationSheet && (
         <LocationSheet onClose={() => setShowLocationSheet(false)}>
           {locationError && <p className="notice notice-bad">{locationError}</p>}
-          <LocationPicker zones={activeZones} locating={locating} onUseGps={requestLocation} onSelectZone={selectZone} />
+          <LocationPicker zones={activeZones} gpsPosition={gpsPosition} locating={locating} onUseGps={requestLocation} onSelectZone={selectZone} />
         </LocationSheet>
       )}
 
