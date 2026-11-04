@@ -20,6 +20,11 @@ function isStoreVisible(store: any): boolean {
   return store?.is_subscription_active !== false && store?.is_menu_active !== false
 }
 
+// A hidden store keeps its direct link, but stays off the home page and the offers page
+function isStoreListed(store: any): boolean {
+  return isStoreVisible(store) && store?.show_on_home !== false
+}
+
 function dataOrThrow<T>({ data, error }: { data: T; error: { message: string } | null }): T {
   // Throwing keeps a failed query out of the cache
   if (error) throw new Error(error.message)
@@ -37,7 +42,7 @@ export const getRestaurantBySlug = cache((slug: string): Promise<any> =>
             'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
             'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
             'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, days_off, ' +
-            'store_type, menu_note, is_subscription_active, is_menu_active'
+            'store_type, menu_note, is_subscription_active, is_menu_active, show_on_home'
           )
           .eq('slug', slug)
           .maybeSingle()
@@ -101,7 +106,7 @@ export const getHomePageData = cache(
           .select(
             'id, name, slug, logo_url, cover_url, store_type, primary_color, created_at, ' +
             'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, days_off, ' +
-            'latitude, longitude, delivery_radius_km, delivery_tiers, is_subscription_active, is_menu_active, ' +
+            'latitude, longitude, delivery_radius_km, delivery_tiers, is_subscription_active, is_menu_active, show_on_home, ' +
             'restaurant_platform_categories(platform_category_id)'
           )
           .order('created_at', { ascending: false }),
@@ -121,7 +126,7 @@ export const getHomePageData = cache(
           .from('offers')
           .select(
             OFFER_COLUMNS + ', ' +
-            'restaurants(id, name, slug, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_subscription_active, is_menu_active), ' +
+            'restaurants(id, name, slug, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_subscription_active, is_menu_active, show_on_home), ' +
             'primary_item:menu_items!primary_item_id(image_url), ' +
             'bonus_item:menu_items!bonus_item_id(image_url), ' +
             'item3:menu_items!item3_id(image_url), ' +
@@ -140,10 +145,10 @@ export const getHomePageData = cache(
       ])
 
       return {
-        restaurants: (dataOrThrow(restaurants) as any[]).filter(isStoreVisible),
+        restaurants: (dataOrThrow(restaurants) as any[]).filter(isStoreListed),
         categories: dataOrThrow(categories) as any[],
         ads: dataOrThrow(ads) as any[],
-        offers: (dataOrThrow(offers) as any[]).filter(offer => isStoreVisible(offer.restaurants)),
+        offers: (dataOrThrow(offers) as any[]).filter(offer => isStoreListed(offer.restaurants)),
         businessTypes: dataOrThrow(businessTypes) as any[],
       }
     },
@@ -161,7 +166,7 @@ export const getOffersPageData = cache(
           .from('offers')
           .select(
             OFFER_COLUMNS + ', ' +
-            'restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_subscription_active, is_menu_active), ' +
+            'restaurants(id, name, slug, store_type, latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, is_subscription_active, is_menu_active, show_on_home), ' +
             'primary_item:menu_items!primary_item_id(image_url), ' +
             'bonus_item:menu_items!bonus_item_id(image_url), ' +
             'item3:menu_items!item3_id(image_url), ' +
@@ -179,7 +184,7 @@ export const getOffersPageData = cache(
       ])
 
       return {
-        offers: (dataOrThrow(offers) as any[]).filter(offer => isStoreVisible(offer.restaurants)),
+        offers: (dataOrThrow(offers) as any[]).filter(offer => isStoreListed(offer.restaurants)),
         businessTypes: dataOrThrow(businessTypes) as any[],
       }
     },

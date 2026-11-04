@@ -38,6 +38,9 @@ export default async function RestaurantLayout({
 
   if (!restaurant) notFound()
 
+  // A store hidden from the home page gets its own customers, so it doesn't send them to other stores
+  const isListed = restaurant.show_on_home !== false
+
   const whatsappUrl = `https://wa.me/${(restaurant.whatsapp_number || '').replace(/\D/g, '')}`
 
   // A store is hidden when the admin suspends its menu or its subscription ends
@@ -48,7 +51,7 @@ export default async function RestaurantLayout({
           <h1 className="text-2xl font-black">{restaurant.name}</h1>
           <p className="notice notice-warn">هذا المتجر غير متاح حالياً على ألف سوق.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Link href="/" className="btn btn-primary">تصفح المتاجر الأخرى</Link>
+            {isListed && <Link href="/" className="btn btn-primary">تصفح المتاجر الأخرى</Link>}
             {restaurant.whatsapp_number && (
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
                 مراسلة المتجر على واتساب
@@ -68,12 +71,14 @@ export default async function RestaurantLayout({
       <MenuQrTracker restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
 
       <header className="bg-white border-b border-line">
-        <div className="page-narrow py-3">
-          <Link href="/" className="btn btn-secondary btn-sm">
-            <ArrowRight size={18} />
-            <span>كل المتاجر</span>
-          </Link>
-        </div>
+        {isListed && (
+          <div className="page-narrow py-3">
+            <Link href="/" className="btn btn-secondary btn-sm">
+              <ArrowRight size={18} />
+              <span>كل المتاجر</span>
+            </Link>
+          </div>
+        )}
 
         {restaurant.cover_url && (
           <div className="page-narrow">

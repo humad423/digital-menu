@@ -400,6 +400,7 @@ export type Database = {
           opening_time: string | null
           phone: string | null
           primary_color: string | null
+          show_on_home: boolean
           slug: string
           store_type: string | null
           subscription_notes: string | null
@@ -428,6 +429,7 @@ export type Database = {
           opening_time?: string | null
           phone?: string | null
           primary_color?: string | null
+          show_on_home?: boolean
           slug: string
           store_type?: string | null
           subscription_notes?: string | null
@@ -456,6 +458,7 @@ export type Database = {
           opening_time?: string | null
           phone?: string | null
           primary_color?: string | null
+          show_on_home?: boolean
           slug?: string
           store_type?: string | null
           subscription_notes?: string | null
