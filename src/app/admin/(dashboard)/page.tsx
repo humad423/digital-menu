@@ -267,6 +267,25 @@ export default function AdminDashboard() {
   const handleResSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSavingRes(true)
+    // A number manages one store, so saving it here would take it away from any other store
+    const newOwnerPhone = normalizePhoneNumber(resForm.owner_phone)
+    if (newOwnerPhone) {
+      const { data: currentOwner, error: ownerError } = await supabase
+        .from('profiles')
+        .select('restaurant_id, restaurants(name)')
+        .eq('phone', newOwnerPhone)
+        .maybeSingle()
+      if (ownerError) { notifyError('تعذر التحقق من رقم صاحب المتجر'); setSavingRes(false); return }
+
+      if (currentOwner?.restaurant_id && currentOwner.restaurant_id !== editResId) {
+        const otherStore = (currentOwner.restaurants as unknown as { name: string } | null)?.name || 'متجر آخر'
+        const moveOwner = confirm(
+          `هذا الرقم مربوط حالياً بـ "${otherStore}".\n\nإذا تابعت، سينتقل الرقم إلى هذا المتجر، ولن يستطيع صاحبه دخول لوحة "${otherStore}".\n\nهل تريد المتابعة؟`
+        )
+        if (!moveOwner) { setSavingRes(false); return }
+      }
+    }
+
     const cleanWhatsapp = normalizePhoneNumber(resForm.whatsapp_number)
     const payload = {
       name: resForm.name, slug: resForm.slug, primary_color: resForm.primary_color,
