@@ -495,6 +495,19 @@ export function decide(ctx: Context, parsed: Parsed): Decision {
   return { reply: null, actions, pending: null }
 }
 
+/**
+ * Store owners are recognised from the site's own records, the same way they log in.
+ * Extra rows can add a store for a number, or switch the assistant off for one.
+ */
+export function allowedStoreIds(ownedIds: (string | null)[], overrides: { store_id: string; enabled: boolean }[]): string[] {
+  const allowed = new Set(ownedIds.filter((id): id is string => !!id))
+  for (const { store_id, enabled } of overrides) {
+    if (enabled) allowed.add(store_id)
+    else allowed.delete(store_id)
+  }
+  return [...allowed]
+}
+
 function editDistance(a: string, b: string): number {
   let row = Array.from({ length: b.length + 1 }, (_, i) => i)
   for (let i = 1; i <= a.length; i++) {

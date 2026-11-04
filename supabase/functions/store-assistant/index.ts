@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import {
   FALLBACK, HISTORY_SAVED, OUTPUT_SCHEMA, PENDING_MINUTES, SYSTEM_INSTRUCTION, UNITS, UPLOADED_IMAGE,
-  buildInput, decide, describeDone, normalizeName, pickStore, readMessage,
+  allowedStoreIds, buildInput, decide, describeDone, normalizeName, pickStore, readMessage,
   type Action, type Context, type Decision, type HistoryEntry, type Parsed, type Pending, type Product,
 } from './logic.ts'
 
@@ -244,16 +244,30 @@ async function handleMessage(body: unknown) {
   const phone = message.phone || (message.lid ? await resolveLid(message.session, message.lid) : null)
   if (!phone) return { reply: null, ignored: 'real number not found' }
 
-  // Numbers that aren't enabled get no reply at all
-  const { data: links } = await db.from('assistant_numbers').select('store_id').eq('phone', phone).eq('enabled', true)
-  if (!links?.length) return { reply: null, ignored: 'number not enabled' }
+  // Store owners are recognised automatically. Anyone else gets no reply at all.
+  const e164 = `+${phone}`
+  const [{ data: owners }, { data: ownStores }, { data: overrides }] = await Promise.all([
+    db.from('profiles').select('restaurant_id').eq('phone', e164).eq('role', 'restaurant_owner'),
+    db.from('restaurants').select('id').eq('whatsapp_number', e164),
+    db.from('assistant_numbers').select('store_id, enabled').eq('phone', phone),
+  ])
+  const storeIds = allowedStoreIds(
+    [...(owners || []).map(owner => owner.restaurant_id), ...(ownStores || []).map(store => store.id)],
+    overrides || [],
+  )
+  if (storeIds.length === 0) return { reply: null, ignored: 'not a store owner' }
+
   const to = `${phone}@c.us`
   const answer = (reply: string) => ({ reply, chatId: to, session: message.session })
 
-  const { data: stores } = await db.from('restaurants')
-    .select('id, name, slug, store_type, max_offers_limit')
-    .in('id', links.map(link => link.store_id))
-  if (!stores?.length) return { reply: null, ignored: 'store not found' }
+  const { data: found } = await db.from('restaurants')
+    .select('id, name, slug, store_type, max_offers_limit, is_subscription_active')
+    .in('id', storeIds)
+  if (!found?.length) return { reply: null, ignored: 'store not found' }
+
+  // Same rule as the store panel: a suspended subscription can't edit
+  const stores = found.filter(store => store.is_subscription_active !== false)
+  if (stores.length === 0) return answer('اشتراك متجرك متوقف. تواصل مع الإدارة لتجديده.')
 
   const { data: chat } = await db.from('assistant_chats').select('*').eq('phone', phone).maybeSingle()
   const expired = chat?.pending_at && Date.now() - new Date(chat.pending_at).getTime() > PENDING_MINUTES * 60_000

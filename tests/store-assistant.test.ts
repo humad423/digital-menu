@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  UPLOADED_IMAGE, buildInput, decide, describeDone, normalizeName, pickStore, readMessage,
+  UPLOADED_IMAGE, allowedStoreIds, buildInput, decide, describeDone, normalizeName, pickStore, readMessage,
   type Context, type Pending,
 } from '../supabase/functions/store-assistant/logic.ts'
 
@@ -179,6 +179,25 @@ describe('offers', () => {
     const decision = decide(ctx({ offerCount: 5 }), parsed('add_offer', [offer()]))
     assert.equal(decision.actions.length, 0)
     assert.match(decision.reply!, /حد العروض/)
+  })
+})
+
+describe('recognising store owners', () => {
+  test('an owner is recognised with no extra setup', () => {
+    assert.deepEqual(allowedStoreIds(['a'], []), ['a'])
+  })
+
+  test('the same store found twice counts once', () => {
+    assert.deepEqual(allowedStoreIds(['a', 'a', null], []), ['a'])
+  })
+
+  test('someone with no store gets nothing', () => {
+    assert.deepEqual(allowedStoreIds([null], []), [])
+  })
+
+  test('a store can be added for a number, or switched off', () => {
+    assert.deepEqual(allowedStoreIds(['a'], [{ store_id: 'b', enabled: true }]), ['a', 'b'])
+    assert.deepEqual(allowedStoreIds(['a'], [{ store_id: 'a', enabled: false }]), [])
   })
 })
 
