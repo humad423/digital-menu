@@ -1,28 +1,21 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  UPLOADED_IMAGE, allowedStoreIds, buildInput, decide, describeDone, normalizeName, pickStore, readMessage,
-  type Context, type Pending,
+  PHOTO, allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
+  type Context, type Step, type StoreRecord,
 } from '../supabase/functions/store-assistant/logic.ts'
 
-const products = [
-  { code: 'P1', id: 'item-1', name: 'بندورة حمرا', price: 35, unit: 'kg', original_price: null, image_url: null },
-  { code: 'P2', id: 'item-2', name: 'بندورة كرزية', price: 60, unit: 'kg', original_price: null, image_url: null },
-  { code: 'P3', id: 'item-3', name: 'خبز', price: 10, unit: 'piece', original_price: null, image_url: 'bread.jpg' },
+const store = { id: 'store', name: 'متجر', slug: 'store', store_type: 'restaurant', max_offers_limit: 5, subscription_notes: 'سري', phone: '905000000000' }
+const records: StoreRecord[] = [
+  { code: 'S', table: 'restaurants', id: 'store', row: store },
+  { code: 'C1', table: 'categories', id: 'cat-1', row: { name: 'خضار' } },
+  { code: 'C2', table: 'categories', id: 'cat-2', row: { name: 'مخبوزات' } },
+  { code: 'P1', table: 'menu_items', id: 'item-1', row: { name: 'بندورة حمرا', price: 35, unit: 'kg', category_id: 'cat-1' } },
+  { code: 'P2', table: 'menu_items', id: 'item-2', row: { name: 'بندورة كرزية', price: 60, unit: 'kg', category_id: 'cat-1' } },
+  { code: 'P3', table: 'menu_items', id: 'item-3', row: { name: 'خبز', price: 10, unit: 'piece', category_id: 'cat-2', image_url: 'bread.jpg', images: ['bread.jpg'] } },
 ]
-const categories = [{ code: 'C1', id: 'cat-1', name: 'خضار' }, { code: 'C2', id: 'cat-2', name: 'مخبوزات' }]
 
-const ctx = (changes: Partial<Context> = {}): Context => ({
-  store: { id: 'store', name: 'متجر', slug: 'store', store_type: 'restaurant', max_offers_limit: 5 },
-  products,
-  categories,
-  pending: null,
-  hasImage: false,
-  offerCount: 0,
-  ...changes,
-})
-const change = (fields = {}) => ({ said_name: 'بندره', product: 'P1', possible: [], price: 40, before_price: null, unit: null, category: null, ...fields })
-const parsed = (intent: string, changes: unknown[] = [], reply = 'رد طبيعي') => ({ heard: 'x', intent, changes, reply })
+const ctx = (changes: Partial<Context> = {}): Context => ({ store, records: records.map(record => ({ ...record })), photo: null, ...changes })
 
 describe('reading WAHA messages', () => {
   const now = 1_800_000_000
@@ -41,7 +34,7 @@ describe('reading WAHA messages', () => {
   test('finds the real number behind @lid when it is sent', () => {
     const message = readMessage(body({ from: '1@lid', _data: { Info: { SenderAlt: '905000000000:12@s.whatsapp.net' } } }), now) as any
     assert.equal(message.phone, '905000000000')
-    assert.equal(readMessage(body({ from: '1@lid' }), now).lid, '1@lid')
+    assert.equal((readMessage(body({ from: '1@lid' }), now) as any).lid, '1@lid')
   })
 
   test('ignores the bot, groups, statuses, old messages and other events', () => {
@@ -59,126 +52,176 @@ describe('reading WAHA messages', () => {
   })
 })
 
-describe('changing prices', () => {
-  test('a clear change saves straight away, without asking', () => {
-    const decision = decide(ctx(), parsed('update_price', [change()]))
-    assert.deepEqual(decision.actions, [{ type: 'update_price', id: 'item-1', name: 'بندورة حمرا', said: 'بندره', price: 40 }])
-    assert.equal(decision.reply, null)
-    assert.equal(decision.pending, null)
-    assert.equal(describeDone(decision.actions), 'تمام، عدلت بندورة حمرا لـ40 ₺ 👍')
+describe('keeping the agent inside its own shop', () => {
+  test('it can change any field it decides to', () => {
+    assert.deepEqual(checkAction(ctx(), { op: 'update', record: 'P1', said_name: 'بندره', fields: { price: 40, description: 'طازة' } }).step, {
+      op: 'update', table: 'menu_items', id: 'item-1', code: 'P1', label: 'بندورة حمرا', said: 'بندره', fields: { price: 40, description: 'طازة' }, before: { price: 35, description: null },
+    })
+    assert.ok(checkAction(ctx(), { op: 'update', record: 'S', fields: { closing_time: '22:00', holiday_message: 'راجعين السبت' } }).step)
   })
 
-  test('a very different price asks first, then saves on yes', () => {
-    const decision = decide(ctx(), parsed('update_price', [change({ price: 400 })]))
-    assert.equal(decision.actions.length, 0)
-    assert.match(decision.reply!, /كان 35 ₺، أكيد بدك تخليه 400 ₺/)
-    const yes = decide(ctx({ pending: decision.pending }), parsed('confirm'))
-    assert.equal((yes.actions[0] as any).price, 400)
-    assert.equal(yes.pending, null)
+  test('there are no price rules: the model\'s judgement decides', () => {
+    assert.ok(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 3500 } }).step)
   })
 
-  test('unsure between two products asks which one', () => {
-    const decision = decide(ctx(), parsed('update_price', [change({ product: null, possible: ['P1', 'P2'] })]))
-    assert.equal(decision.reply, 'قصدك بندورة حمرا ولا بندورة كرزية؟')
-    assert.equal(decision.actions.length, 0)
+  test('a shop cannot be created or deleted', () => {
+    assert.match(checkAction(ctx(), { op: 'add', table: 'restaurants', fields: { name: 'x' } }).problem!, /cannot create a shop/)
+    assert.match(checkAction(ctx(), { op: 'delete', record: 'S' }).problem!, /cannot delete a shop/)
   })
 
-  test('one close guess asks before saving', () => {
-    const decision = decide(ctx(), parsed('update_price', [change({ product: null, possible: ['P1'] })]))
-    assert.match(decision.reply!, /قصدك بندورة حمرا/)
-    assert.equal(decision.actions.length, 0)
-    assert.equal(decision.pending!.type, 'confirm_prices')
+  test('another shop\'s records are out of reach', () => {
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P99', fields: { price: 1 } }).problem!, /not a record/)
+    assert.match(checkAction(ctx(), { op: 'delete', record: 'other-store-item' }).problem!, /not a record/)
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { category_id: 'other-store-category' } }).problem!, /not part of this shop/)
+    assert.match(checkAction(ctx(), { op: 'add', table: 'offers', fields: { title: 'x', offer_price: 1, primary_item_id: 'other-store-item' } }).problem!, /not part of this shop/)
   })
 
-  test('a missing price asks in the model\'s natural words', () => {
-    const decision = decide(ctx(), parsed('update_price', [change({ price: null })], 'قديش صار سعرها؟'))
-    assert.equal(decision.reply, 'قديش صار سعرها؟')
+  test('a record cannot be moved to another shop or given a new identity', () => {
+    const { step } = checkAction(ctx(), { op: 'update', record: 'C1', fields: { name: 'جديد', restaurant_id: 'other-store', id: 'x', created_at: 'y' } }) as any
+    assert.deepEqual(step.fields, { name: 'جديد' })
+    const added = checkAction(ctx(), { op: 'add', table: 'offers', fields: { title: 'x', offer_price: 1, restaurant_id: 'other-store' } }).step as any
+    assert.deepEqual(added.fields, { title: 'x', offer_price: 1 })
   })
 
-  test('the same price changes nothing', () => {
-    const decision = decide(ctx(), parsed('update_price', [change({ price: 35 })]))
-    assert.equal(decision.actions.length, 0)
-    assert.match(decision.reply!, /هو نفسه/)
+  test('only tables of the shop can be used', () => {
+    for (const table of ['profiles', 'orders', 'assistant_numbers']) {
+      assert.match(checkAction(ctx(), { op: 'add', table, fields: { role: 'admin' } }).problem!, /not something you can add to/)
+    }
   })
 
-  test('a code outside this store is not trusted', () => {
-    const decision = decide(ctx(), parsed('update_price', [change({ said_name: 'شي', product: 'P99', price: 20 })]))
-    assert.equal(decision.actions.length, 0)
-    assert.match(decision.reply!, /ما لقيت شي بمنتجاتك/)
+  test('what the panel keeps for admins stays out of reach', () => {
+    for (const key of ['slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type']) {
+      assert.match(checkAction(ctx(), { op: 'update', record: 'S', fields: { [key]: true } }).problem!, /belongs to the Alfsouq team/)
+    }
   })
 
-  test('several clear changes save together, and an unknown one is asked about', () => {
-    const decision = decide(ctx(), parsed('update_price', [change(), change({ said_name: 'بطاطا', product: null, price: 20 })]))
-    assert.equal(decision.actions.length, 1)
-    assert.match(decision.reply!, /ما لقيت بطاطا/)
-    assert.equal(decision.pending!.type, 'offer_new_product')
-  })
-})
-
-describe('adding a product', () => {
-  const add = (fields = {}) => change({ said_name: 'بطاطا', product: null, price: 20, category: 'C1', ...fields })
-
-  test('asks once for a photo, and adds without one when told', () => {
-    const asked = decide(ctx(), parsed('add_product', [add()]))
-    assert.match(asked.reply!, /صورة لـبطاطا/)
-    const skipped = decide(ctx({ pending: asked.pending }), parsed('skip_image'))
-    assert.equal(skipped.actions[0].type, 'add_product')
-    assert.equal((skipped.actions[0] as any).image_url, null)
+  test('the shop\'s offer limit holds, as it does in the panel', () => {
+    const offers = Array.from({ length: 5 }, (_, i) => ({ code: `O${i + 1}`, table: 'offers' as const, id: `o${i}`, row: { title: 'x' } }))
+    assert.match(checkAction(ctx({ records: [...records, ...offers] }), { op: 'add', table: 'offers', fields: { title: 'x', offer_price: 1 } }).problem!, /limit of 5/)
+    assert.ok(checkAction(ctx(), { op: 'add', table: 'offers', fields: { title: 'x', offer_price: 1, primary_item_id: 'P1' } }).step)
   })
 
-  test('a photo completes it', () => {
-    const asked = decide(ctx(), parsed('add_product', [add()]))
-    const done = decide(ctx({ pending: asked.pending, hasImage: true }), parsed('chat'))
-    assert.equal((done.actions[0] as any).image_url, UPLOADED_IMAGE)
+  test('codes become real ids, and a record added earlier can be used by its ref', () => {
+    const added = checkAction(ctx(), { op: 'add', table: 'menu_items', fields: { name: 'بطاطا', price: 20, category_id: 'C2' } }).step as any
+    assert.equal(added.fields.category_id, 'cat-2')
+
+    const context = ctx()
+    const category = checkAction(context, { op: 'add', table: 'categories', ref: 'N1', fields: { name: 'مشروبات' } }).step!
+    applyToContext(context, category, { id: 'new-cat', name: 'مشروبات' })
+    const product = checkAction(context, { op: 'add', table: 'menu_items', fields: { name: 'عصير', price: 5, category_id: 'N1' } }).step as any
+    assert.equal(product.fields.category_id, 'new-cat')
   })
 
-  test('asks only for what is missing, in order', () => {
-    const noPrice = decide(ctx(), parsed('add_product', [add({ price: null })]))
-    assert.match(noPrice.reply!, /قديش سعر بطاطا/)
-    const withPrice = decide(ctx({ pending: noPrice.pending }), parsed('update_price', [change({ said_name: '', product: null, price: 20 })]))
-    assert.match(withPrice.reply!, /صورة/)
+  test('later actions see what earlier ones changed', () => {
+    const context = ctx()
+    const step = checkAction(context, { op: 'update', record: 'P1', fields: { price: 40 } }).step!
+    applyToContext(context, step)
+    assert.match(checkAction(context, { op: 'update', record: 'P1', fields: { price: 40 } }).problem!, /nothing is different/)
   })
 
-  test('asks for the category when several exist, and uses the only one otherwise', () => {
-    assert.match(decide(ctx(), parsed('add_product', [add({ category: null })])).reply!, /بأي قسم/)
-    const one = decide(ctx({ categories: [categories[0]] }), parsed('add_product', [add({ category: null })]))
-    assert.equal((one.pending as any).category_id, 'cat-1')
+  test('the same value changes nothing, even when the database wrote it as text', () => {
+    const context = ctx({ records: [{ code: 'P1', table: 'menu_items', id: 'x', row: { name: 'y', price: '35.00' } }] })
+    assert.match(checkAction(context, { op: 'update', record: 'P1', fields: { price: 35 } }).problem!, /nothing is different/)
   })
 
-  test('a supermarket needs a price before the discount', () => {
-    const market = ctx({ store: { ...ctx().store, store_type: 'supermarket' } })
-    assert.match(decide(market, parsed('add_product', [add()])).reply!, /قبل الخصم/)
+  test('a photo can only be used when there is one, and goes wherever the model put it', () => {
+    const fields = { image_url: PHOTO, images: [PHOTO] }
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields }).problem!, /no photo/)
+    const { step } = checkAction(ctx({ photo: 'new' }), { op: 'update', record: 'P1', fields })
+    assert.equal(usesPhoto(step!), true)
+    assert.deepEqual(withPhoto(fields, 'https://x/a.jpg'), { image_url: 'https://x/a.jpg', images: ['https://x/a.jpg'] })
   })
 
-  test('yes to adding an unknown product starts it', () => {
-    const offered: Pending = { type: 'offer_new_product', name: 'بطاطا', said: 'بطاطا', price: 20, unit: null }
-    assert.match(decide(ctx({ pending: offered }), parsed('confirm')).reply!, /بأي قسم/)
+  test('anything that is not a real action does nothing', () => {
+    assert.deepEqual(readActions('delete everything'), [])
+    assert.match(checkAction(ctx(), { op: 'run_sql', sql: 'drop table offers' }).problem!, /not an action/)
+    assert.match(checkAction(ctx(), null).problem!, /not an action/)
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: 'price=1' }).problem!, /must be an object/)
   })
 })
 
-describe('offers', () => {
-  const offer = (fields = {}) => change({ said_name: 'خبز', product: 'P3', price: 8, ...fields })
+describe('what the owner is told', () => {
+  const saved: Step = { op: 'update', table: 'menu_items', id: 'item-1', code: 'P1', label: 'بندورة حمرا', said: '', fields: { price: 40 }, before: { price: 35 } }
 
-  test('uses the current price as the old one and saves straight away', () => {
-    const decision = decide(ctx(), parsed('add_offer', [offer()]))
-    assert.deepEqual(decision.actions[0], { type: 'store_offer', item_id: 'item-3', name: 'خبز', price: 8, before_price: 10, image_url: 'bread.jpg' })
-    assert.match(describeDone(decision.actions), /نزلت عرض خبز بـ8 ₺ بدل 10 ₺/)
+  test('the model\'s words are sent as they are when they hold the real price', () => {
+    assert.equal(withFacts('تكرم، صارت البندورة بـ40', [saved]), 'تكرم، صارت البندورة بـ40')
+    assert.equal(withFacts('تكرم، صارت البندورة بـ٤٠', [saved]), 'تكرم، صارت البندورة بـ٤٠')
   })
 
-  test('a supermarket offer goes on the product itself', () => {
-    const market = ctx({ store: { ...ctx().store, store_type: 'supermarket' } })
-    assert.equal(decide(market, parsed('add_offer', [offer()])).actions[0].type, 'item_offer')
+  test('a saved price the model left out or got wrong is added', () => {
+    assert.match(withFacts('تكرم عيونك', [saved]), /صار بـ40 ₺/)
+    assert.match(withFacts('صارت بـ400', [saved]), /صار بـ40 ₺/)
   })
 
-  test('asks for what is missing', () => {
-    assert.match(decide(ctx(), parsed('add_offer', [offer({ price: null })])).reply!, /سعر العرض/)
-    assert.match(decide(ctx(), parsed('add_offer', [offer({ price: 50 })])).reply!, /قبل العرض/)
+  test('changes without a price need no addition', () => {
+    const hours: Step = { op: 'update', table: 'restaurants', id: 'store', code: 'S', label: 'متجر', said: '', fields: { closing_time: '22:00' }, before: { closing_time: '23:00' } }
+    assert.equal(withFacts('صرنا نسكر عالعشرة', [hours]), 'صرنا نسكر عالعشرة')
   })
 
-  test('respects the store\'s limit', () => {
-    const decision = decide(ctx({ offerCount: 5 }), parsed('add_offer', [offer()]))
-    assert.equal(decision.actions.length, 0)
-    assert.match(decision.reply!, /حد العروض/)
+  test('an empty reply still reports what was saved', () => {
+    assert.match(withFacts('', [saved]), /بندورة حمرا صار بـ40 ₺/)
+  })
+
+  test('a claim of a change is noticed, and ordinary talk is not', () => {
+    for (const said of ['عدلت السعر', 'تم الحفظ', 'ضفتلك ياه', 'تمت']) assert.equal(claimsSave(said), true, said)
+    for (const said of ['أهلين', 'تمام', 'قديش السعر؟', 'كيفك اليوم']) assert.equal(claimsSave(said), false, said)
+  })
+
+  test('links never reach the owner', () => {
+    assert.equal(safeReply('شوف https://bad.example'), '')
+    assert.equal(safeReply('أهلين *فيك*'), 'أهلين فيك')
+  })
+
+  test('the model remembers what really changed', () => {
+    assert.match(describeForMemory([saved]), /updated P1 بندورة حمرا: price 35 to 40/)
+    assert.match(describeForMemory([{ op: 'undo' }]), /took back/)
+  })
+})
+
+describe('reply timing', () => {
+  test('waits vary from one reply to the next', () => {
+    const waits = new Set(Array.from({ length: 50 }, () => replyDelay('تكرم، صارت البندورة بـ40')))
+    assert.ok(waits.size > 5)
+  })
+
+  test('a longer message takes longer to type', () => {
+    assert.ok(replyDelay('x'.repeat(200), () => 0.5) > replyDelay('x', () => 0.5))
+  })
+
+  test('never instant, and short enough for the workflow to wait it out', () => {
+    assert.equal(replyDelay('x', () => 0), 4)
+    assert.ok(replyDelay('x'.repeat(5000), () => 0.99) <= 75)
+  })
+})
+
+describe('what the model is given', () => {
+  const input = buildInput(
+    ctx(),
+    [{ said: 'طماطم', menu_item_id: 'item-1' }],
+    [{ from: 'owner', text: 'بدي غير البندورة' }, { from: 'bot', text: 'تكرم', did: 'updated P1' }],
+    'صار 50',
+    'Wednesday 09:30',
+  )
+
+  test('it holds the shop, the conversation and what was really saved', () => {
+    assert.match(input, /طماطم means P1/)
+    assert.match(input, /Owner: بدي غير البندورة/)
+    assert.match(input, /Did: updated P1/)
+    assert.match(input, /P2 \{[^}]*"price":60/)
+    assert.match(input, /Wednesday 09:30/)
+  })
+
+  test('it writes links to other records as codes, and leaves out long values and private notes', () => {
+    assert.match(input, /P1 \{[^}]*"category_id":"C1"/)
+    assert.ok(!input.includes('cat-1'))
+    assert.ok(!input.includes('bread.jpg'))
+    assert.ok(!input.includes('سري'))
+    assert.ok(!input.includes('905'))
+  })
+
+  test('names are compared loosely', () => {
+    assert.equal(normalizeName(' البنَدورة  الحمراء '), normalizeName('البندورة الحمراء'))
+    assert.equal(normalizeName('شاورمة'), normalizeName('شاورمه'))
   })
 })
 
@@ -228,44 +271,5 @@ describe('one number with several stores', () => {
     assert.equal(pickStore(stores, 'b', null, 'الخبز ب5').storeId, 'b')
     assert.equal(pickStore(stores, 'b', null, 'بدي غير المتجر').storeId, null)
     assert.equal(pickStore(stores, 'b', null, 'سوبر ماركت النور الخبز ب5').storeId, 'a')
-  })
-})
-
-describe('conversation', () => {
-  test('the model cannot announce a save or send links', () => {
-    assert.equal(decide(ctx(), parsed('confirm', [], 'تم الحفظ')).reply, 'تمام، شو بدك نعدل؟')
-    assert.match(decide(ctx(), parsed('chat', [], 'شوف https://bad.example')).reply!, /ما فهمت/)
-  })
-
-  test('a greeting keeps what is in progress', () => {
-    const pending: Pending = { type: 'image_for', item_id: 'item-3', name: 'خبز' }
-    const decision = decide(ctx({ pending }), parsed('chat', [], 'أهلين'))
-    assert.equal(decision.reply, 'أهلين')
-    assert.deepEqual(decision.pending, pending)
-  })
-
-  test('undo and cancel', () => {
-    assert.equal(decide(ctx(), parsed('undo')).actions[0].type, 'undo')
-    const pending: Pending = { type: 'image_for', item_id: 'item-3', name: 'خبز' }
-    assert.equal(decide(ctx({ pending }), parsed('cancel')).pending, null)
-  })
-
-  test('a photo for an existing product', () => {
-    const decision = decide(ctx({ hasImage: true }), parsed('set_image', [change({ said_name: 'خبز', product: 'P3', price: null })]))
-    assert.equal(decision.actions[0].type, 'set_image')
-    assert.equal(decide(ctx({ hasImage: true }), parsed('set_image', [])).reply, 'لأي منتج هالصورة؟')
-  })
-
-  test('the input holds the conversation but no phone number', () => {
-    const input = buildInput(ctx(), [{ said: 'طماطم', menu_item_id: 'item-1' }], [{ from: 'owner', text: 'بدي غير البندورة' }], 'صار 50')
-    assert.match(input, /طماطم means P1/)
-    assert.match(input, /Owner: بدي غير البندورة/)
-    assert.match(input, /P2 \| بندورة كرزية \| 60 \| kg/)
-    assert.ok(!input.includes('905'))
-  })
-
-  test('names are compared loosely', () => {
-    assert.equal(normalizeName(' البنَدورة  الحمراء '), normalizeName('البندورة الحمراء'))
-    assert.equal(normalizeName('شاورمة'), normalizeName('شاورمه'))
   })
 })

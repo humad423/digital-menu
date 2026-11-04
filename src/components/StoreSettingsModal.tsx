@@ -6,7 +6,7 @@ import ImageUpload from '@/components/ImageUpload'
 import { X, Clock, Calendar, Phone, Image as ImageIcon, Store, Save, AlertCircle, Bike, Plus, Trash2, ChevronDown } from 'lucide-react'
 import { DAYS_OF_WEEK } from '@/utils/storeStatus'
 import { triggerRevalidate } from '@/utils/revalidate'
-import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
+import { formatPhoneDisplay } from '@/utils/phone'
 
 interface StoreSettingsModalProps {
   restaurant: any
@@ -24,9 +24,6 @@ export default function StoreSettingsModal({
   restaurantSlug,
 }: StoreSettingsModalProps) {
 
-  const [name, setName] = useState(restaurant?.name || '')
-  const [phone, setPhone] = useState(restaurant?.phone || restaurant?.whatsapp_number || '')
-  const [whatsappNumber, setWhatsappNumber] = useState(restaurant?.whatsapp_number || '')
   const [logoUrl, setLogoUrl] = useState(restaurant?.logo_url || '')
   const [coverUrl, setCoverUrl] = useState(restaurant?.cover_url || '')
   const [openingTime, setOpeningTime] = useState(restaurant?.opening_time || '09:00')
@@ -51,9 +48,6 @@ export default function StoreSettingsModal({
   // Re-sync state every time the modal opens with fresh restaurant data
   useEffect(() => {
     if (isOpen && restaurant) {
-      setName(restaurant.name || '')
-      setPhone(formatPhoneDisplay(restaurant.phone || restaurant.whatsapp_number) || '')
-      setWhatsappNumber(formatPhoneDisplay(restaurant.whatsapp_number) || '')
       setLogoUrl(restaurant.logo_url || '')
       setCoverUrl(restaurant.cover_url || '')
       setOpeningTime(restaurant.opening_time || '09:00')
@@ -71,6 +65,8 @@ export default function StoreSettingsModal({
   }, [isOpen, restaurant?.id])
 
   if (!isOpen || !restaurant) return null
+
+  const storeNumber = formatPhoneDisplay(restaurant.whatsapp_number || restaurant.phone)
 
   const toggleDayOff = (dayName: string) => {
     if (daysOff.includes(dayName)) {
@@ -114,10 +110,6 @@ export default function StoreSettingsModal({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) {
-      return setErrorMsg('اسم المتجر مطلوب')
-    }
-
     if (restaurant?.is_subscription_active === false) {
       return setErrorMsg('⚠️ عذراً، اشتراك المتجر معلق حالياً. يرجى تجديد الاشتراك لتتمكن من تعديل الإعدادات.')
     }
@@ -125,13 +117,7 @@ export default function StoreSettingsModal({
     setSaving(true)
     setErrorMsg('')
 
-    const cleanPhone = normalizePhoneNumber(phone)
-    const cleanWhatsapp = normalizePhoneNumber(whatsappNumber)
-
     const payload = {
-      name: name.trim(),
-      phone: cleanPhone || phone.trim() || null,
-      whatsapp_number: cleanWhatsapp || cleanPhone || null,
       logo_url: logoUrl || null,
       cover_url: coverUrl || null,
       opening_time: openingTime,
@@ -182,7 +168,7 @@ export default function StoreSettingsModal({
             </div>
             <div>
               <h3 className="font-black text-lg text-ink">إعدادات المتجر ونطاقات التوصيل</h3>
-              <p className="text-sm text-muted font-medium">الاسم، الهاتف، ساعات الدوام، العطلات، وشرايح التوصيل</p>
+              <p className="text-sm text-muted font-medium">ساعات الدوام، العطلات، وشرايح التوصيل</p>
             </div>
           </div>
 
@@ -213,52 +199,19 @@ export default function StoreSettingsModal({
             </div>
           )}
 
-          {/* Basic Info */}
-          <div className="space-y-3">
-            <div>
-              <label className="f-label flex items-center gap-1 mb-1">
-                <Store size={13} className="text-brand" />
-                <span>اسم المتجر / المطعم *</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="f-input"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="f-label flex items-center gap-1 mb-1">
-                  <Phone size={13} className="text-brand" />
-                  <span>رقم الهاتف للتواصل</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="053XXXXXX"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  className="f-input"
-                  dir="ltr"
-                />
-              </div>
-              <div>
-                <label className="f-label flex items-center gap-1 mb-1">
-                  <Phone size={13} className="text-brand" />
-                  <span>رقم الواتساب للطلبات</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="053XXXXXX"
-                  value={whatsappNumber}
-                  onChange={e => setWhatsappNumber(e.target.value)}
-                  className="f-input"
-                  dir="ltr"
-                />
-              </div>
-            </div>
+          {/* Set by the platform, so owners can see these but not change them */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-1">
+            <p className="font-black text-slate-800 flex items-center gap-1.5">
+              <Store size={14} className="text-brand shrink-0" />
+              <span>{restaurant.name}</span>
+            </p>
+            {storeNumber && (
+              <p className="font-bold text-slate-700 flex items-center gap-1.5">
+                <Phone size={14} className="text-brand shrink-0" />
+                <span dir="ltr">{storeNumber}</span>
+              </p>
+            )}
+            <p className="text-sm text-muted font-medium">لتغيير الاسم أو الرقم أو الموقع أو التصنيف، تواصل مع الإدارة.</p>
           </div>
 
           {/* Working Hours */}

@@ -1,9 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import {
-  FALLBACK, HISTORY_SAVED, OUTPUT_SCHEMA, PENDING_MINUTES, SYSTEM_INSTRUCTION, UNITS, UPLOADED_IMAGE,
-  allowedStoreIds, buildInput, decide, describeDone, normalizeName, pickStore, readMessage,
-  type Action, type Context, type Decision, type HistoryEntry, type Parsed, type Pending, type Product,
+  HISTORY_SAVED, MAX_ROUNDS, PHOTO_MINUTES, SYSTEM_INSTRUCTION,
+  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
+  type Context, type HistoryEntry, type Parsed, type Step, type Store, type StoreRecord,
 } from './logic.ts'
 
 // Stays under Google's free limit of 500 requests a day, so the bot answers instead of failing
@@ -11,6 +11,7 @@ const DAILY_AI_LIMIT = 400
 const MODEL = 'gemini-3.5-flash-lite'
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024
 const UNDO_DAYS = 7
+const RETRY_WAITS = [5000, 15000, 25000]
 
 const env = (name: string, fallback = '') => Deno.env.get(name) || fallback
 const WAHA_URL = env('WAHA_URL').replace(/\/+$/, '')
@@ -63,23 +64,24 @@ async function uploadImage(base64: string, mimeType: string): Promise<string | n
 }
 
 async function askGemini(input: unknown): Promise<{ parsed?: Parsed; busy?: boolean }> {
-  const body = JSON.stringify({
-    model: MODEL,
-    system_instruction: SYSTEM_INSTRUCTION,
-    input,
-    store: false,
-    generation_config: { thinking_level: 'minimal', max_output_tokens: 3000 },
-    response_format: { type: 'text', mime_type: 'application/json', schema: OUTPUT_SCHEMA },
-  })
-
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Google's busy spells pass quickly, and a slow answer is fine, so it waits and asks again
+  for (let attempt = 0; attempt <= RETRY_WAITS.length; attempt++) {
+    const started = Date.now()
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY'), 'Api-Revision': '2026-05-20' },
-      body,
-    })
-    if (response.status === 429) {
-      if (attempt === 0) { await new Promise(resolve => setTimeout(resolve, 4000)); continue }
+      body: JSON.stringify({
+        model: MODEL,
+        system_instruction: SYSTEM_INSTRUCTION,
+        input,
+        store: false,
+        generation_config: { thinking_level: 'low', temperature: 0.7, max_output_tokens: 8000 },
+        response_format: { type: 'text', mime_type: 'application/json' },
+      }),
+    }).catch(error => { console.error('Gemini unreachable', error); return null })
+    console.log(`Gemini ${response?.status ?? 'unreachable'} in ${Date.now() - started} ms`)
+    if (!response || response.status === 429 || response.status >= 500) {
+      if (attempt < RETRY_WAITS.length) { await new Promise(resolve => setTimeout(resolve, RETRY_WAITS[attempt])); continue }
       return { busy: true }
     }
     if (!response.ok) {
@@ -102,99 +104,72 @@ async function askGemini(input: unknown): Promise<{ parsed?: Parsed; busy?: bool
   return {}
 }
 
-/** Runs the decided changes. Each one is checked against this store and logged so it can be undone. */
-async function runActions(actions: Action[], ctx: Context, phone: string) {
-  const done: Action[] = []
-  const notes: string[] = []
-  const log = (action: string, target_table: string, target_id: string, before: unknown, after: unknown) =>
-    db.from('assistant_changes').insert({ store_id: ctx.store.id, phone, action, target_table, target_id, before, after })
-  const owned = (id: string): Product | undefined => ctx.products.find(product => product.id === id)
+/** Saves one change and logs it so it can be undone. Returns the reason if it didn't go through. */
+async function runStep(step: Step, ctx: Context, phone: string, batch: string, getPhoto: () => Promise<string | null>): Promise<string | null> {
+  const log = (action: string, table: string, id: string, before: unknown, after: Record<string, unknown>) =>
+    db.from('assistant_changes').insert({ store_id: ctx.store.id, phone, action, target_table: table, target_id: id, before, after: { ...after, batch } })
 
-  for (const action of actions) {
-    if (action.type === 'update_price') {
-      const product = owned(action.id)
-      if (!product) continue
-      const { error } = await db.from('menu_items').update({ price: action.price }).eq('id', product.id)
-      if (error) { console.error(error); notes.push(`ما قدرت أعدل ${product.name}`); continue }
-      await log('update_price', 'menu_items', product.id, { price: product.price }, { name: product.name, price: action.price })
-      if (normalizeName(action.said) !== normalizeName(product.name) && normalizeName(action.said).length >= 2) {
-        await db.from('assistant_aliases').upsert({ store_id: ctx.store.id, said: normalizeName(action.said), menu_item_id: product.id })
-      }
-      done.push(action)
-    } else if (action.type === 'add_product') {
-      if (!ctx.categories.some(category => category.id === action.category_id)) continue
-      const soldByWeight = action.unit ? /كيلو|كغ|kg/i.test(action.unit) : false
-      const { data, error } = await db.from('menu_items').insert({
-        category_id: action.category_id,
-        name: action.name,
-        price: action.price,
-        original_price: action.before_price,
-        image_url: action.image_url,
-        images: action.image_url ? [action.image_url] : [],
-        unit: soldByWeight ? 'kg' : 'piece',
-        allow_custom_amount: soldByWeight,
-      }).select('id').single()
-      if (error) { console.error(error); notes.push(`ما قدرت أضيف ${action.name}`); continue }
-      await log('add_product', 'menu_items', data.id, null, { name: action.name, price: action.price })
-      done.push(action)
-    } else if (action.type === 'item_offer') {
-      const product = owned(action.item_id)
-      if (!product) continue
-      const changes: Record<string, unknown> = { price: action.price, original_price: action.before_price }
-      if (action.image_url && action.image_url !== product.image_url) {
-        changes.image_url = action.image_url
-        changes.images = [action.image_url]
-      }
-      const { error } = await db.from('menu_items').update(changes).eq('id', product.id)
-      if (error) { console.error(error); notes.push(`ما قدرت أنزل عرض ${product.name}`); continue }
-      await log('item_offer', 'menu_items', product.id, { price: product.price, original_price: product.original_price, image_url: product.image_url }, { name: product.name, ...changes })
-      done.push(action)
-    } else if (action.type === 'store_offer') {
-      const product = owned(action.item_id)
-      if (!product) continue
-      const { data: last } = await db.from('offers').select('sort_order').order('sort_order', { ascending: false }).limit(1)
-      const { data, error } = await db.from('offers').insert({
-        restaurant_id: ctx.store.id,
-        primary_item_id: product.id,
-        title: product.name,
-        offer_price: action.price,
-        original_price: action.before_price,
-        image_url: action.image_url,
-        images: action.image_url ? [action.image_url] : [],
-        sort_order: (last?.[0]?.sort_order || 0) + 1,
-      }).select('id').single()
-      if (error) { console.error(error); notes.push(`ما قدرت أنزل عرض ${product.name}`); continue }
-      await log('store_offer', 'offers', data.id, null, { name: product.name, price: action.price })
-      done.push(action)
-    } else if (action.type === 'set_image') {
-      const product = owned(action.item_id)
-      if (!product) continue
-      const { error } = await db.from('menu_items').update({ image_url: action.image_url, images: [action.image_url] }).eq('id', product.id)
-      if (error) { console.error(error); notes.push(`ما قدرت أحط صورة ${product.name}`); continue }
-      await log('set_image', 'menu_items', product.id, { image_url: product.image_url }, { name: product.name, image_url: action.image_url })
-      done.push(action)
-    }
+  if (step.op === 'undo') return undoLast(ctx.store.id, phone)
+
+  if (step.op === 'delete') {
+    const { data: row } = await db.from(step.table).select('*').eq('id', step.id).maybeSingle()
+    if (!row) return `${step.label}: it is already gone.`
+    const { error } = await db.from(step.table).delete().eq('id', step.id)
+    if (error) { console.error(error); return `${step.label}: the database refused this: ${error.message}` }
+    await log('delete', step.table, step.id, row, { name: step.label })
+    applyToContext(ctx, step)
+    return null
   }
-  return { done, notes }
+
+  if (usesPhoto(step)) {
+    const photo = await getPhoto()
+    if (!photo) return `${step.label}: the photo could not be uploaded, so nothing was saved for it. Ask the owner to send it again.`
+    step.fields = withPhoto(step.fields, photo)
+  }
+
+  if (step.op === 'update') {
+    const { error } = await db.from(step.table).update(step.fields).eq('id', step.id)
+    if (error) { console.error(error); return `${step.label}: the database refused this: ${error.message}` }
+    await log('update', step.table, step.id, step.before, { name: step.label, ...step.fields })
+    if (step.table === 'menu_items' && step.said && normalizeName(step.said) !== normalizeName(step.label) && normalizeName(step.said).length >= 2) {
+      await db.from('assistant_aliases').upsert({ store_id: ctx.store.id, said: normalizeName(step.said), menu_item_id: step.id })
+    }
+    applyToContext(ctx, step)
+    return null
+  }
+
+  // Products belong to a shop through their category, everything else directly
+  const fields = step.table === 'menu_items' ? step.fields : { ...step.fields, restaurant_id: ctx.store.id }
+  const { data, error } = await db.from(step.table).insert(fields).select('*').single()
+  if (error) { console.error(error); return `${step.label}: the database refused this: ${error.message}` }
+  await log('add', step.table, data.id, null, { name: step.label })
+  applyToContext(ctx, step, data)
+  return null
 }
 
-async function undoLast(storeId: string, phone: string): Promise<string> {
+/** Takes back everything saved in the owner's last request. Returns a note for the model if it couldn't. */
+async function undoLast(storeId: string, phone: string): Promise<string | null> {
   const since = new Date(Date.now() - UNDO_DAYS * 86_400_000).toISOString()
-  const { data: last } = await db.from('assistant_changes').select('*')
+  const { data: recent } = await db.from('assistant_changes').select('*')
     .eq('store_id', storeId).eq('phone', phone).is('undone_at', null).gte('created_at', since)
-    .order('created_at', { ascending: false }).limit(1).maybeSingle()
-  if (!last) return 'ما في شي قريب أرجعه.'
+    .order('created_at', { ascending: false }).limit(250)
+  if (!recent?.length) return 'Undo: there is no recent change to take back.'
 
-  const name = last.after?.name || 'التعديل'
-  const { error } = last.before
-    ? await db.from(last.target_table).update(last.before).eq('id', last.target_id)
-    : await db.from(last.target_table).delete().eq('id', last.target_id)
-  if (error) {
-    console.error(error)
-    return `ما قدرت أرجع ${name}، تواصل مع الإدارة.`
+  const batch = recent[0].after?.batch
+  const changes = batch ? recent.filter(change => change.after?.batch === batch) : [recent[0]]
+  for (const change of changes) {
+    const { error } = change.action === 'delete'
+      ? await db.from(change.target_table).insert(change.before)
+      : change.before
+        ? await db.from(change.target_table).update(change.before).eq('id', change.target_id)
+        : await db.from(change.target_table).delete().eq('id', change.target_id)
+    if (error) {
+      console.error(error)
+      return `Undo: the database refused it for ${change.after?.name}: ${error.message}. That change is still there.`
+    }
+    await db.from('assistant_changes').update({ undone_at: new Date().toISOString() }).eq('id', change.id)
   }
-  await db.from('assistant_changes').update({ undone_at: new Date().toISOString() }).eq('id', last.id)
-  return `تمام، رجعت ${name} متل ما كان 👍`
+  return null
 }
 
 /** Saves the conversation. If another message got there first, it's added on top of that one. */
@@ -258,11 +233,9 @@ async function handleMessage(body: unknown) {
   if (storeIds.length === 0) return { reply: null, ignored: 'not a store owner' }
 
   const to = `${phone}@c.us`
-  const answer = (reply: string) => ({ reply, chatId: to, session: message.session })
+  const answer = (reply: string) => ({ reply, chatId: to, session: message.session, wait_seconds: replyDelay(reply) })
 
-  const { data: found } = await db.from('restaurants')
-    .select('id, name, slug, store_type, max_offers_limit, is_subscription_active')
-    .in('id', storeIds)
+  const { data: found } = await db.from('restaurants').select('*').in('id', storeIds)
   if (!found?.length) return { reply: null, ignored: 'store not found' }
 
   // Same rule as the store panel: a suspended subscription can't edit
@@ -270,20 +243,19 @@ async function handleMessage(body: unknown) {
   if (stores.length === 0) return answer('اشتراك متجرك متوقف. تواصل مع الإدارة لتجديده.')
 
   const { data: chat } = await db.from('assistant_chats').select('*').eq('phone', phone).maybeSingle()
-  const expired = chat?.pending_at && Date.now() - new Date(chat.pending_at).getTime() > PENDING_MINUTES * 60_000
+  const expired = chat?.pending_at && Date.now() - new Date(chat.pending_at).getTime() > PHOTO_MINUTES * 60_000
   const saved = expired ? null : chat?.pending ?? null
   const held: string | null = saved?.type === 'choose_store' ? saved.text : null
-  let pending: Pending | null = saved?.type === 'choose_store' ? null : saved
 
   // A voice note or photo comes with no text, so there's nothing yet to pick a store by
   const pick = pickStore(stores, chat?.store_id ?? null, held, message.text || (message.hasMedia ? '(media)' : ''))
-  if (pick.switched && stores.length > 1) pending = null
+  const keptPhoto: string | null = saved?.type === 'photo' && !(pick.switched && stores.length > 1) ? saved.url : null
   if (!pick.storeId || pick.reply) {
     const entries: HistoryEntry[] = [{ from: 'owner', text: message.text || '(media)' }, { from: 'bot', text: pick.reply! }]
     await saveChat(phone, chat, entries, pick.storeId, pick.held ? { type: 'choose_store', text: pick.held } : null)
     return answer(pick.reply!)
   }
-  const store = stores.find(candidate => candidate.id === pick.storeId)!
+  const store = stores.find(candidate => candidate.id === pick.storeId)! as Store
 
   let media: { base64: string; mimeType: string } | null = null
   if (message.hasMedia) {
@@ -296,86 +268,113 @@ async function handleMessage(body: unknown) {
     media = { base64: encodeBase64(bytes), mimeType }
   } else if (!pick.text) {
     return { reply: null, ignored: 'empty message' }
-  } else if (pick.text.length > 1000) {
-    return answer('رسالتك طويلة شوي. ابعتلي كل تعديل برسالة قصيرة.')
   }
 
-  const { data: allowed } = await db.rpc('assistant_count_call', { daily_limit: DAILY_AI_LIMIT })
-  if (allowed === false) return answer('عندي ضغط اليوم. جرّب بكرا إن شاء الله.')
+  const countCall = async () => (await db.rpc('assistant_count_call', { daily_limit: DAILY_AI_LIMIT })).data !== false
+  if (!await countCall()) return answer('عندي ضغط اليوم. جرّب بكرا إن شاء الله.')
 
-  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { count: offerCount }] = await Promise.all([
-    db.from('categories').select('id, name').eq('restaurant_id', store.id).order('sort_order'),
-    db.from('menu_items').select('id, name, price, unit, original_price, image_url, categories!inner(restaurant_id)').eq('categories.restaurant_id', store.id).limit(500),
+  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }] = await Promise.all([
+    db.from('categories').select('*').eq('restaurant_id', store.id).order('sort_order'),
+    db.from('menu_items').select('*, categories!inner(restaurant_id)').eq('categories.restaurant_id', store.id).limit(500),
     db.from('assistant_aliases').select('said, menu_item_id').eq('store_id', store.id),
-    db.from('offers').select('id', { count: 'exact', head: true }).eq('restaurant_id', store.id),
+    db.from('offers').select('*').eq('restaurant_id', store.id).order('sort_order'),
   ])
 
+  const coded = (table: StoreRecord['table'], prefix: string, rows: any[] | null): StoreRecord[] =>
+    (rows || []).map((row, index) => {
+      const { categories: _store, ...fields } = row
+      return { code: `${prefix}${index + 1}`, table, id: row.id, row: fields }
+    })
+
+  const sentImage = !!media?.mimeType.startsWith('image/')
   const ctx: Context = {
     store,
-    products: (rawItems || []).map((item: any, index: number) => ({
-      code: `P${index + 1}`,
-      id: item.id,
-      name: String(item.name).trim(),
-      price: Number(item.price),
-      unit: UNITS[item.unit] || item.unit,
-      original_price: item.original_price,
-      image_url: item.image_url,
-    })),
-    categories: (rawCategories || []).map((category: any, index: number) => ({ code: `C${index + 1}`, id: category.id, name: category.name })),
-    pending,
-    hasImage: !!media?.mimeType.startsWith('image/'),
-    offerCount: offerCount || 0,
+    records: [
+      { code: 'S', table: 'restaurants', id: store.id, row: store },
+      ...coded('categories', 'C', rawCategories),
+      ...coded('menu_items', 'P', rawItems),
+      ...coded('offers', 'O', rawOffers),
+    ],
+    photo: sentImage ? 'new' : keptPhoto ? 'kept' : null,
   }
 
-  // Only the conversation and product names go to Google: no phone number or sender name
+  // Only the conversation and shop details go to Google: no owner's number or sender name
   const history: HistoryEntry[] = chat?.history || []
-  const text = buildInput(ctx, aliases || [], history, pick.text === '(media)' ? '' : pick.text)
-  const input = media
-    ? [{ type: 'text', text }, { type: media.mimeType.startsWith('image/') ? 'image' : 'audio', data: media.base64, mime_type: media.mimeType.split(';')[0] }]
-    : text
-
-  const { parsed, busy } = await askGemini(input)
-  const owner: HistoryEntry = { from: 'owner', text: String(parsed?.heard || pick.text || '(media)').slice(0, 500) }
-
-  if (!parsed) {
-    const reply = busy ? 'عندي ضغط هلق، جرّب بعد شوي.' : FALLBACK
-    await saveChat(phone, chat, [owner, { from: 'bot', text: reply }], store.id, pending)
-    return answer(reply)
+  const localTime = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Istanbul', weekday: 'long', hour: '2-digit', minute: '2-digit' })
+  const base = buildInput(ctx, aliases || [], history, pick.text === '(media)' ? '' : pick.text, localTime)
+  const request = (note: string) => {
+    const text = note ? `${base}\n\n${note}` : base
+    return media
+      ? [{ type: 'text', text }, { type: sentImage ? 'image' : 'audio', data: media.base64, mime_type: media.mimeType.split(';')[0] }]
+      : text
   }
 
-  let decision: Decision = decide(ctx, parsed)
+  // The photo is only uploaded once it's really going to be used, and only once
+  let uploaded: string | null = null
+  const getPhoto = async () => {
+    if (!sentImage) return keptPhoto
+    uploaded ??= await uploadImage(media!.base64, media!.mimeType.split(';')[0])
+    return uploaded
+  }
 
-  // The photo is only uploaded once it's really going to be used
-  if (media && JSON.stringify(decision).includes(UPLOADED_IMAGE)) {
-    const url = await uploadImage(media.base64, media.mimeType.split(';')[0])
-    if (!url) {
-      const reply = 'ما قدرت أرفع الصورة، جرّب تبعتها مرة تانية.'
-      await saveChat(phone, chat, [owner, { from: 'bot', text: reply }], store.id, pending)
-      return answer(reply)
+  const done: Step[] = []
+  let photoUsed = false
+  let heard = ''
+  let reply = ''
+  let note = ''
+  let answered = false
+  let busy = false
+
+  // The agent acts, hears what really happened, and can put it right before answering
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    if (round > 0 && !await countCall()) break
+    const result = await askGemini(request(note))
+    if (!result.parsed) { busy = !!result.busy; break }
+    if (!heard) heard = String(result.parsed.heard ?? '')
+
+    const actions = readActions(result.parsed.actions)
+    const problems: string[] = []
+    for (const action of actions) {
+      const { step, problem } = checkAction(ctx, action)
+      if (!step) { problems.push(problem!); continue }
+      const photoStep = usesPhoto(step)
+      const failed = await runStep(step, ctx, phone, message.id, getPhoto)
+      if (failed) { problems.push(failed); continue }
+      done.push(step)
+      if (photoStep) photoUsed = true
     }
-    decision = JSON.parse(JSON.stringify(decision).replaceAll(UPLOADED_IMAGE, url))
+
+    reply = safeReply(result.parsed.reply)
+    const emptyClaim = actions.length === 0 && done.length === 0 && claimsSave(reply)
+    if (problems.length === 0 && reply && !emptyClaim) { answered = true; break }
+
+    note = `System note: your draft reply was not sent. Saved so far: ${describeForMemory(done) || 'nothing'}. ${
+      emptyClaim ? 'Your draft said something changed, but you sent no actions, so nothing did.' : ''
+    }${problems.length ? ` These did not go through:\n${problems.join('\n')}` : ''}${!reply && !problems.length ? ' Your reply was empty or held a link.' : ''}
+Fix what you can with new actions, without repeating what was saved, or tell the owner honestly. Then write your reply.`
   }
 
-  const parts: string[] = []
-  let changed = false
+  const owner: HistoryEntry = { from: 'owner', text: (heard || pick.text || '(media)').slice(0, 500) }
 
-  if (decision.actions.some(action => action.type === 'undo')) {
-    parts.push(await undoLast(store.id, phone))
-    changed = true
-  } else if (decision.actions.length > 0) {
-    const { done, notes } = await runActions(decision.actions, ctx, phone)
-    const summary = describeDone(done)
-    if (summary) parts.push(summary)
-    parts.push(...notes)
-    changed = done.length > 0
+  let finalReply: string
+  if (answered) {
+    finalReply = withFacts(reply, done)
+  } else if (done.length > 0) {
+    finalReply = `${withFacts('', done)}\nوالباقي ما زبط معي، فيك تبعتلي ياه كمان مرة؟`
+  } else {
+    finalReply = busy ? 'عندي ضغط هلق، جرّب بعد شوي.' : 'معليش، ما زبط معي. فيك تبعتها كمان مرة؟'
   }
-  if (decision.reply) parts.push(decision.reply)
 
-  const reply = parts.join('\n') || FALLBACK
-  await saveChat(phone, chat, [owner, { from: 'bot', text: reply }], store.id, decision.pending)
-  if (changed) await publishChanges(store.slug, store.id)
+  // A photo with no decision yet is kept for a while, so "this is for the bread" still works
+  const photoLeft = photoUsed ? null : sentImage ? (done.length === 0 ? await getPhoto() : null) : keptPhoto
 
-  return answer(reply)
+  const bot: HistoryEntry = { from: 'bot', text: finalReply }
+  const did = describeForMemory(done)
+  if (did) bot.did = did
+  await saveChat(phone, chat, [owner, bot], store.id, photoLeft ? { type: 'photo', url: photoLeft } : null)
+  if (done.length > 0) await publishChanges(store.slug, store.id)
+
+  return answer(finalReply)
 }
 
 Deno.serve(async request => {
