@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { ShieldCheck, FileText, Info, Save, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { triggerRevalidate } from '@/utils/revalidate'
+import { SITE_URL } from '@/config/site'
 
 export default function AdminLegalPagesTab() {
   const supabase = createClient()
@@ -175,7 +176,7 @@ export default function AdminLegalPagesTab() {
               <span>محتوى سياسة الخصوصية</span>
             </h3>
             <Link
-              href="/privacy"
+              href={`${SITE_URL}/privacy`}
               target="_blank"
               className="text-sm font-bold text-emerald-400 hover:underline flex items-center gap-1"
             >
@@ -202,7 +203,7 @@ export default function AdminLegalPagesTab() {
               <span>محتوى الشروط والأحكام</span>
             </h3>
             <Link
-              href="/terms"
+              href={`${SITE_URL}/terms`}
               target="_blank"
               className="text-sm font-bold text-brand hover:underline flex items-center gap-1"
             >

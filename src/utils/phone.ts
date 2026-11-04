@@ -74,3 +74,42 @@ export function formatPhoneDisplay(phone: string | null | undefined, defaultCoun
   const norm = normalizePhoneNumber(phone, defaultCountryCode)
   return norm || phone.trim()
 }
+
+export const COUNTRY_CODES = [
+  { code: '+90', name: 'تركيا' },
+  { code: '+963', name: 'سوريا' },
+  { code: '+961', name: 'لبنان' },
+  { code: '+962', name: 'الأردن' },
+  { code: '+964', name: 'العراق' },
+  { code: '+966', name: 'السعودية' },
+  { code: '+971', name: 'الإمارات' },
+  { code: '+965', name: 'الكويت' },
+]
+
+const DEFAULT_COUNTRY_CODE = COUNTRY_CODES[0].code
+
+/** Splits a full number into its country code and the rest, for showing in two boxes. */
+export function splitPhone(value: string | null | undefined): { code: string; local: string } {
+  const digits = (value || '').replace(/\D/g, '').replace(/^00/, '')
+  if (!(value || '').trim().startsWith('+') && !(value || '').trim().startsWith('00')) {
+    return { code: DEFAULT_COUNTRY_CODE, local: digits.replace(/^0+/, '') }
+  }
+  const country = COUNTRY_CODES.find(candidate => digits.startsWith(candidate.code.slice(1)))
+  if (country) return { code: country.code, local: digits.slice(country.code.length - 1) }
+  // An unknown country: keep its first digits as the code, so nothing is lost
+  return { code: `+${digits.slice(0, 3)}`, local: digits.slice(3) }
+}
+
+/**
+ * Builds the full number. A leading zero is dropped, and a number pasted with its
+ * own code (+963..., 00963...) keeps that code instead of getting a second one.
+ */
+export function joinPhone(code: string, local: string): string {
+  const typed = local.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069\s\-().]/g, '')
+  if (typed.startsWith('+') || typed.startsWith('00')) {
+    const pasted = splitPhone(typed)
+    return pasted.local ? `${pasted.code}${pasted.local}` : ''
+  }
+  const digits = typed.replace(/\D/g, '').replace(/^0+/, '')
+  return digits ? `${code}${digits}` : ''
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { findStoreIdByPhone, normalizePhoneNumber } from '../src/utils/phone.ts'
+import { findStoreIdByPhone, joinPhone, normalizePhoneNumber, splitPhone } from '../src/utils/phone.ts'
 
 describe('normalizePhoneNumber', () => {
   it('returns E.164 for the formats stores and customers type', () => {
@@ -53,5 +53,39 @@ describe('findStoreIdByPhone', () => {
 
   it('refuses an empty phone', () => {
     assert.equal(findStoreIdByPhone(stores, ''), null)
+  })
+})
+
+describe('phone number boxes', () => {
+  it('splits a saved number into code and the rest', () => {
+    assert.deepEqual(splitPhone('+905352574134'), { code: '+90', local: '5352574134' })
+    assert.deepEqual(splitPhone('+963944123456'), { code: '+963', local: '944123456' })
+    assert.deepEqual(splitPhone(''), { code: '+90', local: '' })
+  })
+
+  it('a number with no code starts on the default country', () => {
+    assert.deepEqual(splitPhone('05352574134'), { code: '+90', local: '5352574134' })
+  })
+
+  it('an unknown country is kept, not lost', () => {
+    assert.equal(joinPhone(splitPhone('+4915112345678').code, splitPhone('+4915112345678').local), '+4915112345678')
+  })
+
+  it('joins them, dropping the zero people type first', () => {
+    assert.equal(joinPhone('+90', '0535 257 41 34'), '+905352574134')
+    assert.equal(joinPhone('+963', '0944123456'), '+963944123456')
+    assert.equal(joinPhone('+90', ''), '')
+  })
+
+  it('a pasted full number keeps its own code', () => {
+    assert.equal(joinPhone('+90', '+963 944 123 456'), '+963944123456')
+    assert.equal(joinPhone('+90', '00963944123456'), '+963944123456')
+  })
+
+  it('the result is what the site saves', () => {
+    for (const [code, local] of [['+90', '5352574134'], ['+963', '944123456'], ['+965', '51234567'], ['+966', '501234567']]) {
+      const full = joinPhone(code, local)
+      assert.equal(normalizePhoneNumber(full), full, full)
+    }
   })
 })

@@ -5,7 +5,9 @@ import { createClient } from '@/utils/supabase/client'
 import { triggerRevalidate } from '@/utils/revalidate'
 import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
-import { FormSheet } from '@/components/panel/shared'
+import { CheckRow, FormSheet } from '@/components/panel/shared'
+import PhoneInput from '@/components/PhoneInput'
+import { SITE_URL } from '@/config/site'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import type { BusinessType } from '@/components/AdminBusinessTypesTab'
 import TabErrorBoundary from '@/components/TabErrorBoundary'
@@ -13,12 +15,11 @@ import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
 
 // Each tab's heavy code loads only when that tab is opened
-const StoreSettingsModal = dynamicImport(() => import('@/components/StoreSettingsModal'))
 const OfferPosterModal = dynamicImport(() => import('@/components/OfferPosterModal'))
 const AdminBusinessTypesTab = dynamicImport(() => import('@/components/AdminBusinessTypesTab'))
 const AdminLegalPagesTab = dynamicImport(() => import('@/components/AdminLegalPagesTab'))
 const AdminQrAnalyticsTab = dynamicImport(() => import('@/components/AdminQrAnalyticsTab'))
-import { Plus, Edit, Settings, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, Share2 } from 'lucide-react'
+import { Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, Share2, MoreHorizontal } from 'lucide-react'
 import { notifyError, reportWriteResult } from '@/utils/notify'
 import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
 
@@ -49,7 +50,6 @@ export default function AdminDashboard() {
   const [tabLoading, setTabLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('restaurants')
   const [loadedTabs, setLoadedTabs] = useState<Set<TabKey>>(new Set())
-  const [selectedStoreForSettings, setSelectedStoreForSettings] = useState<any>(null)
 
   const [resSearchQuery, setResSearchQuery] = useState('')
   const [resFilterStatus, setResFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
@@ -262,8 +262,8 @@ export default function AdminDashboard() {
     name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '',
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
-    opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false,
-    is_subscription_active: true, is_menu_active: true, subscription_notes: ''
+    opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false, holiday_message: '', enable_whatsapp_orders: true,
+    is_subscription_active: true, is_menu_active: true, show_on_home: true, subscription_notes: ''
   }
   const [resForm, setResForm] = useState(emptyRes)
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([])
@@ -311,8 +311,11 @@ export default function AdminDashboard() {
       closing_time: resForm.closing_time || '23:00',
       days_off: resForm.days_off || [],
       is_on_holiday: resForm.is_on_holiday || false,
+      holiday_message: resForm.holiday_message.trim() || null,
+      enable_whatsapp_orders: resForm.enable_whatsapp_orders !== false,
       is_subscription_active: resForm.is_subscription_active !== false,
       is_menu_active: resForm.is_menu_active !== false,
+      show_on_home: resForm.show_on_home !== false,
       subscription_notes: resForm.subscription_notes?.trim() || null,
     }
     let restaurantId = editResId
@@ -375,8 +378,11 @@ export default function AdminDashboard() {
       closing_time: r.closing_time || '23:00',
       days_off: Array.isArray(r.days_off) ? r.days_off : [],
       is_on_holiday: !!r.is_on_holiday,
+      holiday_message: r.holiday_message || '',
+      enable_whatsapp_orders: r.enable_whatsapp_orders !== false,
       is_subscription_active: r.is_subscription_active !== false,
       is_menu_active: r.is_menu_active !== false,
+      show_on_home: r.show_on_home !== false,
       subscription_notes: r.subscription_notes || '',
     })
     setSelectedCatIds(restaurantCategoryMap[r.id] || [])
@@ -707,255 +713,74 @@ export default function AdminDashboard() {
             {showResForm && (
               <FormSheet
                 title={editResId ? `تعديل ${resForm.name || 'المتجر'}` : 'إضافة متجر جديد'}
+                wide
                 onClose={() => { setShowResForm(false); setEditResId(null) }}
                 footer={
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => { setShowResForm(false); setEditResId(null) }} className="btn btn-secondary">إلغاء</button>
+                  <div className="grid grid-cols-[2fr_1fr] gap-2">
                     <button type="submit" form="store-form" disabled={savingRes} className="btn btn-primary">
-                      {savingRes ? 'جاري الحفظ...' : 'حفظ'}
+                      {savingRes ? 'جاري الحفظ...' : editResId ? 'حفظ التعديلات' : 'إضافة المتجر'}
                     </button>
+                    <button type="button" onClick={() => { setShowResForm(false); setEditResId(null) }} className="btn btn-secondary">إلغاء</button>
                   </div>
                 }
               >
-                  <form id="store-form" onSubmit={handleResSubmit} className="space-y-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="f-label">اسم النشاط / المحل *</label>
-                        <input type="text" required value={resForm.name} onChange={e => setResForm({ ...resForm, name: e.target.value })} className="f-input" placeholder="مثال: سوبرماركت الخير" />
-                      </div>
-                      <div>
-                        <label className="f-label">نوع النشاط التجاري *</label>
-                        <select
-                          value={resForm.store_type || (businessTypes[0]?.slug || 'restaurant')}
-                          onChange={e => setResForm({ ...resForm, store_type: e.target.value })}
-                          className="f-input font-bold"
-                        >
-                          {businessTypes.map(bt => (
-                            <option key={bt.id} value={bt.slug}>
-                              {bt.icon} {bt.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="f-label">الرابط (Slug) *</label>
-                        <input type="text" required dir="ltr" value={resForm.slug} onChange={e => setResForm({ ...resForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="f-input text-left" placeholder="alalkhair-market" />
-                      </div>
-                      <div>
-                        <label className="f-label">رقم الواتساب *</label>
-                        <input type="text" required dir="ltr" placeholder="+96512345678" value={resForm.whatsapp_number} onChange={e => setResForm({ ...resForm, whatsapp_number: e.target.value })} className="f-input text-left" />
-                      </div>
-                      <div>
-                        <label className="f-label">اللون الأساسي</label>
-                        <div className="flex items-center gap-2">
-                          <input type="color" value={resForm.primary_color} onChange={e => setResForm({ ...resForm, primary_color: e.target.value })} className="w-10 h-10 rounded-xl border border-gray-200 cursor-pointer p-0.5 bg-white" />
-                          <span className="text-sm font-mono text-muted uppercase">{resForm.primary_color}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="f-label">📱 رقم هاتف المحل/المالك (لتسجيل الدخول)</label>
-                        <input type="text" dir="ltr" placeholder="0000000000 أو +900000000000" value={resForm.owner_phone} onChange={e => setResForm({ ...resForm, owner_phone: e.target.value })} className="f-input text-left" />
-                      </div>
-                    </div>
-
-                    {/* Platform categories */}
-                    {platformCategories.length > 0 && (
-                      <div>
-                        <label className="f-label mb-2">تصنيفات المنصة (اختر ما ينطبق)</label>
-                        <div className="flex flex-wrap gap-2">
-                          {platformCategories.map(c => {
-                            const isSelected = selectedCatIds.includes(c.id)
-                            return (
-                              <button key={c.id} type="button" onClick={() => toggleCat(c.id)}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-bold  ${isSelected ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
-                              >
-                                <span>{c.icon}</span>
-                                <span>{c.name}</span>
-                                {isSelected && <CheckCircle size={12} className="text-green-400" />}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Images */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="f-label mb-1">لوجو المطعم / المتجر 🖼️</label>
-                        <p className="text-sm text-muted font-bold mb-2">
-                          💡 المقاس المثالي: <span className="text-brand">500 × 500 بكسل</span> (نسبة 1:1 مربع)
-                        </p>
-                        <ImageUpload value={resForm.logo_url} onChange={(url) => setResForm({ ...resForm, logo_url: url })} />
-                      </div>
-                      <div>
-                        <label className="f-label mb-1">صورة الغلاف 🏙️</label>
-                        <p className="text-sm text-muted font-bold mb-2">
-                          💡 المقاس المثالي: <span className="text-brand">1200 × 675 بكسل</span> (نسبة 16:9 عريض)
-                        </p>
-                        <ImageUpload value={resForm.cover_url} onChange={(url) => setResForm({ ...resForm, cover_url: url })} />
-                      </div>
-                    </div>
-
-                    {/* Delivery Option Toggle */}
-                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
-                      <input
-                        type="checkbox"
-                        id="has_delivery"
-                        checked={resForm.has_delivery}
-                        onChange={e => setResForm({ ...resForm, has_delivery: e.target.checked })}
-                        className="w-4 h-4 text-brand rounded border-slate-300 focus:ring-orange-500 cursor-pointer"
-                      />
-                      <label htmlFor="has_delivery" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
-                        🛵 يقدّم خدمة التوصيل للمنازل (عند إلغاء التفعيل سيظهر كـ &quot;استلام من الفرع / تصفح فقط&quot;)
-                      </label>
-                    </div>
-
-                    {/* Subscription & Menu Status Controls */}
-                    <div className="bg-ink text-white rounded-2xl p-4 space-y-3 border border-slate-700">
-                      <h4 className="font-black text-sm sm:text-sm text-white flex items-center gap-2">
-                        <span>🛡️</span> حالة الاشتراك وإتاحة المنيو للزبائن
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* 1. Subscription Active Toggle */}
-                        <div className={`p-3 rounded-xl border  flex items-center justify-between gap-2 ${
-                          resForm.is_subscription_active !== false
-                            ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
-                            : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
-                        }`}>
-                          <div className="min-w-0">
-                            <h5 className="font-black text-sm">اشتراك لوحة التحكم</h5>
-                            <p className="text-sm opacity-75">
-                              {resForm.is_subscription_active !== false ? '✅ نشط (يسمح بالتعديل)' : '⛔ معلق (يمنع التعديل)'}
-                            </p>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={resForm.is_subscription_active !== false}
-                            onChange={e => setResForm({ ...resForm, is_subscription_active: e.target.checked })}
-                            className="w-5 h-5 accent-emerald-500 rounded cursor-pointer"
-                          />
-                        </div>
-
-                        {/* 2. Menu Active Toggle */}
-                        <div className={`p-3 rounded-xl border  flex items-center justify-between gap-2 ${
-                          resForm.is_menu_active !== false
-                            ? 'bg-blue-950/40 border-blue-500/40 text-blue-300'
-                            : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-                        }`}>
-                          <div className="min-w-0">
-                            <h5 className="font-black text-sm">منيو الزبائن العام</h5>
-                            <p className="text-sm opacity-75">
-                              {resForm.is_menu_active !== false ? '🟢 منشور ومتاح' : '🔴 معلق ومخفي'}
-                            </p>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={resForm.is_menu_active !== false}
-                            onChange={e => setResForm({ ...resForm, is_menu_active: e.target.checked })}
-                            className="w-5 h-5 accent-blue-500 rounded cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-bold text-slate-300 mb-1 block">ملاحظات الاشتراك (اختياري)</label>
-                        <input
-                          type="text"
-                          value={resForm.subscription_notes || ''}
-                          onChange={e => setResForm({ ...resForm, subscription_notes: e.target.value })}
-                          placeholder="مثال: اشتراك شهري مدفوع حتى تاريخ..."
-                          className="f-input bg-slate-950 text-white border-slate-700 text-sm placeholder:text-slate-500"
-                        />
-                      </div>
-
-
-                    </div>
-
-                    {/* Working Hours & Days Off */}
-                    <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-black text-sm text-slate-800 flex items-center gap-1.5">
-                          <span>⏰</span> ساعات العمل وأيام العطلة الرسمية
-                        </h4>
-                        <label className="flex items-center gap-2 cursor-pointer text-sm font-black text-amber-900">
-                          <input
-                            type="checkbox"
-                            checked={resForm.is_on_holiday}
-                            onChange={e => setResForm({ ...resForm, is_on_holiday: e.target.checked })}
-                            className="w-4 h-4 accent-amber-600 rounded"
-                          />
-                          <span>🌴 إغلاق مؤقت / في عطلة</span>
-                        </label>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <form id="store-form" onSubmit={handleResSubmit} className="space-y-6">
+                    {/* What gets used most comes first; rarely changed settings stay folded away */}
+                    <section className="space-y-3">
+                      <h3 className="section-title">بيانات المتجر</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="f-label">وقت الفتح ⏰</label>
-                          <input
-                            type="time"
-                            value={resForm.opening_time}
-                            onChange={e => setResForm({ ...resForm, opening_time: e.target.value })}
-                            className="f-input text-center font-bold bg-white"
-                          />
+                          <label className="f-label">اسم المتجر *</label>
+                          <input type="text" required value={resForm.name} onChange={e => setResForm({ ...resForm, name: e.target.value })} className="f-input" placeholder="مثال: سوبر ماركت الخير" />
                         </div>
                         <div>
-                          <label className="f-label">وقت الإغلاق 🌙</label>
-                          <input
-                            type="time"
-                            value={resForm.closing_time}
-                            onChange={e => setResForm({ ...resForm, closing_time: e.target.value })}
-                            className="f-input text-center font-bold bg-white"
-                          />
+                          <label className="f-label">نوع النشاط *</label>
+                          <select
+                            value={resForm.store_type || (businessTypes[0]?.slug || 'restaurant')}
+                            onChange={e => setResForm({ ...resForm, store_type: e.target.value })}
+                            className="f-input font-bold"
+                          >
+                            {businessTypes.map(bt => (
+                              <option key={bt.id} value={bt.slug}>{bt.name}</option>
+                            ))}
+                          </select>
                         </div>
-                      </div>
-                      <div>
-                        <label className="f-label mb-1">أيام العطلة الأسبوعية (اختياري)</label>
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(day => {
-                            const isSelected = (resForm.days_off || []).includes(day)
-                            return (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => {
-                                  const current = resForm.days_off || []
-                                  const next = current.includes(day) ? current.filter(d => d !== day) : [...current, day]
-                                  setResForm({ ...resForm, days_off: next })
-                                }}
-                                className={`px-3 py-1 rounded-xl text-sm font-black  border ${
-                                  isSelected
-                                    ? 'bg-amber-500 border-amber-500 text-white '
-                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                                }`}
-                              >
-                                {isSelected ? '✓ ' : ''}{day}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Location */}
-                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-3">
                         <div>
-                          <h4 className="font-black text-sm text-slate-800 flex items-center gap-1.5"><MapPin size={15} className="text-blue-500" />موقع المطعم</h4>
-                          <p className="text-sm text-muted mt-0.5">مطلوب لإظهار المطعم للمستخدمين القريبين</p>
+                          <label className="f-label">رقم صاحب المتجر (للدخول والبوت)</label>
+                          <PhoneInput value={resForm.owner_phone} onChange={owner_phone => setResForm({ ...resForm, owner_phone })} />
                         </div>
+                        <div>
+                          <label className="f-label">رقم واتساب الطلبات *</label>
+                          <PhoneInput required value={resForm.whatsapp_number} onChange={whatsapp_number => setResForm({ ...resForm, whatsapp_number })} />
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="space-y-3 border-t border-line pt-5">
+                      <h3 className="section-title">الظهور للزبائن</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4">
+                        <CheckRow label="ظاهر في الرئيسية" checked={resForm.show_on_home !== false} onChange={checked => setResForm({ ...resForm, show_on_home: checked })} />
+                        <CheckRow label="المنيو منشور" checked={resForm.is_menu_active !== false} onChange={checked => setResForm({ ...resForm, is_menu_active: checked })} />
+                        <CheckRow label="الاشتراك نشط" checked={resForm.is_subscription_active !== false} onChange={checked => setResForm({ ...resForm, is_subscription_active: checked })} />
+                      </div>
+                    </section>
+
+                    <section className="space-y-3 border-t border-line pt-5">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <h3 className="section-title">الموقع والتوصيل</h3>
                         <button type="button" onClick={() => {
                           if (!navigator.geolocation) return notifyError('المتصفح لا يدعم تحديد الموقع')
                           navigator.geolocation.getCurrentPosition(
                             (pos) => setResForm({ ...resForm, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }),
                             () => notifyError('تعذر تحديد الموقع')
                           )
-                        }} className="btn btn-primary btn-sm shrink-0">
+                        }} className="btn btn-secondary btn-sm">
                           <MapPin size={14} /> موقعي الحالي
                         </button>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="f-label">الإحداثيات (lat, lng)</label>
+                          <label className="f-label">الإحداثيات</label>
                           <input type="text" dir="ltr" placeholder="41.0082, 28.9784"
                             value={resForm.latitude && resForm.longitude ? `${resForm.latitude}, ${resForm.longitude}` : (resForm.latitude || '')}
                             onChange={e => {
@@ -969,38 +794,127 @@ export default function AdminDashboard() {
                               }
                               setResForm({ ...resForm, latitude: val, longitude: '' })
                             }}
-                            className="f-input text-left bg-white" />
+                            className="f-input text-left" />
+                          {resForm.latitude && resForm.longitude ? (
+                            <a href={`https://www.google.com/maps?q=${resForm.latitude},${resForm.longitude}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-brand underline inline-flex items-center gap-1 mt-1">
+                              <ExternalLink size={12} /> معاينة على الخريطة
+                            </a>
+                          ) : (
+                            <p className="text-sm font-bold text-rose-700 mt-1">بدون موقع، لن يظهر المتجر للزبائن.</p>
+                          )}
                         </div>
                         <div>
                           <label className="f-label">نطاق التوصيل (كم)</label>
                           <input type="number" min="1" max="100" step="0.5" value={resForm.delivery_radius_km}
                             onChange={e => setResForm({ ...resForm, delivery_radius_km: e.target.value })}
-                            className="f-input bg-white" />
+                            className="f-input" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                        <CheckRow label="يقدم خدمة التوصيل" checked={resForm.has_delivery} onChange={checked => setResForm({ ...resForm, has_delivery: checked })} />
+                        <CheckRow label="يستقبل الطلبات على واتساب" checked={resForm.enable_whatsapp_orders !== false} onChange={checked => setResForm({ ...resForm, enable_whatsapp_orders: checked })} />
+                      </div>
+                    </section>
+
+                    <section className="space-y-3 border-t border-line pt-5">
+                      <h3 className="section-title">الدوام</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="f-label">يفتح الساعة</label>
+                          <input type="time" value={resForm.opening_time} onChange={e => setResForm({ ...resForm, opening_time: e.target.value })} className="f-input text-center" />
+                        </div>
+                        <div>
+                          <label className="f-label">يغلق الساعة</label>
+                          <input type="time" value={resForm.closing_time} onChange={e => setResForm({ ...resForm, closing_time: e.target.value })} className="f-input text-center" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="f-label">أيام العطلة الأسبوعية</label>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(day => {
+                            const current = resForm.days_off || []
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                aria-pressed={current.includes(day)}
+                                onClick={() => setResForm({ ...resForm, days_off: current.includes(day) ? current.filter(d => d !== day) : [...current, day] })}
+                                className="chip"
+                              >
+                                {day}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <CheckRow label="مغلق مؤقتاً (عطلة)" checked={resForm.is_on_holiday} onChange={checked => setResForm({ ...resForm, is_on_holiday: checked })} />
+                      {resForm.is_on_holiday && (
+                        <div>
+                          <label className="f-label">رسالة للزبائن أثناء الإغلاق</label>
+                          <input type="text" value={resForm.holiday_message} onChange={e => setResForm({ ...resForm, holiday_message: e.target.value })} className="f-input" placeholder="مثال: نعود يوم السبت" />
+                        </div>
+                      )}
+                    </section>
+
+                    {platformCategories.length > 0 && (
+                      <section className="space-y-3 border-t border-line pt-5">
+                        <h3 className="section-title">التصنيفات</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {platformCategories.map(c => (
+                            <button key={c.id} type="button" aria-pressed={selectedCatIds.includes(c.id)} onClick={() => toggleCat(c.id)} className="chip">
+                              {c.name}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    <section className="space-y-3 border-t border-line pt-5">
+                      <h3 className="section-title">الصور</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="f-label">الشعار (مربع، 500 × 500)</label>
+                          <ImageUpload value={resForm.logo_url} onChange={(url) => setResForm({ ...resForm, logo_url: url })} />
+                        </div>
+                        <div>
+                          <label className="f-label">الغلاف (عريض، 1200 × 675)</label>
+                          <ImageUpload value={resForm.cover_url} onChange={(url) => setResForm({ ...resForm, cover_url: url })} />
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* A new store has to choose its link, so this starts open there */}
+                    <details open={!editResId} className="border-t border-line pt-5">
+                      <summary className="section-title cursor-pointer">إعدادات إضافية</summary>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                        <div>
+                          <label className="f-label">رابط المتجر *</label>
+                          <input type="text" required dir="ltr" value={resForm.slug} onChange={e => setResForm({ ...resForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="f-input text-left" placeholder="store-name" />
                         </div>
                         <div>
                           <label className="f-label">الحد الأقصى للعروض</label>
-                          <input type="number" min="1" max="100" value={resForm.max_offers_limit}
-                            onChange={e => setResForm({ ...resForm, max_offers_limit: e.target.value })}
-                            className="f-input bg-white font-black text-brand" placeholder="5" />
+                          <input type="number" min="1" max="100" value={resForm.max_offers_limit} onChange={e => setResForm({ ...resForm, max_offers_limit: e.target.value })} className="f-input" placeholder="5" />
                         </div>
                         <div>
-                          <div className="flex items-center justify-between">
-                            <label className="f-label">شريط ملاحظة / إعلان المنيو (📢)</label>
-                            <span className="text-sm text-muted font-bold">{(resForm.menu_note || '').length} / 100 حرف</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="f-label">إعلان أعلى المنيو</label>
+                            <span className="text-sm text-muted font-bold">{(resForm.menu_note || '').length} / 100</span>
                           </div>
-                          <input type="text" maxLength={100} value={resForm.menu_note || ''}
-                            onChange={e => setResForm({ ...resForm, menu_note: e.target.value.slice(0, 100) })}
-                            className="f-input bg-white text-sm font-bold" placeholder="شريط إعلان رفيع أعلى المنيو (حد أقصى 100 حرف)..." />
+                          <input type="text" maxLength={100} value={resForm.menu_note || ''} onChange={e => setResForm({ ...resForm, menu_note: e.target.value.slice(0, 100) })} className="f-input" placeholder="جملة قصيرة تظهر للزبون" />
+                        </div>
+                        <div>
+                          <label className="f-label">ملاحظات الاشتراك</label>
+                          <input type="text" value={resForm.subscription_notes || ''} onChange={e => setResForm({ ...resForm, subscription_notes: e.target.value })} className="f-input" placeholder="مثال: مدفوع حتى تاريخ..." />
+                        </div>
+                        <div>
+                          <label className="f-label">اللون الأساسي</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={resForm.primary_color} onChange={e => setResForm({ ...resForm, primary_color: e.target.value })} className="w-12 h-12 rounded-xl border border-line cursor-pointer" />
+                            <span dir="ltr" className="text-sm font-mono text-muted uppercase">{resForm.primary_color}</span>
+                          </div>
                         </div>
                       </div>
-                      {resForm.latitude && resForm.longitude ? (
-                        <a href={`https://www.google.com/maps?q=${resForm.latitude},${resForm.longitude}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 font-bold flex items-center gap-1 hover:underline">
-                          <ExternalLink size={12} /> معاينة على Google Maps
-                        </a>
-                      ) : (
-                        <p className="text-sm text-brand font-bold">⚠️ لم يتم تحديد الموقع — المطعم لن يظهر للمستخدمين</p>
-                      )}
-                    </div>
+                    </details>
                   </form>
               </FormSheet>
             )}
@@ -1082,7 +996,7 @@ export default function AdminDashboard() {
                                     <div className="min-w-0">
                                       <h4 className="font-black text-slate-900 text-sm truncate">{r.name}</h4>
                                       <Link
-                                        href={`/m/${r.slug}`}
+                                        href={`${SITE_URL}/m/${r.slug}`}
                                         target="_blank"
                                         className="text-sm font-mono text-muted hover:text-orange-600 inline-flex items-center gap-0.5 dir-ltr"
                                       >
@@ -1181,13 +1095,6 @@ export default function AdminDashboard() {
                                       <Store size={13} />
                                     </button>
                                     <button
-                                      onClick={() => setSelectedStoreForSettings(r)}
-                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
-                                      title="ساعات الدوام والعطلات"
-                                    >
-                                      <Settings size={13} />
-                                    </button>
-                                    <button
                                       onClick={() => handleEditRes(r)}
                                       className="p-1.5 bg-slate-100 hover:bg-slate-200 text-blue-600 rounded-xl"
                                       title="تعديل البيانات"
@@ -1214,12 +1121,19 @@ export default function AdminDashboard() {
               }
 
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredRestaurants.map(r => {
                     const phone = formatPhoneDisplay(ownerPhoneMap[r.id] || r.owner_phone)
+                    const switches = [
+                      { label: 'الظهور بالرئيسية', on: r.show_on_home !== false, onText: 'ظاهر', offText: 'مخفي', toggle: toggleRestaurantHome },
+                      { label: 'منيو الزبائن', on: r.is_menu_active !== false, onText: 'منشور', offText: 'مغلق', toggle: toggleRestaurantMenu },
+                      { label: 'الاشتراك', on: r.is_subscription_active !== false, onText: 'نشط', offText: 'معلق', toggle: toggleRestaurantSubscription },
+                    ]
+                    // The card only mentions these when something needs noticing
+                    const warnings = switches.filter(item => !item.on).map(item => item.offText === 'مخفي' ? 'مخفي من الرئيسية' : item.offText === 'مغلق' ? 'المنيو مغلق' : 'الاشتراك معلق')
 
                     return (
-                      <div key={r.id} className="bg-white rounded-2xl p-3 border border-line flex flex-col gap-3">
+                      <div key={r.id} className="bg-white rounded-2xl p-4 border border-line flex flex-col gap-4">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-12 h-12 rounded-xl bg-slate-100 border border-line flex items-center justify-center shrink-0 overflow-hidden">
                             {r.logo_url ? (
@@ -1234,55 +1148,50 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {[
-                            { label: 'الرئيسية', on: r.show_on_home !== false, onText: 'ظاهر', offText: 'مخفي', toggle: toggleRestaurantHome },
-                            { label: 'المنيو', on: r.is_menu_active !== false, onText: 'منشور', offText: 'مغلق', toggle: toggleRestaurantMenu },
-                            { label: 'الاشتراك', on: r.is_subscription_active !== false, onText: 'نشط', offText: 'معلق', toggle: toggleRestaurantSubscription },
-                          ].map(({ label, on, onText, offText, toggle }) => (
-                            <button
-                              key={label}
-                              type="button"
-                              role="switch"
-                              aria-checked={on}
-                              aria-label={label}
-                              onClick={() => toggle(r)}
-                              className={`min-h-12 rounded-xl border px-1 py-1 text-sm cursor-pointer ${on ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}
-                            >
-                              <span className="block font-medium">{label}</span>
-                              <span className="block font-black">{on ? onText : offText}</span>
-                            </button>
-                          ))}
-                        </div>
+                        {/* Reserved height keeps every card in a row the same, with or without a warning */}
+                        <p className={`min-h-5 text-sm font-bold ${warnings.length ? 'text-rose-700' : 'text-whatsapp'}`}>
+                          {warnings.length ? warnings.join(' · ') : 'يعمل بشكل طبيعي'}
+                        </p>
 
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <Link href={`/restaurant-panel/${r.id}`} className="btn btn-dark">
-                            <Utensils size={16} />
+                        <div className="mt-auto flex items-center gap-2">
+                          <Link href={`/restaurant-panel/${r.id}`} className="btn btn-dark flex-1 min-w-0 whitespace-nowrap">
+                            <Utensils size={16} className="shrink-0" />
                             <span>لوحة المتجر</span>
                           </Link>
-                          <button onClick={() => handleEditRes(r)} className="btn btn-secondary">
-                            <Edit size={16} />
+                          <button onClick={() => handleEditRes(r)} className="btn btn-secondary shrink-0 whitespace-nowrap">
+                            <Edit size={16} className="shrink-0" />
                             <span>تعديل</span>
                           </button>
+                          <details className="relative shrink-0">
+                            <summary aria-label={`المزيد عن ${r.name}`} className="btn btn-secondary list-none cursor-pointer [&::-webkit-details-marker]:hidden">
+                              <MoreHorizontal size={18} />
+                            </summary>
+                            <div className="absolute left-0 top-full mt-2 z-20 w-64 max-w-[calc(100vw-3rem)] bg-white border border-line rounded-2xl p-2 shadow-lg space-y-1">
+                              {switches.map(({ label, on, onText, offText, toggle }) => (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={on}
+                                  onClick={() => toggle(r)}
+                                  className="w-full min-h-11 px-2 rounded-xl flex items-center justify-between gap-2 text-sm font-bold hover:bg-slate-50 cursor-pointer"
+                                >
+                                  <span>{label}</span>
+                                  <span className={on ? 'text-whatsapp' : 'text-rose-700'}>{on ? onText : offText}</span>
+                                </button>
+                              ))}
+                              <div className="border-t border-line my-1" />
+                              <Link href={`${SITE_URL}/m/${r.slug}`} target="_blank" className="w-full min-h-11 px-2 rounded-xl flex items-center gap-2 text-sm font-bold hover:bg-slate-50">
+                                <ExternalLink size={15} />
+                                <span>فتح صفحة المتجر</span>
+                              </Link>
+                              <button onClick={() => handleDeleteRes(r.id, r.name)} className="w-full min-h-11 px-2 rounded-xl flex items-center gap-2 text-sm font-bold text-rose-700 hover:bg-rose-50 cursor-pointer">
+                                <Trash2 size={15} />
+                                <span>حذف المتجر</span>
+                              </button>
+                            </div>
+                          </details>
                         </div>
-
-                        <details className="text-sm">
-                          <summary className="cursor-pointer font-bold text-muted py-1">المزيد</summary>
-                          <div className="grid grid-cols-1 gap-1.5 pt-2">
-                            <Link href={`/m/${r.slug}`} target="_blank" className="btn btn-secondary btn-sm">
-                              <ExternalLink size={14} />
-                              <span>فتح صفحة المتجر</span>
-                            </Link>
-                            <button onClick={() => setSelectedStoreForSettings(r)} className="btn btn-secondary btn-sm">
-                              <Settings size={14} />
-                              <span>الدوام والعطلات</span>
-                            </button>
-                            <button onClick={() => handleDeleteRes(r.id, r.name)} className="btn btn-danger btn-sm">
-                              <Trash2 size={14} />
-                              <span>حذف المتجر</span>
-                            </button>
-                          </div>
-                        </details>
                       </div>
                     )
                   })}
@@ -1701,7 +1610,7 @@ export default function AdminDashboard() {
                                   </button>
                                   {store?.slug && (
                                     <a
-                                      href={`/m/${store.slug}`}
+                                      href={`${SITE_URL}/m/${store.slug}`}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="btn btn-ghost btn-sm text-slate-600 hover:text-orange-600 p-1.5"
@@ -1835,12 +1744,6 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
-      <StoreSettingsModal
-        restaurant={selectedStoreForSettings}
-        isOpen={!!selectedStoreForSettings}
-        onClose={() => setSelectedStoreForSettings(null)}
-        onSaveSuccess={fetchRestaurantsTab}
-      />
       {selectedPosterOffer && selectedPosterRestaurant && (
         <OfferPosterModal
           isOpen={!!selectedPosterOffer}
