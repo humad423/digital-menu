@@ -1,3 +1,6 @@
+/** A discount only counts when the price is above zero and really below the one before it. */
+export const isRealDiscount = (price: number, original: number) => price > 0 && original > price
+
 export interface ColorOption {
   name: string
   hex: string

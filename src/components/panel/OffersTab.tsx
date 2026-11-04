@@ -7,6 +7,7 @@ import MultiImageUpload from '@/components/MultiImageUpload'
 import { CheckRow, FormSheet, parseList, type PanelStore } from '@/components/panel/shared'
 import { supabase } from '@/lib/supabase'
 import { notifyError, reportWriteResult } from '@/utils/notify'
+import { isRealDiscount } from '@/utils/productOptions'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
 
@@ -114,8 +115,13 @@ export default function OffersTab({ store }: { store: PanelStore }) {
     if (!canEdit()) return
 
     const offerPrice = parseFloat(form.offer_price)
-    if (!form.primary_item_id || !form.title.trim() || !(offerPrice >= 0)) {
+    const originalPrice = parseFloat(form.original_price)
+    if (!form.primary_item_id || !form.title.trim() || !(offerPrice > 0)) {
       notifyError('اختر المنتج الأول واكتب سعر البكج.')
+      return
+    }
+    if (!isRealDiscount(offerPrice, originalPrice)) {
+      notifyError('سعر البكج لازم يكون أقل من السعر الأصلي.')
       return
     }
 
@@ -131,7 +137,7 @@ export default function OffersTab({ store }: { store: PanelStore }) {
       item4_quantity: parseInt(form.item4_quantity) || 1,
       title: form.title.trim(),
       description: form.description.trim() || null,
-      original_price: parseFloat(form.original_price) || null,
+      original_price: originalPrice,
       offer_price: offerPrice,
       image_url: form.images[0] || null,
       images: form.images,

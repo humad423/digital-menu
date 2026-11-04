@@ -10,7 +10,7 @@ import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { notifyError, reportWriteResult } from '@/utils/notify'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
-import { COLOR_OPTIONS, SIZE_OPTIONS, orderOptions } from '@/utils/productOptions'
+import { COLOR_OPTIONS, SIZE_OPTIONS, isRealDiscount, orderOptions } from '@/utils/productOptions'
 
 const COLOR_NAMES = COLOR_OPTIONS.map(color => color.name)
 const COLOR_SWATCHES = Object.fromEntries(COLOR_OPTIONS.map(color => [color.name, color.hex]))
@@ -93,7 +93,7 @@ export default function ItemsTab({
       notifyError('اكتب الاسم والسعر واختر القسم.')
       return
     }
-    if (isSupermarket && !(originalPrice > price)) {
+    if ((isSupermarket || originalPrice > 0) && !isRealDiscount(price, originalPrice)) {
       notifyError('السعر قبل الخصم يجب أن يكون أكبر من سعر العرض.')
       return
     }

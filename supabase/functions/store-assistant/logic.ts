@@ -94,7 +94,7 @@ What you can reach is everything about this one shop, shown to you below with sh
 - categories: name, sort_order.
 - menu_items (products): category_id, name, description, price, original_price (the old price shown crossed out, null for none), image_url and images (a list), unit ("kg" or "piece"), allow_custom_amount (true when sold by weight), is_available, out_of_stock_until, is_hidden (hidden from customers), sizes and colors (lists).
 - offers: title, description, offer_price, original_price, image_url and images, is_active, primary_item_id and min_quantity, bonus_item_id and bonus_quantity, item3_id and item3_quantity, item4_id and item4_quantity, sort_order.
-A field missing from what you see is empty or has its usual value. In supermarkets every product has an original_price above its price. A simple offer on one product has its name as title and primary_item_id set to that product.
+A field missing from what you see is empty or has its usual value. In supermarkets every product has an original_price above its price. A simple offer on one product has its name as title and primary_item_id set to that product. An offer must be cheaper than the product's current price: if they ask for the same price or higher, say so and ask for a lower one, and don't change the product's own price to make it fit unless they ask.
 
 You change things with actions, carried out in order:
 {"op":"update","record":"P3","fields":{"price":40},"said_name":"what the owner called it"}
@@ -103,7 +103,9 @@ You change things with actions, carried out in order:
 {"op":"undo"} takes back everything saved in the owner's last request; use it whenever they want that back.
 Refer to other records by their codes. To use the available photo, write "PHOTO" as the value, like {"image_url":"PHOTO","images":["PHOTO"]}.
 
-Never invent a price or a product. A product needs a real price before you add it: if they didn't give one, ask for it, and never add it at 0. Before adding a product, unless the owner already said which category it goes in, ask them, naming the categories they have and mentioning it can go in a new one. Do this even if there is only one category. You may say which you think fits, but let them decide, and add it once they answer.
+Never invent a price or a product. A product needs a real price before you add it: if they didn't give one, ask for it, and never add it at 0. When adding a product, work out its category yourself. If the owner named one, or one of their categories clearly fits the product, such as a shawarma sandwich and a shawarma category, add it straight away without asking, and tell them which category you put it in. A category clearly fits only when the product is the same kind of thing as its name or what's already in it. Never pick the nearest one just to have somewhere to put it: shampoo doesn't fit a shawarma or drinks category. If you aren't sure, or none of their categories really fits, even if they only have one, don't add it yet: ask which one it goes in, naming the categories they have and mentioning it can go in a new one.
+
+When you add a product without a photo, ask in the same message if they have a photo for it. Don't hold back the product for this: add it first and ask afterwards, once, and don't ask again if they don't have one or don't answer. You can't create or find photos yourself, so never offer that.
 
 When a photo comes, first look at what it really shows, on its own, before thinking about the conversation. Use it for a product only if it actually shows that product. If it shows something else, such as an animal or a person when you were talking about tomatoes, or you can't tell which product it belongs to, say what you see and ask instead of guessing. Never say a photo shows something you don't see in it. Before replacing a photo a product already has, check with them, unless they clearly asked for that. A photo from an earlier message only goes on a product the owner ties it to now.
 
@@ -208,6 +210,28 @@ export function buildInput(ctx: Context, aliases: { said: string; menu_item_id: 
   ].join('\n\n')
 }
 
+/** What the products in an offer cost together, at their current prices. */
+function offerTotal(ctx: Context, fields: Row): number {
+  const slots = [['primary_item_id', 'min_quantity'], ['bonus_item_id', 'bonus_quantity'], ['item3_id', 'item3_quantity'], ['item4_id', 'item4_quantity']]
+  return slots.reduce((total, [item, quantity]) => {
+    const product = ctx.records.find(record => record.id === fields[item])
+    return product ? total + Number(product.row.price) * (Number(fields[quantity]) || 1) : total
+  }, 0)
+}
+
+/** A discount has to be a real one: customers would otherwise see a fake saving. */
+function discountProblem(table: StoreTable, row: Row): string | null {
+  if (table === 'offers') {
+    const original = Number(row.original_price)
+    if (original > 0 && Number(row.offer_price) < original) return null
+    return `The offer price ${String(row.offer_price)} is not below the original price ${String(row.original_price ?? 'none')}, so it was NOT saved. An offer must be cheaper than the product's price. Tell the owner and ask for a lower price.`
+  }
+  if (table === 'menu_items' && Number(row.original_price) > 0 && Number(row.price) >= Number(row.original_price)) {
+    return `The price ${String(row.price)} is not below the crossed-out old price ${String(row.original_price)}, so it was NOT saved. Either lower the price, or set original_price to null if the product is no longer discounted.`
+  }
+  return null
+}
+
 const labelOf = (row: Row) => clean(row.name ?? row.title, 80) || 'السجل'
 
 const sameValue = (a: unknown, b: unknown) =>
@@ -253,6 +277,10 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
       else before[key] = record.row[key] ?? null
     }
     if (Object.keys(fields).length === 0) return { problem: `${labelOf(record.row)}: nothing is different from what is already saved, so nothing changed.` }
+    if ('price' in fields || 'offer_price' in fields || 'original_price' in fields) {
+      const discount = discountProblem(record.table, { ...record.row, ...fields })
+      if (discount) return { problem: discount }
+    }
     return { step: { op: 'update', table: record.table, id: record.id, code: record.code, label: labelOf(record.row), said: clean(action.said_name, 60), fields, before } }
   }
 
@@ -267,6 +295,9 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
     if (priceField && fields[priceField] === undefined) {
       return { problem: `${labelOf(fields)}: it has no price, so it was NOT added. Ask the owner for the price, then add it.` }
     }
+    if (table === 'offers' && !fields.original_price) fields.original_price = offerTotal(ctx, fields) || null
+    const discount = discountProblem(table, fields)
+    if (discount) return { problem: discount }
     if (table === 'offers') {
       const limit = ctx.store.max_offers_limit || 5
       const count = ctx.records.filter(candidate => candidate.table === 'offers').length

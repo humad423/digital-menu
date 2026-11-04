@@ -1,8 +1,18 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { COLOR_OPTIONS, SIZE_OPTIONS, addOptions, orderOptions, toggleOption } from '../src/utils/productOptions.ts'
+import { COLOR_OPTIONS, SIZE_OPTIONS, addOptions, isRealDiscount, orderOptions, toggleOption } from '../src/utils/productOptions.ts'
 
 const colors = COLOR_OPTIONS.map(color => color.name)
+
+describe('real discounts', () => {
+  test('only a lower price above zero counts', () => {
+    assert.equal(isRealDiscount(80, 100), true)
+    assert.equal(isRealDiscount(100, 100), false)
+    assert.equal(isRealDiscount(120, 100), false)
+    assert.equal(isRealDiscount(0, 100), false)
+    assert.equal(isRealDiscount(80, Number.NaN), false)
+  })
+})
 
 describe('choosing sizes and colors', () => {
   test('tapping selects, and tapping again removes', () => {
