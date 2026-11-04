@@ -66,12 +66,20 @@ describe('keeping the agent inside its own shop', () => {
 
   test('a shop cannot be created or deleted', () => {
     assert.match(checkAction(ctx(), { op: 'add', table: 'restaurants', fields: { name: 'x' } }).problem!, /cannot create a shop/)
-    assert.match(checkAction(ctx(), { op: 'delete', record: 'S' }).problem!, /cannot delete a shop/)
+    assert.match(checkAction(ctx(), { op: 'delete', record: 'S' }).problem!, /cannot delete/)
+  })
+
+  test('nothing can be deleted: a product is hidden and an offer is stopped instead', () => {
+    for (const record of ['P1', 'C1', 'S']) {
+      const { step, problem } = checkAction(ctx(), { op: 'delete', record })
+      assert.equal(step, undefined)
+      assert.match(problem!, /is_hidden true/)
+    }
+    assert.deepEqual((checkAction(ctx(), { op: 'update', record: 'P1', fields: { is_hidden: true } }).step as any).fields, { is_hidden: true })
   })
 
   test('another shop\'s records are out of reach', () => {
     assert.match(checkAction(ctx(), { op: 'update', record: 'P99', fields: { price: 1 } }).problem!, /not a record/)
-    assert.match(checkAction(ctx(), { op: 'delete', record: 'other-store-item' }).problem!, /not a record/)
     assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { category_id: 'other-store-category' } }).problem!, /not part of this shop/)
     assert.match(checkAction(ctx(), { op: 'add', table: 'offers', fields: { title: 'x', offer_price: 1, primary_item_id: 'other-store-item' } }).problem!, /not part of this shop/)
   })

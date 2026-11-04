@@ -111,16 +111,6 @@ async function runStep(step: Step, ctx: Context, phone: string, batch: string, g
 
   if (step.op === 'undo') return undoLast(ctx.store.id, phone)
 
-  if (step.op === 'delete') {
-    const { data: row } = await db.from(step.table).select('*').eq('id', step.id).maybeSingle()
-    if (!row) return `${step.label}: it is already gone.`
-    const { error } = await db.from(step.table).delete().eq('id', step.id)
-    if (error) { console.error(error); return `${step.label}: the database refused this: ${error.message}` }
-    await log('delete', step.table, step.id, row, { name: step.label })
-    applyToContext(ctx, step)
-    return null
-  }
-
   if (usesPhoto(step)) {
     const photo = await getPhoto()
     if (!photo) return `${step.label}: the photo could not be uploaded, so nothing was saved for it. Ask the owner to send it again.`
@@ -158,11 +148,10 @@ async function undoLast(storeId: string, phone: string): Promise<string | null> 
   const batch = recent[0].after?.batch
   const changes = batch ? recent.filter(change => change.after?.batch === batch) : [recent[0]]
   for (const change of changes) {
-    const { error } = change.action === 'delete'
-      ? await db.from(change.target_table).insert(change.before)
-      : change.before
-        ? await db.from(change.target_table).update(change.before).eq('id', change.target_id)
-        : await db.from(change.target_table).delete().eq('id', change.target_id)
+    // Only something the assistant itself added in that request is ever removed here
+    const { error } = change.before
+      ? await db.from(change.target_table).update(change.before).eq('id', change.target_id)
+      : await db.from(change.target_table).delete().eq('id', change.target_id)
     if (error) {
       console.error(error)
       return `Undo: the database refused it for ${change.after?.name}: ${error.message}. That change is still there.`

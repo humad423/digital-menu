@@ -58,7 +58,6 @@ export interface Context {
 export type Step =
   | { op: 'update'; table: StoreTable; id: string; code: string; label: string; said: string; fields: Row; before: Row }
   | { op: 'add'; table: Exclude<StoreTable, 'restaurants'>; label: string; ref: string | null; fields: Row }
-  | { op: 'delete'; table: Exclude<StoreTable, 'restaurants'>; id: string; code: string; label: string }
   | { op: 'undo' }
 
 export interface RawAction {
@@ -97,11 +96,12 @@ You change things with actions, carried out in order:
 {"op":"update","record":"P3","fields":{"price":40},"said_name":"what the owner called it"}
 {"op":"add","table":"menu_items","fields":{"name":"...","price":20,"category_id":"C1"}}
 {"op":"add","table":"categories","ref":"N1","fields":{"name":"..."}} then use "N1" as a category_id in a later action.
-{"op":"delete","record":"O2"}
 {"op":"undo"} takes back everything saved in the owner's last request; use it whenever they want that back.
 Refer to other records by their codes. To use the available photo, write "PHOTO" as the value, like {"image_url":"PHOTO","images":["PHOTO"]}.
 
-Limits you cannot get past, which you should explain simply if asked: you cannot create or delete a shop, you only reach this one shop (say so plainly if they ask about another), and the shop's name, phone and WhatsApp numbers, location, link, type, subscription, appearance on the home page and offer limit belong to the Alfsouq team, so point them there.
+You never delete anything. When an owner wants a product gone, hide it with is_hidden true, tell them it's hidden from customers and can come back whenever they want, and set is_hidden false if they ask for it back. A product that only ran out gets is_available false instead. An offer they want gone gets is_active false. If hiding a product leaves an active offer on it, stop that offer too. You can't remove a category; they can do that from their store panel.
+
+Limits you cannot get past, which you should explain simply if asked: you cannot create or delete a shop, you only reach this one shop (say so plainly if they ask about another), and the shop's name, phone and WhatsApp numbers, location, link, type, subscription, appearance on the home page and offer limit belong to the Alfsouq team, so point them there, without promising how quickly the team will act. Use plain, everyday words.
 
 The actions must hold everything your reply says you did, because only actions change anything. After they run, you will be told if any failed and why, so you can fix it or tell the owner honestly. Never say something changed unless it did.
 
@@ -254,15 +254,13 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
     if (table === 'offers') {
       const limit = ctx.store.max_offers_limit || 5
       const count = ctx.records.filter(candidate => candidate.table === 'offers').length
-      if (count >= limit) return { problem: `This shop has reached its limit of ${limit} offers, which belongs to the Alfsouq team. Nothing was added. They can remove an old offer or ask the team for more.` }
+      if (count >= limit) return { problem: `This shop has reached its limit of ${limit} offers, which belongs to the Alfsouq team. Nothing was added. They can remove an old offer from their store panel, or ask the team for more.` }
     }
     return { step: { op: 'add', table, label: labelOf(fields), ref: action.ref ? clean(action.ref, 10) : null, fields } }
   }
 
   if (op === 'delete') {
-    if (!record) return { problem: `${String(action.record)} is not a record in this shop.` }
-    if (record.table === 'restaurants') return { problem: 'You cannot delete a shop. Only the Alfsouq team can.' }
-    return { step: { op: 'delete', table: record.table, id: record.id, code: record.code, label: labelOf(record.row) } }
+    return { problem: 'You cannot delete anything, so nothing was deleted. Hide a product with is_hidden true, or stop an offer with is_active false.' }
   }
 
   return { problem: `"${clean(op, 30)}" is not an action you have.` }
@@ -287,8 +285,6 @@ export function applyToContext(ctx: Context, step: Step, saved?: Row): void {
     const prefix = { categories: 'C', menu_items: 'P', offers: 'O' }[step.table]
     const code = step.ref || `${prefix}${ctx.records.filter(record => record.table === step.table).length + 1}`
     ctx.records.push({ code, table: step.table, id: String(saved.id), row: saved })
-  } else if (step.op === 'delete') {
-    ctx.records = ctx.records.filter(candidate => candidate.id !== step.id)
   }
 }
 
@@ -300,7 +296,6 @@ export function describeForMemory(done: Step[]): string {
     switch (step.op) {
       case 'update': return `updated ${step.code} ${step.label}: ${Object.entries(step.fields).map(([key, value]) => `${key} ${shortValue(key, step.before[key])} to ${shortValue(key, value)}`).join(', ')}`
       case 'add': return `added to ${step.table}: ${step.label}`
-      case 'delete': return `deleted ${step.table} ${step.label}`
       case 'undo': return 'took back the last request'
     }
   }).join('; ')
@@ -318,7 +313,6 @@ export function describeForOwner(done: Step[]): string {
     switch (step.op) {
       case 'update': return price !== undefined ? `${step.label} صار بـ${money(price)}` : `عدلت ${step.label}`
       case 'add': return price !== undefined ? `ضفت ${step.label} بـ${money(price)}` : `ضفت ${step.label}`
-      case 'delete': return `حذفت ${step.label}`
       case 'undo': return 'رجعت آخر تعديل'
     }
   }).join('، ')
@@ -333,7 +327,7 @@ export function safeReply(value: unknown): string {
 /** True when a message says something was changed. Only used to catch a claim with nothing behind it. */
 export function claimsSave(reply: string): boolean {
   const said = normalizeName(reply)
-  return /(عدلت|عدلنا|عدلتلك|ضفت|ضفنا|ضفتلك|نزلت|نزلنا|حطيت|حطينا|غيرت|غيرنا|حذفت|حذفنا|شلت|شلنا|رجعت|رجعنا|سجلت|سجلنا|صار السعر)/.test(said)
+  return /(خفيت|خفينا|اخفيت|اخفينا|عدلت|عدلنا|عدلتلك|ضفت|ضفنا|ضفتلك|نزلت|نزلنا|حطيت|حطينا|غيرت|غيرنا|حذفت|حذفنا|شلت|شلنا|رجعت|رجعنا|سجلت|سجلنا|صار السعر)/.test(said)
     || /(^|\s)تم(ت)?(\s|$)/.test(said)
 }
 
