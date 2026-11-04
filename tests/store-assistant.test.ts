@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  PHOTO, allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
+  PHOTO, allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, isOngoing, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
   type Context, type Step, type StoreRecord,
 } from '../supabase/functions/store-assistant/logic.ts'
 
@@ -62,6 +62,16 @@ describe('keeping the agent inside its own shop', () => {
 
   test('there are no price rules: the model\'s judgement decides', () => {
     assert.ok(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 3500 } }).step)
+  })
+
+  test('nothing is saved without a real price', () => {
+    assert.match(checkAction(ctx(), { op: 'add', table: 'menu_items', fields: { name: 'تفاح', category_id: 'C1' } }).problem!, /no price/)
+    assert.match(checkAction(ctx(), { op: 'add', table: 'menu_items', fields: { name: 'تفاح', price: 0, category_id: 'C1' } }).problem!, /not a real price/)
+    assert.match(checkAction(ctx(), { op: 'add', table: 'offers', fields: { title: 'عرض' } }).problem!, /no price/)
+    for (const price of [0, -5, null, '40']) {
+      assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price } }).problem!, /not a real price/)
+    }
+    assert.ok(checkAction(ctx(), { op: 'add', table: 'categories', fields: { name: 'مشروبات' } }).step)
   })
 
   test('a shop cannot be created or deleted', () => {
@@ -187,18 +197,26 @@ describe('what the owner is told', () => {
 })
 
 describe('reply timing', () => {
-  test('waits vary from one reply to the next', () => {
-    const waits = new Set(Array.from({ length: 50 }, () => replyDelay('تكرم، صارت البندورة بـ40')))
-    assert.ok(waits.size > 5)
+  const now = Date.parse('2026-11-04T12:00:00Z')
+
+  test('a conversation counts as ongoing for a while after the last message', () => {
+    assert.equal(isOngoing('2026-11-04T11:55:00Z', now), true)
+    assert.equal(isOngoing('2026-11-04T11:30:00Z', now), false)
+    assert.equal(isOngoing(null, now), false)
   })
 
-  test('a longer message takes longer to type', () => {
-    assert.ok(replyDelay('x'.repeat(200), () => 0.5) > replyDelay('x', () => 0.5))
+  test('the first message waits a while, for a varied time', () => {
+    const waits = Array.from({ length: 50 }, () => replyDelay('تكرم', false))
+    assert.ok(new Set(waits).size > 3)
+    assert.ok(Math.min(...waits) >= 8)
+    assert.ok(replyDelay('x'.repeat(5000), false, () => 0.99) <= 35)
   })
 
-  test('never instant, and short enough for the workflow to wait it out', () => {
-    assert.equal(replyDelay('x', () => 0), 4)
-    assert.ok(replyDelay('x'.repeat(5000), () => 0.99) <= 75)
+  test('replies in an ongoing conversation go out quickly, and still vary', () => {
+    const waits = Array.from({ length: 50 }, () => replyDelay('تكرم', true))
+    assert.ok(new Set(waits).size > 1)
+    assert.ok(Math.min(...waits) >= 1)
+    assert.ok(replyDelay('x'.repeat(5000), true, () => 0.99) <= 5)
   })
 })
 

@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import {
   HISTORY_SAVED, MAX_ROUNDS, PHOTO_MINUTES, SYSTEM_INSTRUCTION,
-  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
+  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, isOngoing, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
   type Context, type HistoryEntry, type Parsed, type Step, type Store, type StoreRecord,
 } from './logic.ts'
 
@@ -12,6 +12,9 @@ const MODEL = 'gemini-3.5-flash-lite'
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024
 const UNDO_DAYS = 7
 const RETRY_WAITS = [5000, 15000, 25000]
+// The same public upload settings the site's own forms use
+const CLOUDINARY_CLOUD = 'o2iy0uxo'
+const CLOUDINARY_PRESET = 'digital_menu_preset'
 
 const env = (name: string, fallback = '') => Deno.env.get(name) || fallback
 const WAHA_URL = env('WAHA_URL').replace(/\/+$/, '')
@@ -42,6 +45,22 @@ async function resolveLid(session: string, lid: string): Promise<string | null> 
   }
 }
 
+/** Marks the message as read and shows typing. The reply doesn't depend on it, so a failure is only logged. */
+function showTyping(session: string, chatId: string) {
+  for (const endpoint of ['sendSeen', 'startTyping']) {
+    fetch(`${WAHA_URL}/api/${endpoint}`, {
+      method: 'POST',
+      headers: { ...wahaHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session, chatId }),
+    })
+      .then(response => {
+        if (!response.ok) console.error(`WAHA ${endpoint} failed`, response.status)
+        return response.body?.cancel()
+      })
+      .catch(error => console.error(`WAHA ${endpoint} unreachable`, error))
+  }
+}
+
 /** WAHA's link may name an internal address, so only its path is used, on our own WAHA server. */
 async function downloadMedia(url: string): Promise<Uint8Array | null> {
   try {
@@ -57,9 +76,12 @@ async function downloadMedia(url: string): Promise<Uint8Array | null> {
 async function uploadImage(base64: string, mimeType: string): Promise<string | null> {
   const form = new FormData()
   form.append('file', `data:${mimeType};base64,${base64}`)
-  form.append('upload_preset', env('CLOUDINARY_UPLOAD_PRESET', 'ml_default'))
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${env('CLOUDINARY_CLOUD_NAME', 'o2iy0uxo')}/image/upload`, { method: 'POST', body: form })
-  if (!response.ok) return null
+  form.append('upload_preset', CLOUDINARY_PRESET)
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: form })
+  if (!response.ok) {
+    console.error('Photo upload failed', response.status, (await response.text()).slice(0, 300))
+    return null
+  }
   return (await response.json()).secure_url || null
 }
 
@@ -222,7 +244,8 @@ async function handleMessage(body: unknown) {
   if (storeIds.length === 0) return { reply: null, ignored: 'not a store owner' }
 
   const to = `${phone}@c.us`
-  const answer = (reply: string) => ({ reply, chatId: to, session: message.session, wait_seconds: replyDelay(reply) })
+  let ongoing = false
+  const answer = (reply: string) => ({ reply, chatId: to, session: message.session, wait_seconds: replyDelay(reply, ongoing) })
 
   const { data: found } = await db.from('restaurants').select('*').in('id', storeIds)
   if (!found?.length) return { reply: null, ignored: 'store not found' }
@@ -232,6 +255,9 @@ async function handleMessage(body: unknown) {
   if (stores.length === 0) return answer('اشتراك متجرك متوقف. تواصل مع الإدارة لتجديده.')
 
   const { data: chat } = await db.from('assistant_chats').select('*').eq('phone', phone).maybeSingle()
+  // Mid-conversation, the owner sees it being read and typed straight away, while the answer is worked out
+  ongoing = isOngoing(chat?.updated_at, Date.now())
+  if (ongoing) showTyping(message.session, to)
   const expired = chat?.pending_at && Date.now() - new Date(chat.pending_at).getTime() > PHOTO_MINUTES * 60_000
   const saved = expired ? null : chat?.pending ?? null
   const held: string | null = saved?.type === 'choose_store' ? saved.text : null
@@ -254,6 +280,7 @@ async function handleMessage(body: unknown) {
     }
     const bytes = message.mediaUrl ? await downloadMedia(message.mediaUrl) : null
     if (!bytes) return answer('ما قدرت أفتح الملف، جرّب تبعته مرة تانية أو اكتبلي ياه.')
+    console.log(`Media received: ${mimeType}, ${bytes.length} bytes`)
     media = { base64: encodeBase64(bytes), mimeType }
   } else if (!pick.text) {
     return { reply: null, ignored: 'empty message' }
@@ -290,12 +317,14 @@ async function handleMessage(body: unknown) {
   // Only the conversation and shop details go to Google: no owner's number or sender name
   const history: HistoryEntry[] = chat?.history || []
   const localTime = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Istanbul', weekday: 'long', hour: '2-digit', minute: '2-digit' })
-  const base = buildInput(ctx, aliases || [], history, pick.text === '(media)' ? '' : pick.text, localTime)
+  const sentVoice = !!media && !sentImage
+  const mediaLabel = sentImage ? '(a photo is attached to this message)' : '(a voice note is attached: listen to it, it is the whole message)'
+  const base = buildInput(ctx, aliases || [], history, media && (!pick.text || pick.text === '(media)') ? mediaLabel : pick.text, localTime)
   const request = (note: string) => {
     const text = note ? `${base}\n\n${note}` : base
-    return media
-      ? [{ type: 'text', text }, { type: sentImage ? 'image' : 'audio', data: media.base64, mime_type: media.mimeType.split(';')[0] }]
-      : text
+    if (!media) return text
+    const attachment = { type: sentImage ? 'image' : 'audio', data: media.base64, mime_type: media.mimeType.split(';')[0] }
+    return sentImage ? [attachment, { type: 'text', text }] : [{ type: 'text', text }, attachment]
   }
 
   // The photo is only uploaded once it's really going to be used, and only once
@@ -319,9 +348,27 @@ async function handleMessage(body: unknown) {
     if (round > 0 && !await countCall()) break
     const result = await askGemini(request(note))
     if (!result.parsed) { busy = !!result.busy; break }
-    if (!heard) heard = String(result.parsed.heard ?? '')
 
-    const actions = readActions(result.parsed.actions)
+    // A voice note it wrote nothing down for wasn't really heard, so it isn't acted on
+    if (sentVoice && !String(result.parsed.heard ?? '').trim()) {
+      console.log('Voice note: nothing written down')
+      if (round === 0) {
+        note = 'System note: you did not write what the owner said in the voice note attached to this message, and nothing was sent. Listen to it again and answer. If you still can\'t make it out, change nothing and tell them you didn\'t catch it.'
+        continue
+      }
+      result.parsed.actions = []
+    }
+
+    if (!heard) {
+      // What it saw goes in the log and the conversation, so a wrong call on a photo can be traced
+      const shows = sentImage ? String(result.parsed.photo_shows ?? '').slice(0, 200) : ''
+      if (sentImage) console.log(`Photo shows: ${shows || '(nothing said)'}`)
+      heard = [shows && `صورة: ${shows}`, String(result.parsed.heard ?? '')].filter(Boolean).join(' - ')
+    }
+
+    // Its last try is only for answering, so the owner always hears something real
+    const lastRound = round === MAX_ROUNDS - 1
+    const actions = lastRound ? [] : readActions(result.parsed.actions)
     const problems: string[] = []
     for (const action of actions) {
       const { step, problem } = checkAction(ctx, action)
@@ -340,10 +387,11 @@ async function handleMessage(body: unknown) {
     note = `System note: your draft reply was not sent. Saved so far: ${describeForMemory(done) || 'nothing'}. ${
       emptyClaim ? 'Your draft said something changed, but you sent no actions, so nothing did.' : ''
     }${problems.length ? ` These did not go through:\n${problems.join('\n')}` : ''}${!reply && !problems.length ? ' Your reply was empty or held a link.' : ''}
-Fix what you can with new actions, without repeating what was saved, or tell the owner honestly. Then write your reply.`
+${round === MAX_ROUNDS - 2 ? 'This is your last try, so nothing more can be saved: leave actions empty and tell the owner honestly what was saved, what was not, and ask for whatever is missing.' : 'Fix what you can with new actions, without repeating what was saved, or tell the owner honestly, asking for whatever is missing. Then write your reply.'}`
   }
 
-  const owner: HistoryEntry = { from: 'owner', text: (heard || pick.text || '(media)').slice(0, 500) }
+  const unheard = sentVoice ? '(رسالة صوتية ما انفهمت)' : sentImage ? '(صورة)' : ''
+  const owner: HistoryEntry = { from: 'owner', text: (heard || unheard || pick.text).slice(0, 500) }
 
   let finalReply: string
   if (answered) {
