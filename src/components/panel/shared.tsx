@@ -27,8 +27,6 @@ export function parseList(value: unknown): string[] {
   return []
 }
 
-export const splitByComma = (text: string) => text.split(/[,،]/).map(part => part.trim()).filter(Boolean)
-
 /** A form or a question that takes over the screen on phones and sits centered on big screens. */
 export function FormSheet({
   title,

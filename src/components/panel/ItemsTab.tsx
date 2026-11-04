@@ -3,12 +3,17 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import MultiImageUpload from '@/components/MultiImageUpload'
-import { CheckRow, FormSheet, parseList, splitByComma, type PanelStore } from '@/components/panel/shared'
+import OptionPicker from '@/components/panel/OptionPicker'
+import { CheckRow, FormSheet, parseList, type PanelStore } from '@/components/panel/shared'
 import { supabase } from '@/lib/supabase'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { notifyError, reportWriteResult } from '@/utils/notify'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
+import { COLOR_OPTIONS, SIZE_OPTIONS, orderOptions } from '@/utils/productOptions'
+
+const COLOR_NAMES = COLOR_OPTIONS.map(color => color.name)
+const COLOR_SWATCHES = Object.fromEntries(COLOR_OPTIONS.map(color => [color.name, color.hex]))
 
 const EMPTY_FORM = {
   category_id: '',
@@ -17,8 +22,8 @@ const EMPTY_FORM = {
   price: '',
   original_price: '',
   images: [] as string[],
-  sizesText: '',
-  colorsText: '',
+  sizes: [] as string[],
+  colors: [] as string[],
   soldByWeight: false,
   is_available: true,
   is_hidden: false,
@@ -69,8 +74,8 @@ export default function ItemsTab({
       price: String(item.price),
       original_price: item.original_price ? String(item.original_price) : '',
       images,
-      sizesText: parseList(item.sizes).join('، '),
-      colorsText: parseList(item.colors).join('، '),
+      sizes: parseList(item.sizes),
+      colors: parseList(item.colors),
       soldByWeight: item.unit === 'kg' || item.allow_custom_amount === true,
       is_available: item.is_available !== false,
       is_hidden: item.is_hidden === true,
@@ -101,8 +106,8 @@ export default function ItemsTab({
       original_price: originalPrice > 0 ? originalPrice : null,
       image_url: form.images[0] || null,
       images: form.images,
-      sizes: splitByComma(form.sizesText),
-      colors: splitByComma(form.colorsText),
+      sizes: orderOptions(form.sizes, SIZE_OPTIONS),
+      colors: orderOptions(form.colors, COLOR_NAMES),
       unit: form.soldByWeight ? 'kg' : 'piece',
       allow_custom_amount: form.soldByWeight,
       is_available: form.is_available,
@@ -269,14 +274,21 @@ export default function ItemsTab({
 
             {isClothing && (
               <>
-                <div>
-                  <label htmlFor="item-sizes" className="field-label">المقاسات، وبينها فاصلة (اختياري)</label>
-                  <input id="item-sizes" placeholder="S، M، L" value={form.sizesText} onChange={e => setForm({ ...form, sizesText: e.target.value })} className="field" />
-                </div>
-                <div>
-                  <label htmlFor="item-colors" className="field-label">الألوان، وبينها فاصلة (اختياري)</label>
-                  <input id="item-colors" placeholder="أسود، أبيض" value={form.colorsText} onChange={e => setForm({ ...form, colorsText: e.target.value })} className="field" />
-                </div>
+                <OptionPicker
+                  label="المقاسات المتوفرة (اختياري)"
+                  addLabel="مقاس غير موجود"
+                  options={SIZE_OPTIONS}
+                  selected={form.sizes}
+                  onChange={sizes => setForm({ ...form, sizes })}
+                />
+                <OptionPicker
+                  label="الألوان المتوفرة (اختياري)"
+                  addLabel="لون غير موجود"
+                  options={COLOR_NAMES}
+                  swatches={COLOR_SWATCHES}
+                  selected={form.colors}
+                  onChange={colors => setForm({ ...form, colors })}
+                />
               </>
             )}
 
