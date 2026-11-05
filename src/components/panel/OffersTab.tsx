@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import dynamic from 'next/dynamic'
 import { Plus } from 'lucide-react'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import { CheckRow, FormSheet, parseList, type PanelStore } from '@/components/panel/shared'
@@ -10,10 +9,6 @@ import { notifyError, reportWriteResult } from '@/utils/notify'
 import { isRealDiscount } from '@/utils/productOptions'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
-
-// Heavy poster designers load only when someone opens them
-const OfferPosterModal = dynamic(() => import('@/components/OfferPosterModal'))
-const MultiOfferPosterModal = dynamic(() => import('@/components/MultiOfferPosterModal'))
 
 // The four products a bundle can hold, in the columns that store them
 const SLOTS = [
@@ -44,10 +39,6 @@ export default function OffersTab({ store }: { store: PanelStore }) {
   const [editingOffer, setEditingOffer] = useState<any | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [posterOffer, setPosterOffer] = useState<any | null>(null)
-  const [showMultiPoster, setShowMultiPoster] = useState(false)
-
-  const activeOffers = offers.filter(offer => offer.is_active !== false)
 
   const publish = () => {
     triggerRevalidate(restaurant?.slug, 'menu')
@@ -186,12 +177,6 @@ export default function OffersTab({ store }: { store: PanelStore }) {
         البكج عرض يجمع منتجاً أو أكثر بسعر واحد. لديك {offers.length} من {limit} مسموحة.
       </p>
 
-      {activeOffers.length >= 2 && (
-        <button onClick={() => setShowMultiPoster(true)} className="btn btn-secondary btn-block">
-          تصميم بوستر يجمع كل البكجات
-        </button>
-      )}
-
       {offers.length === 0 && <p className="notice notice-info">لا توجد بكجات بعد.</p>}
 
       {offers.map(offer => (
@@ -206,10 +191,9 @@ export default function OffersTab({ store }: { store: PanelStore }) {
             </p>
             {offer.is_active === false && <span className="badge badge-gray mt-1">مخفي عن الزبائن</span>}
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button onClick={() => openEdit(offer)} className="btn btn-secondary btn-sm">تعديل</button>
             <button onClick={() => toggleActive(offer)} className="btn btn-secondary btn-sm">{offer.is_active === false ? 'إظهار' : 'إخفاء'}</button>
-            <button onClick={() => setPosterOffer(offer)} className="btn btn-secondary btn-sm">بوستر</button>
           </div>
         </article>
       ))}
@@ -281,19 +265,6 @@ export default function OffersTab({ store }: { store: PanelStore }) {
             <CheckRow label="ظاهر للزبائن" checked={form.is_active} onChange={is_active => setForm({ ...form, is_active })} />
           </form>
         </FormSheet>
-      )}
-
-      {posterOffer && restaurant && (
-        <OfferPosterModal isOpen onClose={() => setPosterOffer(null)} offer={posterOffer} restaurant={restaurant} />
-      )}
-      {showMultiPoster && restaurant && (
-        <MultiOfferPosterModal
-          isOpen
-          onClose={() => setShowMultiPoster(false)}
-          offers={activeOffers}
-          restaurant={restaurant}
-          menuItems={menuItems}
-        />
       )}
     </div>
   )

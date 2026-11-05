@@ -1,5 +1,6 @@
 export const SITE_URL = 'https://alfsouq.com'
 export const SITE_NAME = 'ألف سوق'
+export const SITE_SLOGAN = 'كل السوق في جوالك'
 export const PARTNER_URL = 'https://partner.alfsouq.com'
 
 export const SUPPORT_WHATSAPP = '905352574134'

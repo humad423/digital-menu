@@ -17,8 +17,8 @@ const tajawal = Tajawal({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "ألف سوق | Alfsouq - المنصة التجارية الشاملة للمتاجر والعروض",
-  description: "ألف سوق (alfsouq.com) - المنصة التجارية الشاملة لتصفح أحدث المتاجر والمطاعم والمنتجات والعروض التنافسية وتسهيل الطلب المباشر.",
+  title: "ألف سوق: كل السوق في جوالك",
+  description: "ألف سوق: كل السوق في جوالك. شوف المتاجر القريبة منك ومنتجاتها وأسعارها، واطلب منها مباشرة على واتساب.",
   manifest: "/manifest.json",
   icons: {
     icon: "/icon-192.png",

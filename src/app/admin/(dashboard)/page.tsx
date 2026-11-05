@@ -15,11 +15,10 @@ import { getStoreStatus } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
 
 // Each tab's heavy code loads only when that tab is opened
-const OfferPosterModal = dynamicImport(() => import('@/components/OfferPosterModal'))
 const AdminBusinessTypesTab = dynamicImport(() => import('@/components/AdminBusinessTypesTab'))
 const AdminLegalPagesTab = dynamicImport(() => import('@/components/AdminLegalPagesTab'))
 const AdminQrAnalyticsTab = dynamicImport(() => import('@/components/AdminQrAnalyticsTab'))
-import { Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, Share2, MoreHorizontal } from 'lucide-react'
+import { Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
 import { notifyError, reportWriteResult } from '@/utils/notify'
 import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
 
@@ -58,8 +57,6 @@ export default function AdminDashboard() {
 
   const [allOffers, setAllOffers] = useState<any[]>([])
   const [offerSearchQuery, setOfferSearchQuery] = useState('')
-  const [selectedPosterOffer, setSelectedPosterOffer] = useState<any | null>(null)
-  const [selectedPosterRestaurant, setSelectedPosterRestaurant] = useState<any | null>(null)
 
   const supabase = createClient()
 
@@ -1585,29 +1582,6 @@ export default function AdminDashboard() {
                               </td>
                               <td>
                                 <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const matchedRes = restaurants.find(r => r.id === offer.restaurant_id) || store
-                                      setSelectedPosterRestaurant(matchedRes)
-                                      const itemImgs = [
-                                        offer.image_url,
-                                        offer.primary_item?.image_url,
-                                        offer.bonus_item?.image_url,
-                                        offer.item3?.image_url,
-                                        offer.item4?.image_url,
-                                      ].filter((u): u is string => typeof u === 'string' && u.trim() !== '')
-
-                                      setSelectedPosterOffer({
-                                        ...offer,
-                                        item_images: itemImgs,
-                                      })
-                                    }}
-                                    className="btn btn-ghost btn-sm text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 p-1.5"
-                                    title="إنشاء ومشاركة بوستر العرض"
-                                  >
-                                    <Share2 size={14} />
-                                  </button>
                                   {store?.slug && (
                                     <a
                                       href={`${SITE_URL}/m/${store.slug}`}
@@ -1744,17 +1718,6 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
-      {selectedPosterOffer && selectedPosterRestaurant && (
-        <OfferPosterModal
-          isOpen={!!selectedPosterOffer}
-          onClose={() => {
-            setSelectedPosterOffer(null)
-            setSelectedPosterRestaurant(null)
-          }}
-          offer={selectedPosterOffer}
-          restaurant={selectedPosterRestaurant}
-        />
-      )}
     </div>
   )
 }
