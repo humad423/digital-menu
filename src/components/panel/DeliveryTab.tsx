@@ -12,8 +12,11 @@ export default function DeliveryTab({ store }: { store: PanelStore }) {
   const [minKm, setMinKm] = useState('')
   const [maxKm, setMaxKm] = useState('')
   const [fee, setFee] = useState('')
+  const [deliveryFrom, setDeliveryFrom] = useState(restaurant?.delivery_from || '')
+  const [deliveryUntil, setDeliveryUntil] = useState(restaurant?.delivery_until || '')
 
   const tiers: any[] = Array.isArray(restaurant?.delivery_tiers) ? restaurant.delivery_tiers : []
+  const hoursChanged = deliveryFrom !== (restaurant?.delivery_from || '') || deliveryUntil !== (restaurant?.delivery_until || '')
 
   const updateStore = async (changes: Record<string, unknown>) => {
     if (!canEdit()) return false
@@ -56,6 +59,35 @@ export default function DeliveryTab({ store }: { store: PanelStore }) {
           onChange={checked => updateStore({ has_delivery: checked })}
         />
       </div>
+
+      {restaurant?.has_delivery !== false && (
+        <section className="card p-4 space-y-3">
+          <div>
+            <h3 className="section-title">أوقات التوصيل</h3>
+            <p className="text-muted font-medium">اتركها فارغة إذا كان التوصيل طوال وقت الدوام.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="delivery-from" className="field-label">يبدأ الساعة</label>
+              <input id="delivery-from" type="time" value={deliveryFrom} onChange={e => setDeliveryFrom(e.target.value)} className="field text-center" />
+            </div>
+            <div>
+              <label htmlFor="delivery-until" className="field-label">ينتهي الساعة</label>
+              <input id="delivery-until" type="time" value={deliveryUntil} onChange={e => setDeliveryUntil(e.target.value)} className="field text-center" />
+            </div>
+          </div>
+          {hoursChanged && (
+            <button onClick={() => updateStore({ delivery_from: deliveryFrom || null, delivery_until: deliveryUntil || null })} className="btn btn-primary btn-block">
+              حفظ أوقات التوصيل
+            </button>
+          )}
+          {(deliveryFrom || deliveryUntil) && !hoursChanged && (
+            <button onClick={() => { setDeliveryFrom(''); setDeliveryUntil(''); updateStore({ delivery_from: null, delivery_until: null }) }} className="btn btn-secondary btn-block">
+              التوصيل طوال الدوام
+            </button>
+          )}
+        </section>
+      )}
 
       {restaurant?.has_delivery !== false && (
         <section className="space-y-3">

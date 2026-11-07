@@ -9,6 +9,7 @@ import CategoriesTab from '@/components/panel/CategoriesTab'
 import DeliveryTab from '@/components/panel/DeliveryTab'
 import ItemsTab from '@/components/panel/ItemsTab'
 import OffersTab from '@/components/panel/OffersTab'
+import TemporaryChanges from '@/components/panel/TemporaryChanges'
 import type { PanelStore } from '@/components/panel/shared'
 import InstallAppButton from '@/components/pwa/InstallAppButton'
 import { supabase } from '@/lib/supabase'
@@ -44,7 +45,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         .select(
           'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
-          'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, store_type, ' +
+          'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, store_type, ' +
           'max_offers_limit, menu_note, is_subscription_active, is_menu_active'
         )
         .eq('id', id)
@@ -178,6 +179,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           </button>
           <InstallAppButton variant="tile" appName="لوحة الشريك" label="ثبّت التطبيق" />
         </div>
+
+        <TemporaryChanges store={store} />
 
         <div role="tablist" className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 py-1">
           {tabs.map(item => (

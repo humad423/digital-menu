@@ -5,6 +5,7 @@ import { MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react
 import { useCartStore } from '@/store/cartStore'
 import { publicInsert } from '@/utils/publicInsert'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
+import { deliveryNow, type DeliveryNow } from '@/utils/schedule'
 import { getStoreStatus, type StoreStatus } from '@/utils/storeStatus'
 import { trackGAWhatsAppOrder } from '@/utils/analytics'
 import { getPrecisePosition, readUserLocation } from '@/utils/userLocation'
@@ -56,9 +57,11 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
   const [note, setNote] = useState('')
   const [status, setStatus] = useState<StoreStatus | null>(null)
   const [estimate, setEstimate] = useState<{ fee: number | null; outOfRange: boolean }>({ fee: null, outOfRange: false })
+  const [delivery, setDelivery] = useState<DeliveryNow | null>(null)
   const cartStore = useCartStore()
 
-  const isPickup = restaurant.has_delivery === false
+  // No delivery at all, or not at this hour: the order is picked up from the store
+  const isPickup = restaurant.has_delivery === false || delivery?.available === false
   const items = cartStore.restaurantId === restaurant.id ? cartStore.items : []
   const totalItems = items.reduce((a, i) => a + i.quantity, 0)
   const subtotal = items.reduce((a, i) => a + i.price * i.quantity, 0)
@@ -66,6 +69,7 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
   useEffect(() => {
     if (!isOpen) return
     setStatus(getStoreStatus(restaurant))
+    setDelivery(deliveryNow(restaurant))
 
     // Delivery fee estimate comes from the exact position when shared, else the last known one
     const from = position || readUserLocation()
@@ -216,7 +220,9 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
                 </label>
               )}
 
-              {isPickup && <p className="notice notice-info">هذا المتجر لا يوفر توصيلاً، والاستلام يكون من المتجر.</p>}
+              {restaurant.has_delivery === false
+                ? <p className="notice notice-info">هذا المتجر لا يوفر توصيلاً، والاستلام يكون من المتجر.</p>
+                : isPickup && <p className="notice notice-info">{delivery?.reason}، فالطلب يكون استلاماً من المتجر.</p>}
               {status && !status.isOpen && <p className="notice notice-bad">المتجر مغلق الآن، ولا يمكن إرسال الطلب.</p>}
               {estimate.outOfRange && !isPickup && <p className="notice notice-warn">موقعك خارج نطاق التوصيل المعتاد. اتفق مع المتجر عبر واتساب.</p>}
             </div>

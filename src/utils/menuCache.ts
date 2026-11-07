@@ -41,7 +41,7 @@ export const getRestaurantBySlug = cache((slug: string): Promise<any> =>
           .select(
             'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
             'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
-            'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, ' +
+            'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, ' +
             'store_type, menu_note, is_subscription_active, is_menu_active, show_on_home'
           )
           .eq('slug', slug)
@@ -105,7 +105,7 @@ export const getHomePageData = cache(
           .from('restaurants')
           .select(
             'id, name, slug, logo_url, cover_url, store_type, primary_color, created_at, ' +
-            'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, ' +
+            'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, ' +
             'latitude, longitude, delivery_radius_km, delivery_tiers, is_subscription_active, is_menu_active, show_on_home, ' +
             'restaurant_platform_categories(platform_category_id)'
           )

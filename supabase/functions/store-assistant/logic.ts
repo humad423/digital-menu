@@ -27,6 +27,18 @@ const ADMIN_ONLY = new Set([
   'slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home',
   'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone',
 ])
+/**
+ * Settings an owner could change and then forget to change back, like the hours or switching delivery off.
+ * The owner changes these from the store panel; the assistant only changes them for a while, with
+ * special_days and delivery_paused_until, which end on their own. Prices, delivery fees included, stay the assistant's.
+ */
+const PANEL_ONLY = new Set([
+  'opening_time', 'closing_time', 'days_off', 'is_on_holiday',
+  'has_delivery', 'delivery_from', 'delivery_until', 'enable_whatsapp_orders',
+])
+/** How far ahead a one-day change can be made, and how many there can be. */
+const SPECIAL_DAYS_AHEAD = 30
+const MAX_SPECIAL_DAYS = 14
 /** What ties a record to its identity and its shop. */
 const LOCKED = new Set(['id', 'created_at', 'restaurant_id'])
 /** Left out of what the model reads when they hold their usual value, to keep long lists short. */
@@ -65,6 +77,8 @@ export interface Context {
   photosKept?: number
   /** The assistant's previous message, so a price it asked to confirm can go through once the owner says yes. */
   lastReply?: string
+  /** The time now, in milliseconds; tests set it */
+  now?: number
 }
 
 /** One of the messages the owner sent in a row, in the order sent. */
@@ -321,9 +335,16 @@ function photoLine(ctx: Context): string {
 export function noticeLines(ctx: Context, now: number = Date.now()): string[] {
   const notes: string[] = []
   const zone = storeZone(ctx.store)
-  const store = ctx.store
+  // The shop as it is now, with whatever was just changed in this message
+  const store = (ctx.records.find(record => record.table === 'restaurants')?.row ?? ctx.store) as Store
   if (store.is_menu_active === false) notes.push("The Alfsouq team has switched the shop's page off, so customers can't see it now.")
   if (store.is_on_holiday === true) notes.push(`The shop is marked as on holiday (is_on_holiday), so customers see it closed${store.holiday_message ? `, with the message "${clean(store.holiday_message, 100)}"` : ''}.`)
+  if (Date.parse(String(store.closed_until ?? '')) > now) notes.push(`The shop is closed for a while, until ${toLocalTime(store.closed_until, zone)}, then it opens on its own.`)
+  const pausedUntil = Date.parse(String(store.delivery_paused_until ?? ''))
+  if (pausedUntil > now) notes.push(`Delivery is paused until ${toLocalTime(store.delivery_paused_until, zone)}, then it comes back on its own.`)
+  const today = toLocalTime(new Date(now).toISOString(), zone).slice(0, 10)
+  const days = (Array.isArray(store.special_days) ? store.special_days as Row[] : []).filter(day => String(day.date) >= today)
+  if (days.length) notes.push(`One-day changes in special_days from today on: ${JSON.stringify(days)}. Each ends on its own after its day.`)
 
   const products = ctx.records.filter(record => record.table === 'menu_items' && record.row.is_hidden !== true)
   const name = (record: StoreRecord) => `${record.code} ${labelOf(record.row)}`
@@ -473,10 +494,20 @@ const sameValue = (a: unknown, b: unknown) =>
 /** Turns what the model wrote into real values, keeping every link inside this shop. */
 function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: Row; problem?: string } {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { problem: 'fields must be an object of the values to save.' }
+  const now = ctx.now ?? Date.now()
   const fields: Row = {}
   for (const [key, value] of Object.entries(raw as Row)) {
     if (LOCKED.has(key)) continue
     if (table === 'restaurants' && ADMIN_ONLY.has(key)) return { problem: `${key} belongs to the Alfsouq team. Nothing was saved for this.` }
+    if (table === 'restaurants' && PANEL_ONLY.has(key)) {
+      return { problem: `${key} is one of the shop's lasting settings, which the owner changes in the store panel, so nothing was saved. You only make changes for a while: special_days for a day's hours or delivery, delivery_paused_until to stop delivery for a while, closed_until to close the shop for a while. If they meant it for good, tell them they can change it from the store panel and send its link.` }
+    }
+    if (table === 'restaurants' && key === 'special_days') {
+      const days = readNewSpecialDays(value, ctx.store, now)
+      if (days.problem) return { problem: days.problem }
+      fields[key] = days.list
+      continue
+    }
     if (key.endsWith('_id') && value !== null) {
       const target = ctx.records.find(record => record.code === value || record.id === value)
       if (!target) return { problem: `${key}: ${String(value)} is not part of this shop. Nothing was saved for this.` }
@@ -489,6 +520,7 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
     if (key.endsWith('_until') && value !== null) {
       const moment = fromLocalTime(value, storeZone(ctx.store))
       if (!moment) return { problem: `${key}: "${String(value)}" is not a time. Nothing was saved for this. Write it in the shop's local time as "YYYY-MM-DD HH:MM".` }
+      if (Date.parse(moment) <= now) return { problem: `${key}: ${String(value)} has already passed on the shop's clock, so nothing was saved for this. Check the date and time.` }
       fields[key] = moment
       continue
     }
@@ -507,6 +539,52 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
     fields[key] = value
   }
   return { fields }
+}
+
+const HOUR = /^([01]?\d|2[0-3]):([0-5]\d)$/
+
+/** A date some days before or after a YYYY-MM-DD one. */
+function shiftDay(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
+}
+
+/**
+ * The shop's one-day changes as the model wrote them, checked: real dates from today on, real times.
+ * Days already past drop off, so the list never grows old.
+ */
+function readNewSpecialDays(value: unknown, store: Store, now: number): { list?: Row[]; problem?: string } {
+  const shape = 'special_days is the whole list of day changes, like [{"date":"2026-11-08","closed":true,"note":"عزا"}] or [{"date":"2026-11-08","close":"18:00","delivery_from":"21:00"}]; send [] to clear them.'
+  if (!Array.isArray(value)) return { problem: `${shape} Nothing was saved for this.` }
+  const today = toLocalTime(new Date(now).toISOString(), storeZone(store)).slice(0, 10)
+  const last = shiftDay(today, SPECIAL_DAYS_AHEAD)
+  const list: Row[] = []
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') return { problem: `${shape} Nothing was saved for this.` }
+    const day = raw as Row
+    const date = latinDigits(String(day.date ?? '').trim())
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { problem: `"${String(day.date)}" is not a date written as YYYY-MM-DD. Nothing was saved for this.` }
+    if (date < today) continue
+    if (date > last) return { problem: `${date} is more than ${SPECIAL_DAYS_AHEAD} days away, so nothing was saved for this. A change that far ahead or for good belongs in the store panel.` }
+    if (list.some(other => other.date === date)) return { problem: `${date} is in the list twice. Put everything for one day in one entry. Nothing was saved for this.` }
+
+    const entry: Row = { date }
+    if (day.closed === true) entry.closed = true
+    if (day.delivery_off === true) entry.delivery_off = true
+    for (const key of ['open', 'close', 'delivery_from', 'delivery_until']) {
+      if (day[key] === undefined || day[key] === null || day[key] === '') continue
+      const match = latinDigits(String(day[key]).trim()).match(HOUR)
+      if (!match) return { problem: `${date} ${key}: "${String(day[key])}" is not a time written as HH:MM. Nothing was saved for this.` }
+      entry[key] = `${match[1].padStart(2, '0')}:${match[2]}`
+    }
+    if (day.note) entry.note = clean(day.note, 80)
+    if (Object.keys(entry).length === 1 || (Object.keys(entry).length === 2 && entry.note)) {
+      return { problem: `${date}: nothing about the day changes in this entry. Nothing was saved for this.` }
+    }
+    list.push(entry)
+  }
+  if (list.length > MAX_SPECIAL_DAYS) return { problem: `That is more than ${MAX_SPECIAL_DAYS} days of changes, so nothing was saved for this. A change that long belongs in the store panel.` }
+  return { list: list.sort((a, b) => String(a.date).localeCompare(String(b.date))) }
 }
 
 /** A new price far from the old one is checked with the owner first; it goes through once the assistant has asked about that number. */

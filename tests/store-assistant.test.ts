@@ -58,7 +58,7 @@ describe('keeping the agent inside its own shop', () => {
     assert.deepEqual(checkAction(ctx(), { op: 'update', record: 'P1', said_name: 'بندره', fields: { price: 40, description: 'طازة' } }).step, {
       op: 'update', table: 'menu_items', id: 'item-1', code: 'P1', label: 'بندورة حمرا', said: 'بندره', fields: { price: 40, description: 'طازة' }, before: { price: 35, description: null },
     })
-    assert.ok(checkAction(ctx(), { op: 'update', record: 'S', fields: { closing_time: '22:00', holiday_message: 'راجعين السبت' } }).step)
+    assert.ok(checkAction(ctx(), { op: 'update', record: 'S', fields: { menu_note: 'راجعين السبت', primary_color: '#aa0000' } }).step)
   })
 
   test('any price goes through once the owner was asked about it', () => {
@@ -462,7 +462,10 @@ describe('messages sent in a row, photos and stickers', () => {
 
 describe('what a colleague would notice', () => {
   const now = Date.parse('2026-11-08T12:00:00Z')
-  const shop = (extra: StoreRecord[], storeChanges = {}) => ctx({ store: { ...store, ...storeChanges }, records: [...records.map(record => ({ ...record })), ...extra] })
+  const shop = (extra: StoreRecord[], storeChanges = {}) => ctx({
+    store: { ...store, ...storeChanges },
+    records: [...records.map(record => (record.code === 'S' ? { ...record, row: { ...record.row, ...storeChanges } } : { ...record })), ...extra],
+  })
 
   test('an offer no longer cheaper than its products, or with a product customers can\'t get', () => {
     const offer: StoreRecord = { code: 'O1', table: 'offers', id: 'o1', row: { title: 'عرض البندورة', offer_price: 60, original_price: 70, primary_item_id: 'item-1', min_quantity: 1 } }
@@ -531,5 +534,64 @@ describe('not repeating a title', () => {
     assert.match(titleUse([bot('تمام يا أستاذ'), bot('ضفتها')]), /in 1 of your last 2 messages\.$/)
     assert.match(titleUse([bot('تمام يا أستاذ'), bot('تكرم استاذ'), bot('تسلم يا أستاذ')]), /3 of your last 3 messages, which is already a lot: leave it out now/)
     assert.match(buildInput(ctx(), [], [bot('تكرم استاذ'), bot('تسلم يا أستاذ')], 'مرحبا', 'now'), /How you've been talking: you called them "أستاذ" in 2/)
+  })
+})
+
+describe('hours and delivery change only for a while', () => {
+  // 2026-11-08 12:00 in Turkey
+  const now = Date.parse('2026-11-08T09:00:00Z')
+  const at = (changes: Partial<Context> = {}) => ctx({ now, ...changes })
+  const shopUpdate = (fields: object, context = at()) => checkAction(context, { op: 'update', record: 'S', fields })
+
+  test('lasting hours and delivery settings are left to the store panel', () => {
+    for (const key of ['opening_time', 'closing_time', 'days_off', 'is_on_holiday', 'has_delivery', 'delivery_from', 'delivery_until', 'enable_whatsapp_orders']) {
+      assert.match(shopUpdate({ [key]: 'x' }).problem!, /lasting settings[\s\S]*store panel/, key)
+    }
+  })
+
+  test('the whole shop can close for a while, and it is noticed', () => {
+    const step = shopUpdate({ closed_until: '2026-11-08 13:30' }).step as any
+    assert.equal(step.fields.closed_until, '2026-11-08T10:30:00.000Z')
+    const closed = at({ records: records.map(record => record.code === 'S' ? { ...record, row: { ...record.row, closed_until: '2026-11-08T10:30:00Z' } } : record) })
+    assert.ok(noticeLines(closed, now).some(note => /closed for a while, until 2026-11-08 13:30/.test(note)))
+  })
+
+  test('delivery fees and distance are changed as usual, like any price', () => {
+    const fees = [{ min_km: 0, max_km: 3, fee: 20, is_active: true }]
+    assert.deepEqual((shopUpdate({ delivery_tiers: fees, delivery_radius_km: 6 }).step as any).fields, { delivery_tiers: fees, delivery_radius_km: 6 })
+  })
+
+  test('a day can be changed, and the list is checked and tidied', () => {
+    const step = shopUpdate({ special_days: [
+      { date: '2026-11-09', open: '12:00', note: 'سفر' },
+      { date: '2026-11-08', closed: true, note: 'عزاء' },
+      { date: '2026-11-01', closed: true },
+      { date: '٢٠٢٦-١١-١٠', delivery_from: '9:00' },
+    ] }).step as any
+    assert.deepEqual(step.fields.special_days, [
+      { date: '2026-11-08', closed: true, note: 'عزاء' },
+      { date: '2026-11-09', open: '12:00', note: 'سفر' },
+      { date: '2026-11-10', delivery_from: '09:00' },
+    ], 'past days drop off, digits and times are tidied, and the list is in date order')
+  })
+
+  test('a day change that is wrong is refused with the reason', () => {
+    assert.match(shopUpdate({ special_days: { date: '2026-11-08', closed: true } }).problem!, /whole list/)
+    assert.match(shopUpdate({ special_days: [{ date: 'بكرا', closed: true }] }).problem!, /not a date/)
+    assert.match(shopUpdate({ special_days: [{ date: '2026-11-08', close: '6 المسا' }] }).problem!, /not a time/)
+    assert.match(shopUpdate({ special_days: [{ date: '2027-01-08', closed: true }] }).problem!, /more than 30 days away/)
+    assert.match(shopUpdate({ special_days: [{ date: '2026-11-08', note: 'بس ملاحظة' }] }).problem!, /nothing about the day changes/)
+    assert.match(shopUpdate({ special_days: [{ date: '2026-11-08', closed: true }, { date: '2026-11-08', open: '10:00' }] }).problem!, /twice/)
+    const fifteen = Array.from({ length: 15 }, (_, i) => ({ date: `2026-11-${String(9 + i).padStart(2, '0')}`, closed: true }))
+    assert.match(shopUpdate({ special_days: fifteen }).problem!, /more than 14 days/)
+  })
+
+  test('delivery can pause until a time, and come back', () => {
+    const step = shopUpdate({ delivery_paused_until: '2026-11-08 14:00' }).step as any
+    assert.equal(step.fields.delivery_paused_until, '2026-11-08T11:00:00.000Z')
+    assert.match(shopUpdate({ delivery_paused_until: '2026-11-08 10:00' }).problem!, /already passed/)
+    const paused = at({ records: records.map(record => record.code === 'S' ? { ...record, row: { ...record.row, delivery_paused_until: '2026-11-08T11:00:00Z' } } : record) })
+    assert.ok(shopUpdate({ delivery_paused_until: null }, paused).step, 'it can be brought back at once')
+    assert.ok(noticeLines(paused, now).some(note => /Delivery is paused until 2026-11-08 14:00/.test(note)))
   })
 })

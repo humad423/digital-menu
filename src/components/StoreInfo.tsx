@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
+import { deliveryNow } from '@/utils/schedule'
 import { getStoreStatus, type StoreStatus } from '@/utils/storeStatus'
 import { readUserLocation } from '@/utils/userLocation'
 import { CURRENCY_SYMBOL } from '@/config/site'
 
 function closedMessage(restaurant: any, status: StoreStatus): string {
   if (restaurant.is_on_holiday) return restaurant.holiday_message || 'المتجر في عطلة حالياً.'
-  if (status.subText?.startsWith('عطلة يوم')) return `${status.subText}. يمكنك تصفح المنتجات والطلب في أيام الدوام.`
-  return `ساعات العمل من ${restaurant.opening_time || '09:00'} إلى ${restaurant.closing_time || '23:00'}. يمكنك تصفح المنتجات، والطلب يكون في وقت الدوام.`
+  if (status.isHoliday) return `${status.subText}. يمكنك تصفح المنتجات والطلب في أيام الدوام.`
+  return `المتجر ${status.subText || 'مغلق الآن'}. يمكنك تصفح المنتجات، والطلب يكون في وقت الدوام.`
 }
 
 /** Open or closed and delivery depend on the time and the visitor, so they're worked out in the browser. */
@@ -26,9 +27,17 @@ export default function StoreInfo({ restaurant }: { restaurant: any }) {
       return
     }
 
+    // Delivery hours, a pause, or a change for today, on the store's own clock
+    const now = deliveryNow(restaurant)
+    if (!now.available) {
+      setDelivery(`${now.reason}. يمكنك الاستلام من المتجر`)
+      return
+    }
+    const hours = now.hours ? ` · ${now.hours}` : ''
+
     const saved = readUserLocation()
     if (!saved || !restaurant.latitude || !restaurant.longitude) {
-      setDelivery('يوجد توصيل')
+      setDelivery(`يوجد توصيل${hours}`)
       return
     }
 
@@ -40,9 +49,9 @@ export default function StoreInfo({ restaurant }: { restaurant: any }) {
       setOutOfRange(true)
       setDelivery(away)
     } else if (!info.hasTiers) {
-      setDelivery(`يوجد توصيل · ${away}`)
+      setDelivery(`يوجد توصيل · ${away}${hours}`)
     } else {
-      setDelivery(`${info.fee === 0 ? 'توصيل مجاني' : `التوصيل ${info.fee} ${CURRENCY_SYMBOL}`} · ${away}`)
+      setDelivery(`${info.fee === 0 ? 'توصيل مجاني' : `التوصيل ${info.fee} ${CURRENCY_SYMBOL}`} · ${away}${hours}`)
     }
   }, [restaurant])
 
