@@ -2,7 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, describePieces, fromLocalTime, isOngoing, noticeLines, normalizeName,
-  photosUsed, pickStore, pieceKind, readActions, readLooks, readMessage, toLocalTime, replyDelay, safeReply, shopLinks, storeLocalTime, usesPhoto, withPhotoQuestion, withFacts, withPhoto,
+  photosUsed, pickStore, pieceKind, readActions, readLooks, readMessage, titleUse, toLocalTime, replyDelay, safeReply, shopLinks, storeLocalTime, usesPhoto, withPhotoQuestion, withFacts, withPhoto,
   type Context, type Step, type StoreRecord,
 } from '../supabase/functions/store-assistant/logic.ts'
 
@@ -521,5 +521,15 @@ describe('a product with several photos', () => {
 
   test('new photos are numbered after the ones kept from before', () => {
     assert.match(describePieces([{ kind: 'photo' }, { kind: 'photo' }], 1), /PHOTO2 is attached[\s\S]*PHOTO3 is attached/)
+  })
+})
+
+describe('not repeating a title', () => {
+  test('it is told how often it called them أستاذ lately', () => {
+    const bot = (text: string) => ({ from: 'bot' as const, text })
+    assert.match(titleUse([]), /haven't called them/)
+    assert.match(titleUse([bot('تمام يا أستاذ'), bot('ضفتها')]), /in 1 of your last 2 messages\.$/)
+    assert.match(titleUse([bot('تمام يا أستاذ'), bot('تكرم استاذ'), bot('تسلم يا أستاذ')]), /3 of your last 3 messages, which is already a lot: leave it out now/)
+    assert.match(buildInput(ctx(), [], [bot('تكرم استاذ'), bot('تسلم يا أستاذ')], 'مرحبا', 'now'), /How you've been talking: you called them "أستاذ" in 2/)
   })
 })

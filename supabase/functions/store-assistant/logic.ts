@@ -152,6 +152,8 @@ export function readMessage(body: any, now: number) {
 
   return {
     id: String(payload.id),
+    /** When WhatsApp says it was sent, in seconds. */
+    sentAt: timestamp,
     session: String(body.session || 'default'),
     from,
     phone,
@@ -368,6 +370,17 @@ export function noticeLines(ctx: Context, now: number = Date.now()): string[] {
   return notes
 }
 
+/**
+ * How often the assistant called the owner "أستاذ" lately. A model can't count its own habits,
+ * so it's told, and decides for itself whether to say it this time.
+ */
+export function titleUse(history: HistoryEntry[]): string {
+  const recent = history.filter(entry => entry.from === 'bot').slice(-4)
+  const used = recent.filter(entry => /استاذ/.test(normalizeName(entry.text))).length
+  if (used === 0) return 'you haven\'t called them "أستاذ" in your recent messages.'
+  return `you called them "أستاذ" in ${used} of your last ${recent.length} messages${used >= 2 ? ', which is already a lot: leave it out now' : ''}.`
+}
+
 export function buildInput(ctx: Context, aliases: { said: string; menu_item_id: string }[], history: HistoryEntry[], text: string, localTime: string): string {
   const known = aliases
     .map(alias => {
@@ -382,6 +395,7 @@ export function buildInput(ctx: Context, aliases: { said: string; menu_item_id: 
   const historyLine = (e: HistoryEntry) => `${e.from === 'owner' ? 'Owner' : 'You'}: ${e.text}${e.did ? `\nDid: ${e.did}` : ''}`
 
   return [
+    `How you've been talking: ${titleUse(history)}`,
     `Local time: ${localTime}`,
     `Shop:\n${section('restaurants')}`,
     `Categories:\n${section('categories')}`,

@@ -295,11 +295,13 @@ interface InboxRow {
  * Owners often send one thought in pieces. Each piece waits a moment; only the last one in a row answers,
  * for all of them. Returns the pieces to answer, or null when a later message will answer them.
  */
-async function gather(message: { id: string; text: string; mediaUrl: string | null; mimeType: string | null }, phone: string, kind: Piece['kind']): Promise<InboxRow[] | null> {
-  await db.from('assistant_inbox').insert({ message_id: message.id, phone, kind, text: message.text || null, media_url: message.mediaUrl, mime_type: message.mimeType })
+async function gather(message: { id: string; sentAt: number; text: string; mediaUrl: string | null; mimeType: string | null }, phone: string, kind: Piece['kind']): Promise<InboxRow[] | null> {
+  await db.from('assistant_inbox').insert({ message_id: message.id, phone, kind, sent_at: message.sentAt, text: message.text || null, media_url: message.mediaUrl, mime_type: message.mimeType })
   await sleep(GATHER_MS)
 
-  const { data: waiting } = await db.from('assistant_inbox').select('*').eq('phone', phone).is('taken_at', null).order('received_at').order('message_id')
+  // In the order the owner sent them; one that reached us later but was sent earlier still comes first
+  const { data: waiting } = await db.from('assistant_inbox').select('*').eq('phone', phone).is('taken_at', null)
+    .order('sent_at').order('received_at').order('message_id')
   if (!waiting?.length || waiting.at(-1)!.message_id !== message.id) return null
 
   const { data: taken } = await db.from('assistant_inbox').update({ taken_at: new Date().toISOString() })
@@ -316,7 +318,7 @@ async function gather(message: { id: string; text: string; mediaUrl: string | nu
     await sleep(1500)
   }
 
-  return taken.sort((a, b) => String(a.received_at).localeCompare(String(b.received_at)) || a.message_id.localeCompare(b.message_id))
+  return taken.sort((a, b) => (a.sent_at ?? 0) - (b.sent_at ?? 0) || String(a.received_at).localeCompare(String(b.received_at)) || a.message_id.localeCompare(b.message_id))
 }
 
 async function handleMessage(body: unknown) {
