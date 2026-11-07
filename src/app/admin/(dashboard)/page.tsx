@@ -7,11 +7,11 @@ import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
 import { CheckRow, FormSheet } from '@/components/panel/shared'
 import PhoneInput from '@/components/PhoneInput'
-import { SITE_URL } from '@/config/site'
+import { SITE_URL, STORE_TIMEZONE, STORE_TIMEZONES } from '@/config/site'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import type { BusinessType } from '@/components/AdminBusinessTypesTab'
 import TabErrorBoundary from '@/components/TabErrorBoundary'
-import { getStoreStatus } from '@/utils/storeStatus'
+import { getStoreStatus, zoneOffsetLabel } from '@/utils/storeStatus'
 import dynamicImport from 'next/dynamic'
 
 // Each tab's heavy code loads only when that tab is opened
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
         .from('restaurants')
         .select(
           'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, store_type, ' +
-          'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, days_off, ' +
+          'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
           'enable_whatsapp_orders, menu_note, is_subscription_active, is_menu_active, show_on_home, subscription_notes, created_at'
         )
@@ -259,7 +259,7 @@ export default function AdminDashboard() {
     name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '',
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
-    opening_time: '09:00', closing_time: '23:00', days_off: [] as string[], is_on_holiday: false, holiday_message: '', enable_whatsapp_orders: true,
+    opening_time: '09:00', closing_time: '23:00', timezone: STORE_TIMEZONE, days_off: [] as string[], is_on_holiday: false, holiday_message: '', enable_whatsapp_orders: true,
     is_subscription_active: true, is_menu_active: true, show_on_home: true, subscription_notes: ''
   }
   const [resForm, setResForm] = useState(emptyRes)
@@ -306,6 +306,7 @@ export default function AdminDashboard() {
       menu_note: resForm.menu_note ? resForm.menu_note.slice(0, 100).trim() : null,
       opening_time: resForm.opening_time || '09:00',
       closing_time: resForm.closing_time || '23:00',
+      timezone: resForm.timezone || STORE_TIMEZONE,
       days_off: resForm.days_off || [],
       is_on_holiday: resForm.is_on_holiday || false,
       holiday_message: resForm.holiday_message.trim() || null,
@@ -373,6 +374,7 @@ export default function AdminDashboard() {
       menu_note: r.menu_note || '',
       opening_time: r.opening_time || '09:00',
       closing_time: r.closing_time || '23:00',
+      timezone: r.timezone || STORE_TIMEZONE,
       days_off: Array.isArray(r.days_off) ? r.days_off : [],
       is_on_holiday: !!r.is_on_holiday,
       holiday_message: r.holiday_message || '',
@@ -824,6 +826,14 @@ export default function AdminDashboard() {
                           <label className="f-label">يغلق الساعة</label>
                           <input type="time" value={resForm.closing_time} onChange={e => setResForm({ ...resForm, closing_time: e.target.value })} className="f-input text-center" />
                         </div>
+                      </div>
+                      <div>
+                        <label htmlFor="store-timezone" className="f-label">توقيت المتجر</label>
+                        <select id="store-timezone" value={resForm.timezone} onChange={e => setResForm({ ...resForm, timezone: e.target.value })} className="f-input">
+                          {[...STORE_TIMEZONES, ...(STORE_TIMEZONES.some(zone => zone.value === resForm.timezone) ? [] : [{ value: resForm.timezone, label: resForm.timezone }])].map(zone => (
+                            <option key={zone.value} value={zone.value}>{zone.label} ({zoneOffsetLabel(zone.value)})</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="f-label">أيام العطلة الأسبوعية</label>

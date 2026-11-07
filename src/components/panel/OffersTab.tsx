@@ -6,6 +6,7 @@ import MultiImageUpload from '@/components/MultiImageUpload'
 import { CheckRow, FormSheet, parseList, type PanelStore } from '@/components/panel/shared'
 import { supabase } from '@/lib/supabase'
 import { notifyError, reportWriteResult } from '@/utils/notify'
+import { duplicateBundleMessage } from '@/utils/offerDuplicates'
 import { isRealDiscount } from '@/utils/productOptions'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
@@ -133,6 +134,12 @@ export default function OffersTab({ store }: { store: PanelStore }) {
       image_url: form.images[0] || null,
       images: form.images,
       is_active: form.is_active,
+    }
+
+    const duplicate = duplicateBundleMessage(payload, offers, editingOffer)
+    if (duplicate) {
+      notifyError(duplicate)
+      return
     }
 
     setSaving(true)

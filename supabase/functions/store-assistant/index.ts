@@ -2,16 +2,26 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import {
   HISTORY_SAVED, MAX_ROUNDS, PHOTO_MINUTES, SYSTEM_INSTRUCTION,
-  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, isOngoing, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
-  type Context, type HistoryEntry, type Parsed, type Step, type Store, type StoreRecord,
+  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, describePieces, isOngoing, normalizeName, photosUsed,
+  pickStore, pieceKind, readActions, readLooks, readMessage, replyDelay, safeReply, shopLinks, storeLocalTime, storeZone, toLocalTime,
+  withFacts, withPhoto, withPhotoQuestion,
+  type Context, type HistoryEntry, type Look, type Parsed, type Piece, type Step, type Store, type StoreRecord,
 } from './logic.ts'
 
 // Stays under Google's free limit of 500 requests a day, so the bot answers instead of failing
 const DAILY_AI_LIMIT = 400
 const MODEL = 'gemini-3.5-flash-lite'
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024
+// Photos, voice notes and stickers read together in one answer
+const MAX_MEDIA = 6
+// Unused photos kept for the owner's next message
+const MAX_KEPT_PHOTOS = 4
 const UNDO_DAYS = 7
 const RETRY_WAITS = [5000, 15000, 25000]
+// How long a message waits for the next piece before it's answered
+const GATHER_MS = 6000
+// How long a new answer waits for an earlier one to the same owner to finish, so it sees what that one did
+const BUSY_WAIT_MS = 30000
 // The same public upload settings the site's own forms use
 const CLOUDINARY_CLOUD = 'o2iy0uxo'
 const CLOUDINARY_PRESET = 'digital_menu_preset'
@@ -24,6 +34,8 @@ const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 function sameSecret(given: string | null, expected: string): boolean {
   if (!given || !expected || given.length !== expected.length) return false
@@ -103,7 +115,7 @@ async function askGemini(input: unknown): Promise<{ parsed?: Parsed; busy?: bool
     }).catch(error => { console.error('Gemini unreachable', error); return null })
     console.log(`Gemini ${response?.status ?? 'unreachable'} in ${Date.now() - started} ms`)
     if (!response || response.status === 429 || response.status >= 500) {
-      if (attempt < RETRY_WAITS.length) { await new Promise(resolve => setTimeout(resolve, RETRY_WAITS[attempt])); continue }
+      if (attempt < RETRY_WAITS.length) { await sleep(RETRY_WAITS[attempt]); continue }
       return { busy: true }
     }
     if (!response.ok) {
@@ -127,16 +139,21 @@ async function askGemini(input: unknown): Promise<{ parsed?: Parsed; busy?: bool
 }
 
 /** Saves one change and logs it so it can be undone. Returns the reason if it didn't go through. */
-async function runStep(step: Step, ctx: Context, phone: string, batch: string, getPhoto: () => Promise<string | null>): Promise<string | null> {
+async function runStep(step: Step, ctx: Context, phone: string, batch: string, getPhoto: (number: number) => Promise<string | null>): Promise<string | null> {
   const log = (action: string, table: string, id: string, before: unknown, after: Record<string, unknown>) =>
     db.from('assistant_changes').insert({ store_id: ctx.store.id, phone, action, target_table: table, target_id: id, before, after: { ...after, batch } })
 
   if (step.op === 'undo') return undoLast(ctx.store.id, phone)
 
-  if (usesPhoto(step)) {
-    const photo = await getPhoto()
-    if (!photo) return `${step.label}: the photo could not be uploaded, so nothing was saved for it. Ask the owner to send it again.`
-    step.fields = withPhoto(step.fields, photo)
+  const wanted = photosUsed(step)
+  if (wanted.length) {
+    const urls: Record<number, string> = {}
+    for (const number of wanted) {
+      const url = await getPhoto(number)
+      if (!url) return `${step.label}: PHOTO${number} could not be uploaded, so nothing was saved for it. Ask the owner to send it again.`
+      urls[number] = url
+    }
+    step.fields = withPhoto(step.fields, urls)
   }
 
   if (step.op === 'update') {
@@ -183,6 +200,51 @@ async function undoLast(storeId: string, phone: string): Promise<string | null> 
   return null
 }
 
+/** What the model asked to see before answering, read fresh from the database, on the shop's clock. */
+async function lookAt(looks: Look[], store: Store): Promise<string> {
+  const zone = storeZone(store)
+  const when = (value: string) => toLocalTime(value, zone)
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString()
+  const count = async (table: string, days: number, source?: string) => {
+    let query = db.from(table).select('id', { count: 'exact', head: true }).eq('restaurant_id', store.id).gte('created_at', daysAgo(days))
+    if (source) query = query.eq('source', source)
+    return (await query).count ?? 0
+  }
+
+  const parts: string[] = []
+  for (const look of looks) {
+    if (look === 'recent_changes') {
+      const { data } = await db.from('assistant_changes').select('action, target_table, before, after, created_at, undone_at')
+        .eq('store_id', store.id).order('created_at', { ascending: false }).limit(15)
+      const lines = (data || []).map(change => {
+        const { batch: _batch, name, ...after } = change.after || {}
+        const what = change.action === 'update'
+          ? Object.keys(after).map(key => `${key} ${JSON.stringify(change.before?.[key] ?? null)} to ${JSON.stringify(after[key])}`).join(', ')
+          : `added to ${change.target_table}`
+        return `- ${when(change.created_at)}: ${name ?? ''}: ${what}${change.undone_at ? ' (taken back since)' : ''}`
+      })
+      parts.push(`Recent changes made through you (changes made in the store panel aren't listed):\n${lines.join('\n') || 'none'}`)
+    }
+    if (look === 'visits') {
+      const [week, month, qrWeek, qrMonth] = await Promise.all([count('qr_scans', 7), count('qr_scans', 30), count('qr_scans', 7, 'qr'), count('qr_scans', 30, 'qr')])
+      parts.push(`Visits to the shop page: ${week} in the last 7 days (${qrWeek} from scanning its QR code), ${month} in the last 30 days (${qrMonth} from QR). One visit per person per session.`)
+    }
+    if (look === 'orders') {
+      const [week, month, { data: latest }] = await Promise.all([
+        count('orders', 7),
+        count('orders', 30),
+        db.from('orders').select('created_at, items, total_price').eq('restaurant_id', store.id).order('created_at', { ascending: false }).limit(5),
+      ])
+      const lines = (latest || []).map(order => {
+        const items = Array.isArray(order.items) ? order.items.map((item: any) => item?.name ?? item?.title).filter(Boolean).join('، ') : ''
+        return `- ${when(order.created_at)}: ${items || 'items not recorded'}${order.total_price ? `, ${order.total_price}` : ''}`
+      })
+      parts.push(`Order button presses: ${week} in the last 7 days, ${month} in the last 30 days. These count customers pressing "order" and opening WhatsApp; the shop may not have received or completed every one, so say so if it matters.\nLatest:\n${lines.join('\n') || 'none'}`)
+    }
+  }
+  return parts.join('\n\n')
+}
+
 /** Saves the conversation. If another message got there first, it's added on top of that one. */
 async function saveChat(phone: string, chat: any, entries: HistoryEntry[], storeId: string | null, pending: unknown) {
   const row = (history: HistoryEntry[], version: number) => ({
@@ -209,14 +271,52 @@ async function saveChat(phone: string, chat: any, entries: HistoryEntry[], store
 
 async function publishChanges(slug: string, storeId: string) {
   try {
-    await fetch(`${SITE_URL}/api/revalidate`, {
+    const response = await fetch(`${SITE_URL}/api/revalidate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-assistant-secret': env('ASSISTANT_SECRET') },
       body: JSON.stringify({ slug, restaurantId: storeId, type: 'offers' }),
     })
+    if (!response.ok) console.error('The site did not refresh', response.status)
+    await response.body?.cancel()
   } catch (error) {
     console.error('Could not refresh the site', error)
   }
+}
+
+interface InboxRow {
+  message_id: string
+  kind: Piece['kind']
+  text: string | null
+  media_url: string | null
+  mime_type: string | null
+}
+
+/**
+ * Owners often send one thought in pieces. Each piece waits a moment; only the last one in a row answers,
+ * for all of them. Returns the pieces to answer, or null when a later message will answer them.
+ */
+async function gather(message: { id: string; text: string; mediaUrl: string | null; mimeType: string | null }, phone: string, kind: Piece['kind']): Promise<InboxRow[] | null> {
+  await db.from('assistant_inbox').insert({ message_id: message.id, phone, kind, text: message.text || null, media_url: message.mediaUrl, mime_type: message.mimeType })
+  await sleep(GATHER_MS)
+
+  const { data: waiting } = await db.from('assistant_inbox').select('*').eq('phone', phone).is('taken_at', null).order('received_at').order('message_id')
+  if (!waiting?.length || waiting.at(-1)!.message_id !== message.id) return null
+
+  const { data: taken } = await db.from('assistant_inbox').update({ taken_at: new Date().toISOString() })
+    .in('message_id', waiting.map(row => row.message_id)).is('taken_at', null).select('*')
+  if (!taken?.some(row => row.message_id === message.id)) return null
+
+  // An answer still being worked out for this owner goes first, so this one sees what it did
+  const mine = new Set(taken.map(row => row.message_id))
+  const started = Date.now()
+  while (Date.now() - started < BUSY_WAIT_MS) {
+    const { data: busy } = await db.from('assistant_inbox').select('message_id').eq('phone', phone)
+      .not('taken_at', 'is', null).is('done_at', null).gte('taken_at', new Date(Date.now() - 3 * 60_000).toISOString())
+    if (!busy?.some(row => !mine.has(row.message_id))) break
+    await sleep(1500)
+  }
+
+  return taken.sort((a, b) => String(a.received_at).localeCompare(String(b.received_at)) || a.message_id.localeCompare(b.message_id))
 }
 
 async function handleMessage(body: unknown) {
@@ -243,51 +343,83 @@ async function handleMessage(body: unknown) {
   )
   if (storeIds.length === 0) return { reply: null, ignored: 'not a store owner' }
 
+  const kind = pieceKind(message)
+  if (kind === 'text' && !message.text) return { reply: null, ignored: 'empty message' }
+
+  const batch = await gather(message, phone, kind)
+  if (!batch) return { reply: null, ignored: 'answered together with a later message' }
+
+  try {
+    return await answer(message.session, phone, storeIds, batch)
+  } finally {
+    await db.from('assistant_inbox').update({ done_at: new Date().toISOString() }).in('message_id', batch.map(row => row.message_id))
+    // Old rows are only needed for a few minutes
+    db.from('assistant_inbox').delete().lt('received_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).then(({ error }) => error && console.error(error))
+  }
+}
+
+/** Reads everything the owner just sent, looks at the shop, acts and answers once. */
+async function answer(session: string, phone: string, storeIds: string[], batch: InboxRow[]) {
   const to = `${phone}@c.us`
   let ongoing = false
-  const answer = (reply: string) => ({ reply, chatId: to, session: message.session, wait_seconds: replyDelay(reply, ongoing) })
+  const reply = (text: string) => ({ reply: text, chatId: to, session, wait_seconds: replyDelay(text, ongoing) })
 
   const { data: found } = await db.from('restaurants').select('*').in('id', storeIds)
   if (!found?.length) return { reply: null, ignored: 'store not found' }
 
   // Same rule as the store panel: a suspended subscription can't edit
   const stores = found.filter(store => store.is_subscription_active !== false)
-  if (stores.length === 0) return answer('اشتراك متجرك متوقف. تواصل مع الإدارة لتجديده.')
+  if (stores.length === 0) return reply('اشتراك متجرك متوقف. تواصل مع الإدارة لتجديده على الرقم +90 535 257 41 34')
 
   const { data: chat } = await db.from('assistant_chats').select('*').eq('phone', phone).maybeSingle()
   // Mid-conversation, the owner sees it being read and typed straight away, while the answer is worked out
   ongoing = isOngoing(chat?.updated_at, Date.now())
-  if (ongoing) showTyping(message.session, to)
+  if (ongoing) showTyping(session, to)
   const expired = chat?.pending_at && Date.now() - new Date(chat.pending_at).getTime() > PHOTO_MINUTES * 60_000
   const saved = expired ? null : chat?.pending ?? null
   const held: string | null = saved?.type === 'choose_store' ? saved.text : null
+  const savedPhotos: string[] = saved?.type === 'photos' ? saved.urls : saved?.type === 'photo' ? [saved.url] : []
 
-  // A voice note or photo comes with no text, so there's nothing yet to pick a store by
-  const pick = pickStore(stores, chat?.store_id ?? null, held, message.text || (message.hasMedia ? '(media)' : ''))
-  const keptPhoto: string | null = saved?.type === 'photo' && !(pick.switched && stores.length > 1) ? saved.url : null
+  // The words, all together, are what a store is picked by; a voice note or photo alone has none
+  const words = batch.map(row => row.text).filter(Boolean).join('\n')
+  const pick = pickStore(stores, chat?.store_id ?? null, held, words || '(media)')
+  const keptPhotos = pick.switched && stores.length > 1 ? [] : savedPhotos
   if (!pick.storeId || pick.reply) {
-    const entries: HistoryEntry[] = [{ from: 'owner', text: message.text || '(media)' }, { from: 'bot', text: pick.reply! }]
+    const entries: HistoryEntry[] = [{ from: 'owner', text: words || '(media)' }, { from: 'bot', text: pick.reply! }]
     await saveChat(phone, chat, entries, pick.storeId, pick.held ? { type: 'choose_store', text: pick.held } : null)
-    return answer(pick.reply!)
+    return reply(pick.reply!)
   }
   const store = stores.find(candidate => candidate.id === pick.storeId)! as Store
 
-  let media: { base64: string; mimeType: string } | null = null
-  if (message.hasMedia) {
-    const mimeType = message.mimeType || ''
-    if (!/^(image|audio)\//.test(mimeType)) {
-      return answer('بفهم الكتابة والصور والرسائل الصوتية، ابعتلي بوحدة منهن.')
+  // Each photo, voice note and sticker, downloaded in the order sent. A request held while the owner
+  // picked a store comes first, since that's what they want done.
+  const pieces: Piece[] = pick.text !== (words || '(media)') ? [{ kind: 'text', text: pick.text }] : []
+  const photos: { base64: string; mimeType: string }[] = []
+  const images: { label: string; base64: string; mimeType: string }[] = []
+  const voices: { label: string; base64: string; mimeType: string }[] = []
+  let mediaCount = 0
+  for (const row of batch) {
+    const text = row.kind === 'text' ? row.text || '' : row.text || undefined
+    if (row.kind === 'text' || row.kind === 'other') { pieces.push({ kind: row.kind, text }); continue }
+    const bytes = row.media_url && mediaCount < MAX_MEDIA ? await downloadMedia(row.media_url) : null
+    if (!bytes) { pieces.push({ kind: 'failed', text }); continue }
+    mediaCount++
+    const mimeType = (row.mime_type || '').split(';')[0]
+    const base64 = encodeBase64(bytes)
+    console.log(`Media received: ${row.kind}, ${mimeType}, ${bytes.length} bytes`)
+    if (row.kind === 'photo') {
+      photos.push({ base64, mimeType })
+      images.push({ label: `PHOTO${keptPhotos.length + photos.length}:`, base64, mimeType })
+    } else if (row.kind === 'sticker') {
+      images.push({ label: `Sticker ${images.filter(image => image.label.startsWith('Sticker')).length + 1}:`, base64, mimeType })
+    } else {
+      voices.push({ label: `Voice note ${voices.length + 1}:`, base64, mimeType })
     }
-    const bytes = message.mediaUrl ? await downloadMedia(message.mediaUrl) : null
-    if (!bytes) return answer('ما قدرت أفتح الملف، جرّب تبعته مرة تانية أو اكتبلي ياه.')
-    console.log(`Media received: ${mimeType}, ${bytes.length} bytes`)
-    media = { base64: encodeBase64(bytes), mimeType }
-  } else if (!pick.text) {
-    return { reply: null, ignored: 'empty message' }
+    pieces.push({ kind: row.kind, text })
   }
 
   const countCall = async () => (await db.rpc('assistant_count_call', { daily_limit: DAILY_AI_LIMIT })).data !== false
-  if (!await countCall()) return answer('عندي ضغط اليوم. جرّب بكرا إن شاء الله.')
+  if (!await countCall()) return reply('عندي ضغط اليوم. جرّب بكرا إن شاء الله.')
 
   const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }] = await Promise.all([
     db.from('categories').select('*').eq('restaurant_id', store.id).order('sort_order'),
@@ -302,7 +434,8 @@ async function handleMessage(body: unknown) {
       return { code: `${prefix}${index + 1}`, table, id: row.id, row: fields }
     })
 
-  const sentImage = !!media?.mimeType.startsWith('image/')
+  // Only the conversation and shop details go to Google: no owner's number or sender name
+  const history: HistoryEntry[] = chat?.history || []
   const ctx: Context = {
     store,
     records: [
@@ -311,49 +444,53 @@ async function handleMessage(body: unknown) {
       ...coded('menu_items', 'P', rawItems),
       ...coded('offers', 'O', rawOffers),
     ],
-    photo: sentImage ? 'new' : keptPhoto ? 'kept' : null,
+    photos: keptPhotos.length + photos.length,
+    photosKept: keptPhotos.length,
+    lastReply: history.filter(entry => entry.from === 'bot').at(-1)?.text,
   }
 
-  // Only the conversation and shop details go to Google: no owner's number or sender name
-  const history: HistoryEntry[] = chat?.history || []
-  const localTime = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Istanbul', weekday: 'long', hour: '2-digit', minute: '2-digit' })
-  const sentVoice = !!media && !sentImage
-  const mediaLabel = sentImage ? '(a photo is attached to this message)' : '(a voice note is attached: listen to it, it is the whole message)'
-  const base = buildInput(ctx, aliases || [], history, media && (!pick.text || pick.text === '(media)') ? mediaLabel : pick.text, localTime)
+  const base = buildInput(ctx, aliases || [], history, describePieces(pieces, keptPhotos.length), storeLocalTime(store))
+  let seen = ''
+  // Photos and stickers come before the words, so each is judged on its own; voice notes after them
   const request = (note: string) => {
-    const text = note ? `${base}\n\n${note}` : base
-    if (!media) return text
-    const attachment = { type: sentImage ? 'image' : 'audio', data: media.base64, mime_type: media.mimeType.split(';')[0] }
-    return sentImage ? [attachment, { type: 'text', text }] : [{ type: 'text', text }, attachment]
+    const text = [base, seen, note].filter(Boolean).join('\n\n')
+    if (!images.length && !voices.length) return text
+    const media = (items: typeof images, type: 'image' | 'audio') =>
+      items.flatMap(item => [{ type: 'text', text: item.label }, { type, data: item.base64, mime_type: item.mimeType }])
+    return [...media(images, 'image'), { type: 'text', text }, ...media(voices, 'audio')]
   }
 
-  // The photo is only uploaded once it's really going to be used, and only once
-  let uploaded: string | null = null
-  const getPhoto = async () => {
-    if (!sentImage) return keptPhoto
-    uploaded ??= await uploadImage(media!.base64, media!.mimeType.split(';')[0])
-    return uploaded
+  // Kept photos are already uploaded and come first. A new one is only uploaded once it's really going to be used, and only once.
+  const uploaded: Record<number, string | null> = {}
+  const getPhoto = async (number: number) => {
+    if (number <= keptPhotos.length) return keptPhotos[number - 1] ?? null
+    const photo = photos[number - keptPhotos.length - 1]
+    if (!photo) return null
+    if (!(number in uploaded)) uploaded[number] = await uploadImage(photo.base64, photo.mimeType)
+    return uploaded[number]
   }
 
+  const batchId = batch.at(-1)!.message_id
   const done: Step[] = []
-  let photoUsed = false
+  const used = new Set<number>()
   let heard = ''
-  let reply = ''
+  let draft = ''
   let note = ''
+  let looked = false
   let answered = false
   let busy = false
 
-  // The agent acts, hears what really happened, and can put it right before answering
+  // The agent looks, acts, hears what really happened, and can put it right before answering
   for (let round = 0; round < MAX_ROUNDS; round++) {
     if (round > 0 && !await countCall()) break
     const result = await askGemini(request(note))
     if (!result.parsed) { busy = !!result.busy; break }
 
     // A voice note it wrote nothing down for wasn't really heard, so it isn't acted on
-    if (sentVoice && !String(result.parsed.heard ?? '').trim()) {
+    if (voices.length && !String(result.parsed.heard ?? '').trim()) {
       console.log('Voice note: nothing written down')
       if (round === 0) {
-        note = 'System note: you did not write what the owner said in the voice note attached to this message, and nothing was sent. Listen to it again and answer. If you still can\'t make it out, change nothing and tell them you didn\'t catch it.'
+        note = 'System note: you did not write what the owner said in the voice note, and nothing was sent. Listen to it again and answer. If you still can\'t make it out, change nothing and tell them you didn\'t catch it.'
         continue
       }
       result.parsed.actions = []
@@ -361,9 +498,19 @@ async function handleMessage(body: unknown) {
 
     if (!heard) {
       // What it saw goes in the log and the conversation, so a wrong call on a photo can be traced
-      const shows = sentImage ? String(result.parsed.photo_shows ?? '').slice(0, 200) : ''
-      if (sentImage) console.log(`Photo shows: ${shows || '(nothing said)'}`)
+      const shows = images.length ? String(result.parsed.photo_shows ?? '').slice(0, 300) : ''
+      if (images.length) console.log(`Photo shows: ${shows || '(nothing said)'}`)
       heard = [shows && `صورة: ${shows}`, String(result.parsed.heard ?? '')].filter(Boolean).join(' - ')
+    }
+
+    // It can look around once before deciding, while there are rounds left to act and answer
+    const looks = readLooks(result.parsed.look)
+    if (looks.length && !looked && round < MAX_ROUNDS - 2) {
+      looked = true
+      console.log(`Looked at: ${looks.join(', ')}`)
+      seen = `What you asked to see:\n${await lookAt(looks, store)}`
+      note = 'Now decide what to do and answer.'
+      continue
     }
 
     // Its last try is only for answering, so the owner always hears something real
@@ -373,45 +520,51 @@ async function handleMessage(body: unknown) {
     for (const action of actions) {
       const { step, problem } = checkAction(ctx, action)
       if (!step) { problems.push(problem!); continue }
-      const photoStep = usesPhoto(step)
-      const failed = await runStep(step, ctx, phone, message.id, getPhoto)
+      const photosInStep = photosUsed(step)
+      const failed = await runStep(step, ctx, phone, batchId, getPhoto)
       if (failed) { problems.push(failed); continue }
       done.push(step)
-      if (photoStep) photoUsed = true
+      photosInStep.forEach(number => used.add(number))
     }
 
-    reply = safeReply(result.parsed.reply)
-    const emptyClaim = actions.length === 0 && done.length === 0 && claimsSave(reply)
-    if (problems.length === 0 && reply && !emptyClaim) { answered = true; break }
+    draft = safeReply(result.parsed.reply, shopLinks(ctx.store))
+    const emptyClaim = actions.length === 0 && done.length === 0 && claimsSave(draft)
+    if (problems.length === 0 && draft && !emptyClaim) { answered = true; break }
 
     note = `System note: your draft reply was not sent. Saved so far: ${describeForMemory(done) || 'nothing'}. ${
       emptyClaim ? 'Your draft said something changed, but you sent no actions, so nothing did.' : ''
-    }${problems.length ? ` These did not go through:\n${problems.join('\n')}` : ''}${!reply && !problems.length ? ' Your reply was empty or held a link.' : ''}
+    }${problems.length ? ` These did not go through:\n${problems.join('\n')}` : ''}${!draft && !problems.length ? ' Your reply was empty or held a link other than the ones you may share.' : ''}
 ${round === MAX_ROUNDS - 2 ? 'This is your last try, so nothing more can be saved: leave actions empty and tell the owner honestly what was saved, what was not, and ask for whatever is missing.' : 'Fix what you can with new actions, without repeating what was saved, or tell the owner honestly, asking for whatever is missing. Then write your reply.'}`
   }
 
-  const unheard = sentVoice ? '(رسالة صوتية ما انفهمت)' : sentImage ? '(صورة)' : ''
-  const owner: HistoryEntry = { from: 'owner', text: (heard || unheard || pick.text).slice(0, 500) }
+  const unheard = voices.length ? '(رسالة صوتية ما انفهمت)' : images.length ? '(صورة)' : ''
+  const owner: HistoryEntry = { from: 'owner', text: (heard || words || unheard).slice(0, 500) }
 
   let finalReply: string
   if (answered) {
-    finalReply = withFacts(reply, done)
+    finalReply = withPhotoQuestion(withFacts(draft, done), done)
   } else if (done.length > 0) {
-    finalReply = `${withFacts('', done)}\nوالباقي ما زبط معي، فيك تبعتلي ياه كمان مرة؟`
+    finalReply = `${withPhotoQuestion(withFacts('', done), done)}\nوالباقي ما زبط معي، فيك تبعتلي ياه كمان مرة؟`
   } else {
     finalReply = busy ? 'عندي ضغط هلق، جرّب بعد شوي.' : 'معليش، ما زبط معي. فيك تبعتها كمان مرة؟'
   }
 
-  // A photo with no decision yet is kept for a while, so "this is for the bread" still works
-  const photoLeft = photoUsed ? null : sentImage ? (done.length === 0 ? await getPhoto() : null) : keptPhoto
+  // Photos not used yet, earlier ones and new ones, are kept for a while, so "this one is for the bread" still works.
+  // The newest are kept when there are too many.
+  const photosLeft: string[] = []
+  for (let number = ctx.photos; number >= 1 && photosLeft.length < MAX_KEPT_PHOTOS; number--) {
+    if (used.has(number)) continue
+    const url = await getPhoto(number)
+    if (url) photosLeft.unshift(url)
+  }
 
   const bot: HistoryEntry = { from: 'bot', text: finalReply }
   const did = describeForMemory(done)
   if (did) bot.did = did
-  await saveChat(phone, chat, [owner, bot], store.id, photoLeft ? { type: 'photo', url: photoLeft } : null)
+  await saveChat(phone, chat, [owner, bot], store.id, photosLeft.length ? { type: 'photos', urls: photosLeft } : null)
   if (done.length > 0) await publishChanges(store.slug, store.id)
 
-  return answer(finalReply)
+  return reply(finalReply)
 }
 
 Deno.serve(async request => {

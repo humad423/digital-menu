@@ -1,7 +1,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  PHOTO, allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, isOngoing, normalizeName, pickStore, readActions, readMessage, replyDelay, safeReply, usesPhoto, withFacts, withPhoto,
+  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, describePieces, fromLocalTime, isOngoing, noticeLines, normalizeName,
+  photosUsed, pickStore, pieceKind, readActions, readLooks, readMessage, toLocalTime, replyDelay, safeReply, shopLinks, storeLocalTime, usesPhoto, withPhotoQuestion, withFacts, withPhoto,
   type Context, type Step, type StoreRecord,
 } from '../supabase/functions/store-assistant/logic.ts'
 
@@ -15,7 +16,7 @@ const records: StoreRecord[] = [
   { code: 'P3', table: 'menu_items', id: 'item-3', row: { name: 'خبز', price: 10, unit: 'piece', category_id: 'cat-2', image_url: 'bread.jpg', images: ['bread.jpg'] } },
 ]
 
-const ctx = (changes: Partial<Context> = {}): Context => ({ store, records: records.map(record => ({ ...record })), photo: null, ...changes })
+const ctx = (changes: Partial<Context> = {}): Context => ({ store, records: records.map(record => ({ ...record })), photos: 0, ...changes })
 
 describe('reading WAHA messages', () => {
   const now = 1_800_000_000
@@ -60,8 +61,8 @@ describe('keeping the agent inside its own shop', () => {
     assert.ok(checkAction(ctx(), { op: 'update', record: 'S', fields: { closing_time: '22:00', holiday_message: 'راجعين السبت' } }).step)
   })
 
-  test('there are no price rules: the model\'s judgement decides', () => {
-    assert.ok(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 3500 } }).step)
+  test('any price goes through once the owner was asked about it', () => {
+    assert.ok(checkAction(ctx({ lastReply: 'أكيد بدك ياها بـ 3500؟' }), { op: 'update', record: 'P1', fields: { price: 3500 } }).step)
   })
 
   test('nothing is saved without a real price', () => {
@@ -134,7 +135,7 @@ describe('keeping the agent inside its own shop', () => {
   })
 
   test('what the panel keeps for admins stays out of reach', () => {
-    for (const key of ['slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type']) {
+    for (const key of ['slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone']) {
       assert.match(checkAction(ctx(), { op: 'update', record: 'S', fields: { [key]: true } }).problem!, /belongs to the Alfsouq team/)
     }
   })
@@ -143,6 +144,34 @@ describe('keeping the agent inside its own shop', () => {
     const offers = Array.from({ length: 5 }, (_, i) => ({ code: `O${i + 1}`, table: 'offers' as const, id: `o${i}`, row: { title: 'x' } }))
     assert.match(checkAction(ctx({ records: [...records, ...offers] }), { op: 'add', table: 'offers', fields: { title: 'x', offer_price: 1, original_price: 2 } }).problem!, /limit of 5/)
     assert.ok(checkAction(ctx(), { op: 'add', table: 'offers', fields: { title: 'x', offer_price: 1, primary_item_id: 'P1' } }).step)
+  })
+
+  test('an offer cannot repeat another one\'s products or name, hidden ones included', () => {
+    const offers: StoreRecord[] = [
+      { code: 'O1', table: 'offers', id: 'o1', row: { title: 'بندورة مع خبز', offer_price: 40, original_price: 45, primary_item_id: 'item-1', min_quantity: 1, bonus_item_id: 'item-3', bonus_quantity: 1, is_active: false } },
+      { code: 'O2', table: 'offers', id: 'o2', row: { title: 'كيلو كرزية', offer_price: 50, original_price: 60, primary_item_id: 'item-2', min_quantity: 1 } },
+    ]
+    const context = ctx({ records: [...records, ...offers] })
+    const add = (fields: object) => checkAction(context, { op: 'add', table: 'offers', fields: { offer_price: 30, ...fields } })
+
+    assert.match(add({ title: 'عرض جديد', primary_item_id: 'P3', bonus_item_id: 'P1' }).problem!, /O1 .*hidden.*exactly these products/)
+    assert.match(add({ title: 'كيلو  كرزيه', primary_item_id: 'P1', min_quantity: 2 }).problem!, /O2 is already called/)
+    assert.ok(add({ title: 'عرض جديد', primary_item_id: 'P1', bonus_item_id: 'P3', bonus_quantity: 2 }).step, 'a different amount is a different offer')
+
+    assert.match(checkAction(context, { op: 'update', record: 'O2', fields: { bonus_item_id: 'P3', primary_item_id: 'P1' } }).problem!, /O1/)
+    assert.match(checkAction(context, { op: 'update', record: 'O2', fields: { title: 'بندورة مع خبز' } }).problem!, /O1/)
+    assert.ok(checkAction(context, { op: 'update', record: 'O1', fields: { is_active: true } }).step, 'showing or pricing an offer is not checked')
+  })
+
+  test('an older pair of repeated offers can still be fixed', () => {
+    const offers: StoreRecord[] = [
+      { code: 'O1', table: 'offers', id: 'o1', row: { title: 'عرض', offer_price: 40, original_price: 45, primary_item_id: 'item-1' } },
+      { code: 'O2', table: 'offers', id: 'o2', row: { title: 'عرض', offer_price: 40, original_price: 45, primary_item_id: 'item-1' } },
+    ]
+    const context = ctx({ records: [...records, ...offers] })
+    assert.ok(checkAction(context, { op: 'update', record: 'O2', fields: { title: 'عرض تاني' } }).step)
+    assert.ok(checkAction(context, { op: 'update', record: 'O2', fields: { primary_item_id: 'P2' } }).step)
+    assert.ok(checkAction(context, { op: 'update', record: 'O2', fields: { is_active: false } }).step)
   })
 
   test('codes become real ids, and a record added earlier can be used by its ref', () => {
@@ -169,11 +198,41 @@ describe('keeping the agent inside its own shop', () => {
   })
 
   test('a photo can only be used when there is one, and goes wherever the model put it', () => {
-    const fields = { image_url: PHOTO, images: [PHOTO] }
+    const fields = { image_url: 'PHOTO', images: ['PHOTO'] }
     assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields }).problem!, /no photo/)
-    const { step } = checkAction(ctx({ photo: 'new' }), { op: 'update', record: 'P1', fields })
+    const { step } = checkAction(ctx({ photos: 1 }), { op: 'update', record: 'P1', fields })
     assert.equal(usesPhoto(step!), true)
-    assert.deepEqual(withPhoto(fields, 'https://x/a.jpg'), { image_url: 'https://x/a.jpg', images: ['https://x/a.jpg'] })
+    assert.deepEqual(withPhoto(fields, { 1: 'https://x/a.jpg' }), { image_url: 'https://x/a.jpg', images: ['https://x/a.jpg'] })
+  })
+
+  test('several photos each go where the model put them, and only ones that came can be used', () => {
+    const two = ctx({ photos: 2 })
+    const first = checkAction(two, { op: 'update', record: 'P1', fields: { image_url: 'PHOTO2', images: ['PHOTO2', 'PHOTO1'] } }).step!
+    assert.deepEqual(photosUsed(first), [2, 1])
+    assert.deepEqual(withPhoto((first as any).fields, { 1: 'a.jpg', 2: 'b.jpg' }), { image_url: 'b.jpg', images: ['b.jpg', 'a.jpg'] })
+    assert.match(checkAction(two, { op: 'update', record: 'P2', fields: { image_url: 'PHOTO3' } }).problem!, /only PHOTO1 to PHOTO2/)
+    assert.deepEqual(photosUsed({ op: 'update', table: 'menu_items', id: 'x', code: 'P1', label: 'y', said: '', fields: { name: 'PHOTO album' }, before: {} }), [], 'only a whole value names a photo')
+  })
+
+  test('a price far from the old one waits until the owner was asked about it', () => {
+    const big = checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 350 } })
+    assert.match(big.problem!, /far from the current 35/)
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 5 } }).problem!, /far from/)
+    assert.ok(checkAction(ctx({ lastReply: 'قصدك 350 ₺ للكيلو؟' }), { op: 'update', record: 'P1', fields: { price: 350 } }).step, 'it was asked, so the yes goes through')
+    assert.ok(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 50 } }).step, 'an ordinary change needs no question')
+  })
+
+  test('times are read and written on the shop\'s clock', () => {
+    const moment = fromLocalTime('2026-11-08 18:00', 'Europe/Istanbul')
+    assert.equal(moment, '2026-11-08T15:00:00.000Z')
+    assert.equal(toLocalTime(moment, 'Europe/Istanbul'), '2026-11-08 18:00')
+    assert.equal(fromLocalTime('2026-07-01 18:00', 'Europe/Berlin'), '2026-07-01T16:00:00.000Z', 'summer time')
+    assert.equal(fromLocalTime('٢٠٢٦-١١-٠٨ ١٨:٠٠', 'Europe/Istanbul'), '2026-11-08T15:00:00.000Z')
+    assert.equal(fromLocalTime('بكرا', 'Europe/Istanbul'), null)
+
+    const saved = checkAction(ctx(), { op: 'update', record: 'P1', fields: { is_available: false, out_of_stock_until: '2026-11-08 18:00' } }).step as any
+    assert.equal(saved.fields.out_of_stock_until, '2026-11-08T15:00:00.000Z')
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { out_of_stock_until: 'الساعة 6' } }).problem!, /not a time/)
   })
 
   test('anything that is not a real action does nothing', () => {
@@ -211,9 +270,31 @@ describe('what the owner is told', () => {
     for (const said of ['أهلين', 'تمام', 'قديش السعر؟', 'كيفك اليوم']) assert.equal(claimsSave(said), false, said)
   })
 
-  test('links never reach the owner', () => {
-    assert.equal(safeReply('شوف https://bad.example'), '')
-    assert.equal(safeReply('أهلين *فيك*'), 'أهلين فيك')
+  test('only the shop\'s own links reach the owner', () => {
+    const links = shopLinks(store)
+    assert.deepEqual(links, ['https://alfsouq.com/m/store', 'https://partner.alfsouq.com', 'https://wa.me/905352574134'])
+    assert.equal(safeReply('شوف https://bad.example', links), '')
+    assert.equal(safeReply('ادخل على www.bad.com', links), '')
+    assert.equal(safeReply('هاد رابط محلك: https://alfsouq.com/m/store.', links), 'هاد رابط محلك: https://alfsouq.com/m/store.')
+    assert.equal(safeReply('https://alfsouq.com/m/other', links), '', 'another shop\'s page')
+    assert.equal(safeReply('https://alfsouq.com/m/storefront', links), '', 'a link that only starts like it')
+    assert.deepEqual(shopLinks({ ...store, is_menu_active: false }), ['https://partner.alfsouq.com', 'https://wa.me/905352574134'], 'a closed page is not shared')
+  })
+
+  test('a product added without a photo is always asked about, once, in that message', () => {
+    const bare: Step = { op: 'add', table: 'menu_items', label: 'كنافة', ref: null, fields: { name: 'كنافة', price: 50 } }
+    const withImage: Step = { op: 'add', table: 'menu_items', label: 'خبز', ref: null, fields: { name: 'خبز', price: 10, image_url: 'PHOTO', images: ['PHOTO'] } }
+    const first = () => 0
+
+    assert.equal(withPhotoQuestion('ضفت الكنافة بـ 50 ₺', [bare], first), 'ضفت الكنافة بـ 50 ₺\nما وصلتني صورة إلها، عندك وحدة؟')
+    assert.equal(withPhotoQuestion('ضفتها، عندك صوره إلها؟', [bare]), 'ضفتها، عندك صوره إلها؟', 'its own question is kept as it is')
+    assert.equal(withPhotoQuestion('ضفت الخبز', [withImage]), 'ضفت الخبز')
+    assert.equal(withPhotoQuestion('عدلت السعر', [{ op: 'update', table: 'menu_items', id: 'x', code: 'P1', label: 'y', said: '', fields: { price: 5 }, before: {} }]), 'عدلت السعر')
+    assert.match(withPhotoQuestion('ضفتهن', [bare, { ...bare, label: 'بقلاوة' }], first), /صور إلهن/)
+  })
+
+  test('lists keep their lines and bold names for WhatsApp', () => {
+    assert.equal(safeReply('هي منتجاتك:\n\n\n-  **عصير**: 5 ₺\r\n- خبز: 10 ₺  '), 'هي منتجاتك:\n\n- *عصير*: 5 ₺\n- خبز: 10 ₺')
   })
 
   test('the model remembers what really changed', () => {
@@ -263,12 +344,31 @@ describe('what the model is given', () => {
     assert.match(input, /Wednesday 09:30/)
   })
 
+  test('the time it is given is the shop\'s own, with the date and offset', () => {
+    const moment = new Date('2026-11-07T21:30:00Z')
+    assert.match(storeLocalTime(store, moment), /Sunday, 08\/11\/2026, 00:30 GMT\+3/)
+    assert.match(storeLocalTime({ ...store, timezone: 'Europe/Berlin' }, moment), /Saturday, 07\/11\/2026, 22:30 GMT\+1/)
+    assert.match(storeLocalTime({ ...store, timezone: 'Not/AZone' }, moment), /GMT\+3/, 'a broken zone falls back to Turkey')
+  })
+
+  test('it knows when it last sent each link, so it can judge whether to send it again', () => {
+    assert.match(input, /alfsouq\.com\/m\/store \(not shared in the recent conversation\)/)
+    const history = [
+      { from: 'bot' as const, text: 'هاد رابط محلك https://alfsouq.com/m/store' },
+      { from: 'owner' as const, text: 'تسلم' },
+      { from: 'bot' as const, text: 'ولو' },
+    ]
+    const later = buildInput(ctx(), [], history, 'شو في', 'Wednesday 09:30')
+    assert.match(later, /alfsouq\.com\/m\/store \(you shared it 2 messages ago\)/)
+    assert.match(later, /partner\.alfsouq\.com \(not shared/)
+  })
+
   test('it writes links to other records as codes, and leaves out long values and private notes', () => {
     assert.match(input, /P1 \{[^}]*"category_id":"C1"/)
     assert.ok(!input.includes('cat-1'))
     assert.ok(!input.includes('bread.jpg'))
     assert.ok(!input.includes('سري'))
-    assert.ok(!input.includes('905'))
+    assert.ok(!input.includes(store.phone), 'the owner\'s own number stays private')
   })
 
   test('names are compared loosely', () => {
@@ -323,5 +423,103 @@ describe('one number with several stores', () => {
     assert.equal(pickStore(stores, 'b', null, 'الخبز ب5').storeId, 'b')
     assert.equal(pickStore(stores, 'b', null, 'بدي غير المتجر').storeId, null)
     assert.equal(pickStore(stores, 'b', null, 'سوبر ماركت النور الخبز ب5').storeId, 'a')
+  })
+})
+
+describe('messages sent in a row, photos and stickers', () => {
+  test('each message is known by its kind, and a sticker is never a photo', () => {
+    assert.equal(pieceKind({ hasMedia: false, mimeType: null }), 'text')
+    assert.equal(pieceKind({ hasMedia: true, mimeType: 'image/jpeg' }), 'photo')
+    assert.equal(pieceKind({ hasMedia: true, mimeType: 'image/webp', isSticker: true }), 'sticker')
+    assert.equal(pieceKind({ hasMedia: true, mimeType: 'audio/ogg; codecs=opus' }), 'voice')
+    assert.equal(pieceKind({ hasMedia: true, mimeType: 'video/mp4' }), 'other')
+    const sticker = readMessage({ event: 'message', session: 'default', payload: { id: 's', from: '905000000000@c.us', timestamp: 1000, hasMedia: true, media: { url: 'http://x/s', mimetype: 'image/webp' } } }, 1000) as any
+    assert.equal(sticker.isSticker, true)
+  })
+
+  test('pieces sent in a row are read together, in order, with photos numbered', () => {
+    const text = describePieces([
+      { kind: 'text', text: 'ضيف كنافة' },
+      { kind: 'text', text: 'بـ 50' },
+      { kind: 'photo' },
+      { kind: 'sticker' },
+      { kind: 'photo', text: 'وهي التانية' },
+      { kind: 'voice' },
+      { kind: 'failed' },
+    ])
+    assert.match(text, /sent 7 messages in a row; read them together/)
+    assert.match(text, /1\. ضيف كنافة\n2\. بـ 50\n3\. \(PHOTO1 is attached\)\n4\. \(sticker 1 is attached: a reaction, not a product photo\)\n5\. \(PHOTO2 is attached, with the words: وهي التانية\)/)
+    assert.match(text, /voice note 1/)
+    assert.match(text, /didn't come through/)
+    assert.equal(describePieces([{ kind: 'text', text: 'مرحبا' }]), 'مرحبا', 'a single message is shown as it is')
+  })
+
+  test('it can only ask to see what exists', () => {
+    assert.deepEqual(readLooks(['visits', 'orders', 'visits', 'passwords', 3]), ['visits', 'orders'])
+    assert.deepEqual(readLooks('visits'), [])
+  })
+})
+
+describe('what a colleague would notice', () => {
+  const now = Date.parse('2026-11-08T12:00:00Z')
+  const shop = (extra: StoreRecord[], storeChanges = {}) => ctx({ store: { ...store, ...storeChanges }, records: [...records.map(record => ({ ...record })), ...extra] })
+
+  test('an offer no longer cheaper than its products, or with a product customers can\'t get', () => {
+    const offer: StoreRecord = { code: 'O1', table: 'offers', id: 'o1', row: { title: 'عرض البندورة', offer_price: 60, original_price: 70, primary_item_id: 'item-1', min_quantity: 1 } }
+    const notes = noticeLines(shop([offer]), now)
+    assert.ok(notes.some(note => /O1 .*costs 60.*total of 35/.test(note)))
+
+    const hidden = shop([offer])
+    const tomato = hidden.records.find(record => record.code === 'P1')!
+    tomato.row = { ...tomato.row, is_hidden: true }
+    assert.ok(noticeLines(hidden, now).some(note => /includes P1 بندورة حمرا, which customers can't get/.test(note)))
+  })
+
+  test('things out of stock, with their return time on the shop\'s clock', () => {
+    const context = shop([])
+    context.records.find(record => record.code === 'P2')!.row = { ...context.records.find(record => record.code === 'P2')!.row, is_available: false, out_of_stock_until: '2026-11-08T15:00:00Z' }
+    context.records.find(record => record.code === 'P3')!.row = { ...context.records.find(record => record.code === 'P3')!.row, is_available: false }
+    const notes = noticeLines(context, now)
+    assert.ok(notes.some(note => /P2 بندورة كرزية is out of stock until 2026-11-08 18:00/.test(note)))
+    assert.ok(notes.some(note => /P3 خبز is out of stock, with no time set/.test(note)))
+    assert.ok(noticeLines(context, Date.parse('2026-11-08T16:00:00Z')).some(note => /which has passed/.test(note)))
+  })
+
+  test('the same product twice, photos missing, and a shop closed to customers', () => {
+    const twin: StoreRecord = { code: 'P4', table: 'menu_items', id: 'item-4', row: { name: 'بندوره حمرا', price: 30 } }
+    const notes = noticeLines(shop([twin], { is_on_holiday: true, holiday_message: 'سفر' }), now)
+    assert.ok(notes.some(note => /same name: P1 بندورة حمرا, P4 بندوره حمرا/.test(note)))
+    assert.ok(notes.some(note => /3 of 4 products have no photo/.test(note)))
+    assert.ok(notes.some(note => /on holiday.*"سفر"/.test(note)))
+    assert.deepEqual(noticeLines(ctx({ records: records.filter(record => record.table !== 'menu_items') }), now), [], 'nothing to say about a tidy shop')
+  })
+})
+
+describe('a product with several photos', () => {
+  const withPhotos = () => ctx({
+    photos: 2,
+    photosKept: 1,
+    records: [...records.map(record => ({ ...record })), { code: 'P4', table: 'menu_items', id: 'item-4', row: { name: 'كنافة', price: 50, image_url: 'a.jpg', images: ['a.jpg', 'b.jpg'] } }],
+  })
+
+  test('its photos are shown by name, never by address', () => {
+    const input = buildInput(withPhotos(), [], [], 'مرحبا', 'now')
+    assert.match(input, /P4 \{[^}]*"images":\["P4#1","P4#2"\]/)
+    assert.ok(!input.includes('a.jpg'))
+    assert.match(input, /P3 \{[^}]*"images":\["P3#1"\]/, 'a single photo is named too')
+    assert.match(input, /Photos you can use: PHOTO1, sent in an earlier message and not used yet; PHOTO2, sent just now/)
+  })
+
+  test('new photos are added to the ones it has, which stay unless left out', () => {
+    const step = checkAction(withPhotos(), { op: 'update', record: 'P4', fields: { images: ['P4#1', 'P4#2', 'PHOTO2'] } }).step as any
+    assert.deepEqual(step.fields.images, ['a.jpg', 'b.jpg', 'PHOTO2'])
+    assert.deepEqual(withPhoto(step.fields, { 2: 'c.jpg' }).images, ['a.jpg', 'b.jpg', 'c.jpg'])
+    assert.match(checkAction(withPhotos(), { op: 'update', record: 'P4', fields: { images: ['P4#3'] } }).problem!, /P4#3 is not a photo/)
+    const main = checkAction(withPhotos(), { op: 'update', record: 'P4', fields: { image_url: 'P4#2', images: ['P4#2', 'P4#1'] } }).step as any
+    assert.equal(main.fields.image_url, 'b.jpg', 'the main photo can be changed')
+  })
+
+  test('new photos are numbered after the ones kept from before', () => {
+    assert.match(describePieces([{ kind: 'photo' }, { kind: 'photo' }], 1), /PHOTO2 is attached[\s\S]*PHOTO3 is attached/)
   })
 })

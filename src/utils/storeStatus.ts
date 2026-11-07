@@ -56,6 +56,16 @@ export function getNowInTimezone(overrideTimeZone?: string) {
   }
 }
 
+/** A zone's current distance from GMT, like "GMT+3", for admins picking a store's zone. */
+export function zoneOffsetLabel(timeZone: string, at: Date = new Date()): string {
+  try {
+    const part = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'shortOffset' }).formatToParts(at).find(p => p.type === 'timeZoneName')
+    return part?.value || timeZone
+  } catch {
+    return timeZone
+  }
+}
+
 export function getStoreStatus(restaurant: any, targetTimeZone?: string): StoreStatus {
   if (!restaurant) {
     return {
@@ -91,8 +101,8 @@ export function getStoreStatus(restaurant: any, targetTimeZone?: string): StoreS
     }
   }
 
-  // 2. Check weekly days off (in visitor device / local timezone)
-  const { dayIndex, hour, minute } = getNowInTimezone(targetTimeZone)
+  // 2. Check weekly days off, on the store's own clock
+  const { dayIndex, hour, minute } = getNowInTimezone(targetTimeZone || restaurant.timezone || undefined)
   const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
   const currentDayName = ARABIC_DAYS[dayIndex]
   const daysOff = Array.isArray(restaurant.days_off) ? restaurant.days_off : []
