@@ -21,7 +21,7 @@ const AdminQrAnalyticsTab = dynamicImport(() => import('@/components/AdminQrAnal
 const AdminStockPhotos = dynamicImport(() => import('@/components/AdminStockPhotos'))
 import { Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Images, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
 import { notifyError, reportWriteResult } from '@/utils/notify'
-import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
+import { normalizePhoneNumber, formatPhoneDisplay, managerPhones } from '@/utils/phone'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
@@ -63,6 +63,7 @@ export default function AdminDashboard() {
   const supabase = createClient()
 
   const [ownerPhoneMap, setOwnerPhoneMap] = useState<Record<string, string>>({})
+  const [managerPhonesMap, setManagerPhonesMap] = useState<Record<string, string[]>>({})
 
   // ── Per-tab fetchers (lazy loading) ────────────────────────────
   const fetchRestaurantsTab = async () => {
@@ -79,7 +80,7 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false }),
       supabase.from('platform_categories').select('id, name, icon, created_at').order('created_at', { ascending: true }),
       supabase.from('restaurant_platform_categories').select('restaurant_id, platform_category_id'),
-      supabase.from('profiles').select('restaurant_id, phone').eq('role', 'restaurant_owner'),
+      supabase.from('profiles').select('restaurant_id, phone').eq('role', 'restaurant_owner').order('created_at', { ascending: true }),
       supabase.from('business_types').select('id, name, slug, icon, sort_order, is_active').order('sort_order', { ascending: true })
     ])
     if (resRes.data) setRestaurants(resRes.data)
@@ -94,11 +95,16 @@ export default function AdminDashboard() {
       setRestaurantCategoryMap(map)
     }
     if (profRes.data) {
+      // The first number linked to a store is its owner; any others also manage it
       const pMap: Record<string, string> = {}
+      const allMap: Record<string, string[]> = {}
       profRes.data.forEach(p => {
-        if (p.restaurant_id && p.phone) pMap[p.restaurant_id] = p.phone
+        if (!p.restaurant_id || !p.phone) return
+        pMap[p.restaurant_id] ??= p.phone
+        ;(allMap[p.restaurant_id] ??= []).push(p.phone)
       })
       setOwnerPhoneMap(pMap)
+      setManagerPhonesMap(allMap)
     }
     setLoading(false)
   }
@@ -265,7 +271,7 @@ export default function AdminDashboard() {
   const [showResForm, setShowResForm] = useState(false)
   const [editResId, setEditResId] = useState<string | null>(null)
   const emptyRes = {
-    name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '',
+    name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '', extra_phones: [] as string[],
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
     opening_time: '09:00', closing_time: '23:00', timezone: STORE_TIMEZONE, days_off: [] as string[], is_on_holiday: false, holiday_message: '', enable_whatsapp_orders: true,
@@ -282,19 +288,19 @@ export default function AdminDashboard() {
     e.preventDefault()
     setSavingRes(true)
     // A number manages one store, so saving it here would take it away from any other store
-    const newOwnerPhone = normalizePhoneNumber(resForm.owner_phone)
-    if (newOwnerPhone) {
+    const managers = managerPhones([resForm.owner_phone, ...resForm.extra_phones])
+    for (const phone of managers) {
       const { data: currentOwner, error: ownerError } = await supabase
         .from('profiles')
         .select('restaurant_id, restaurants(name)')
-        .eq('phone', newOwnerPhone)
+        .eq('phone', phone)
         .maybeSingle()
-      if (ownerError) { notifyError('تعذر التحقق من رقم صاحب المتجر'); setSavingRes(false); return }
+      if (ownerError) { notifyError('تعذر التحقق من أرقام إدارة المتجر'); setSavingRes(false); return }
 
       if (currentOwner?.restaurant_id && currentOwner.restaurant_id !== editResId) {
         const otherStore = (currentOwner.restaurants as unknown as { name: string } | null)?.name || 'متجر آخر'
         const moveOwner = confirm(
-          `هذا الرقم مربوط حالياً بـ "${otherStore}".\n\nإذا تابعت، سينتقل الرقم إلى هذا المتجر، ولن يستطيع صاحبه دخول لوحة "${otherStore}".\n\nهل تريد المتابعة؟`
+          `الرقم ${phone} مربوط حالياً بـ "${otherStore}".\n\nإذا تابعت، سينتقل الرقم إلى هذا المتجر، ولن يستطيع صاحبه دخول لوحة "${otherStore}".\n\nهل تريد المتابعة؟`
         )
         if (!moveOwner) { setSavingRes(false); return }
       }
@@ -342,21 +348,21 @@ export default function AdminDashboard() {
           selectedCatIds.map(cid => ({ restaurant_id: restaurantId, platform_category_id: cid }))
         )
       }
-      if (resForm.owner_phone.trim()) {
-        const formattedPhone = normalizePhoneNumber(resForm.owner_phone)
-        if (formattedPhone) {
-          // A store has one owner, so anyone else linked to it loses access
-          reportWriteResult(await supabase
-            .from('profiles')
-            .delete()
-            .eq('restaurant_id', restaurantId)
-            .neq('phone', formattedPhone))
+      if (managers.length > 0) {
+        // Anyone no longer listed loses access. The store's own WhatsApp number can always manage it.
+        const keep = managerPhones([...managers, cleanWhatsapp]).map(phone => `"${phone}"`).join(',')
+        reportWriteResult(await supabase
+          .from('profiles')
+          .delete()
+          .eq('restaurant_id', restaurantId)
+          .not('phone', 'in', `(${keep})`))
 
-          const { data: existingProfile } = await supabase.from('profiles').select('id').eq('phone', formattedPhone).maybeSingle()
+        for (const phone of managers) {
+          const { data: existingProfile } = await supabase.from('profiles').select('id').eq('phone', phone).maybeSingle()
           if (existingProfile) {
             reportWriteResult(await supabase.from('profiles').update({ role: 'restaurant_owner', restaurant_id: restaurantId }).eq('id', existingProfile.id))
           } else {
-            reportWriteResult(await supabase.from('profiles').insert([{ id: 'owner-uid-' + formattedPhone.replace(/[^0-9]/g, ''), phone: formattedPhone, full_name: 'صاحب متجر ' + resForm.name, role: 'restaurant_owner', restaurant_id: restaurantId }]))
+            reportWriteResult(await supabase.from('profiles').insert([{ id: 'owner-uid-' + phone.replace(/[^0-9]/g, ''), phone, full_name: 'صاحب متجر ' + resForm.name, role: 'restaurant_owner', restaurant_id: restaurantId }]))
           }
         }
       }
@@ -375,6 +381,9 @@ export default function AdminDashboard() {
       name: r.name, slug: r.slug, primary_color: r.primary_color || '#ea580c',
       whatsapp_number: formatPhoneDisplay(r.whatsapp_number) || '',
       owner_phone: formatPhoneDisplay(currentOwnerPhone) || '',
+      extra_phones: (managerPhonesMap[r.id] || [])
+        .filter(phone => phone !== currentOwnerPhone && phone !== normalizePhoneNumber(r.whatsapp_number))
+        .map(phone => formatPhoneDisplay(phone)),
       logo_url: r.logo_url || '', cover_url: r.cover_url || '',
       latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '',
       delivery_radius_km: r.delivery_radius_km?.toString() || '5',
@@ -765,6 +774,21 @@ export default function AdminDashboard() {
                           <label className="f-label">رقم واتساب الطلبات *</label>
                           <PhoneInput required value={resForm.whatsapp_number} onChange={whatsapp_number => setResForm({ ...resForm, whatsapp_number })} />
                         </div>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="f-label">أرقام إضافية تدير المتجر (اللوحة والمساعد)</span>
+                        {resForm.extra_phones.map((phone, index) => (
+                          <div key={index} className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <PhoneInput
+                                value={phone}
+                                onChange={value => setResForm({ ...resForm, extra_phones: resForm.extra_phones.map((old, i) => i === index ? value : old) })}
+                              />
+                            </div>
+                            <button type="button" onClick={() => setResForm({ ...resForm, extra_phones: resForm.extra_phones.filter((_, i) => i !== index) })} className="btn btn-danger btn-sm shrink-0">حذف</button>
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => setResForm({ ...resForm, extra_phones: [...resForm.extra_phones, ''] })} className="btn btn-secondary btn-sm">إضافة رقم</button>
                       </div>
                     </section>
 

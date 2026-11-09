@@ -66,6 +66,11 @@ export function findStoreIdByPhone(
   return matches.length === 1 ? matches[0].id : null
 }
 
+/** The numbers that manage a store, cleaned, without blanks or repeats. */
+export function managerPhones(phones: (string | null | undefined)[]): string[] {
+  return [...new Set(phones.map(phone => normalizePhoneNumber(phone)).filter(phone => phone.length >= 9))]
+}
+
 /**
  * Returns a clean readable string or empty string
  */
