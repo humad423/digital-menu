@@ -42,23 +42,15 @@ export default async function RestaurantLayout({
   // Its own switch, apart from the home page: a listed store can still keep its customers to itself
   const showStoresButton = restaurant.show_stores_button === true
 
-  const whatsappUrl = `https://wa.me/${(restaurant.whatsapp_number || '').replace(/\D/g, '')}`
-
-  // A store is hidden when the admin suspends its menu or its subscription ends
+  // A store is hidden when the admin suspends its menu or its subscription ends.
+  // Its customers are sent on to the other stores, whatever its stores button is set to.
   if (restaurant.is_menu_active === false || restaurant.is_subscription_active === false) {
     return (
       <div dir="rtl" className="min-h-screen bg-page">
         <main className="page-narrow py-8 space-y-4">
           <h1 className="text-2xl font-black">{restaurant.name}</h1>
           <p className="notice notice-warn">هذا المتجر غير متاح حالياً على ألف سوق.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {showStoresButton && <Link href="/" className="btn btn-primary">تصفح المتاجر الأخرى</Link>}
-            {restaurant.whatsapp_number && (
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                مراسلة المتجر على واتساب
-              </a>
-            )}
-          </div>
+          <Link href="/" className="btn btn-primary btn-block">تصفح المتاجر الأخرى</Link>
         </main>
       </div>
     )
