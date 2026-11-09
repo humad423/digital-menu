@@ -170,7 +170,11 @@ export function normalizeName(value: unknown): string {
 const clean = (value: unknown, length: number) =>
   String(value ?? '').replace(/[\r\n*_~`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, length)
 
-const latinDigits = (value: string) => value.replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+const latinDigits = (value: string) => value.replace(/[٠-٩۰-۹]/g, digit => String(digit.charCodeAt(0) & 0xf))
+
+/** Words the assistant saves, with any digits in English, the way the whole site writes them. */
+const latinWords = (value: unknown): unknown =>
+  typeof value === 'string' ? latinDigits(value) : Array.isArray(value) ? value.map(latinWords) : value
 
 const money = (value: unknown) => `${value} ${CURRENCY}`
 
@@ -584,7 +588,7 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
       fields[key] = saved.value
       continue
     }
-    fields[key] = value
+    fields[key] = latinWords(value)
   }
   return { fields }
 }
@@ -876,7 +880,7 @@ const URL_PATTERN = /https?:\/\/[^\s]+/gi
  * Lines and *bold* are kept for WhatsApp; the only links allowed are the shop's own.
  */
 export function safeReply(value: unknown, allowedLinks: string[] = [], maxLength = 1500): string {
-  const reply = String(value ?? '')
+  const reply = latinDigits(String(value ?? ''))
     .replace(/\r/g, '')
     .replace(/\*\*/g, '*')
     .replace(/`/g, '')

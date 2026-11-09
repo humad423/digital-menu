@@ -1,5 +1,7 @@
 'use client'
 
+import DateInput from '@/components/DateInput'
+import { DATE_LOCALE } from '@/utils/numbers'
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { 
@@ -251,7 +253,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
       const d = new Date()
       d.setDate(now.getDate() - i)
       const iso = d.toISOString().slice(0, 10)
-      const label = d.toLocaleDateString('ar-EG', { weekday: 'short', month: 'numeric', day: 'numeric' })
+      const label = d.toLocaleDateString(DATE_LOCALE, { weekday: 'short', month: 'numeric', day: 'numeric' })
       days.push({
         dateStr: iso,
         label,
@@ -274,7 +276,7 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
         s.id,
         r ? `"${r.name}"` : 'غير معروف',
         s.device_type || 'mobile',
-        new Date(s.created_at).toLocaleString('ar-EG'),
+        new Date(s.created_at).toLocaleString(DATE_LOCALE),
         s.restaurant_id,
       ]
     })
@@ -416,22 +418,18 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
           <div className="p-3.5 bg-orange-50/70 border border-orange-200 rounded-2xl flex flex-wrap items-center gap-3 fade-in">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-orange-950">من تاريخ:</span>
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-sm font-bold text-slate-800 outline-none"
-              />
+                onChange={setStartDate}
+                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-sm font-bold text-slate-800 outline-none" />
             </div>
 
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-orange-950">إلى تاريخ:</span>
-              <input
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-sm font-bold text-slate-800 outline-none"
-              />
+                onChange={setEndDate}
+                className="bg-white border border-orange-200 rounded-xl px-2.5 py-1 text-sm font-bold text-slate-800 outline-none" />
             </div>
           </div>
         )}
@@ -633,9 +631,9 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
                       {r.lastScan ? (
                         <span className="flex items-center gap-1 text-slate-600 font-bold">
                           <Clock size={11} className="text-muted" />
-                          {new Date(r.lastScan).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(r.lastScan).toLocaleTimeString(DATE_LOCALE, { hour: '2-digit', minute: '2-digit' })}
                           <span className="text-sm text-muted font-normal">
-                            ({new Date(r.lastScan).toLocaleDateString('ar-EG', { month: 'numeric', day: 'numeric' })})
+                            ({new Date(r.lastScan).toLocaleDateString(DATE_LOCALE, { month: 'numeric', day: 'numeric' })})
                           </span>
                         </span>
                       ) : (
@@ -707,10 +705,10 @@ export default function AdminQrAnalyticsTab({ restaurants }: AdminQrAnalyticsTab
 
                     <div className="text-left shrink-0">
                       <p className="text-sm font-black text-slate-700 dir-ltr">
-                        {new Date(s.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {new Date(s.created_at).toLocaleTimeString(DATE_LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </p>
                       <p className="text-sm text-muted font-bold">
-                        {new Date(s.created_at).toLocaleDateString('ar-EG', { month: 'numeric', day: 'numeric' })}
+                        {new Date(s.created_at).toLocaleDateString(DATE_LOCALE, { month: 'numeric', day: 'numeric' })}
                       </p>
                     </div>
                   </div>

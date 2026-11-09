@@ -41,6 +41,25 @@ describe('what only the admin can do', () => {
     assert.match(checkAction(admin(), { op: 'update', record: 'S', fields: { closing_time: 'بالليل' } }).problem!, /HH:MM/)
   })
 
+  test('a ready-made photo goes on a dish for the admin, and only the admin is told it can', () => {
+    const stockPhotos = [{ code: 'ST1', name: 'سندويش شاورما عادي', keywords: ['شاورما دجاج'], url: 'https://photos/shawarma.jpg' }]
+    const category = { code: 'C1', table: 'categories' as const, id: 'cat-1', row: { name: 'سندويش' } }
+    const ctx = admin({ stockPhotos, records: [{ code: 'S', table: 'restaurants', id: store.id, row: store }, category] })
+    const { step } = checkAction(ctx, { op: 'add', table: 'menu_items', fields: { name: 'شاورما دجاج', price: 120, category_id: 'C1', image_url: 'ST1', images: ['ST1'] } })
+    assert.equal((step as any).fields.image_url, 'https://photos/shawarma.jpg')
+    assert.deepEqual((step as any).fields.images, ['https://photos/shawarma.jpg'])
+
+    const input = (context: Context) => buildInput(context, [], [], 'مرحبا', 'now')
+    assert.match(input(ctx), /ready-made photos can go on dishes too/)
+    assert.doesNotMatch(input(owner({ stockPhotos })), /ready-made photos can go on dishes too/)
+  })
+
+  test('digits the assistant writes are saved and sent in English', () => {
+    const { step } = checkAction(owner(), { op: 'update', record: 'S', fields: { menu_note: 'مفتوح ٢٤ ساعة' } })
+    assert.equal((step as any).fields.menu_note, 'مفتوح 24 ساعة')
+    assert.equal(safeReply('صار السعر ٤٠'), 'صار السعر 40')
+  })
+
   test('nobody can delete, the admin included', () => {
     assert.match(checkAction(admin(), { op: 'delete', record: 'S' }).problem!, /cannot delete/)
   })

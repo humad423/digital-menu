@@ -1,5 +1,7 @@
 'use client'
 
+import NumberInput from '@/components/NumberInput'
+import TimeInput from '@/components/TimeInput'
 import { useState } from 'react'
 import { CheckRow, type PanelStore } from '@/components/panel/shared'
 import { supabase } from '@/lib/supabase'
@@ -69,11 +71,11 @@ export default function DeliveryTab({ store }: { store: PanelStore }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="delivery-from" className="field-label">يبدأ الساعة</label>
-              <input id="delivery-from" type="time" value={deliveryFrom} onChange={e => setDeliveryFrom(e.target.value)} className="field text-center" />
+              <TimeInput id="delivery-from" value={deliveryFrom} onChange={setDeliveryFrom} className="field text-center" allowEmpty />
             </div>
             <div>
               <label htmlFor="delivery-until" className="field-label">ينتهي الساعة</label>
-              <input id="delivery-until" type="time" value={deliveryUntil} onChange={e => setDeliveryUntil(e.target.value)} className="field text-center" />
+              <TimeInput id="delivery-until" value={deliveryUntil} onChange={setDeliveryUntil} className="field text-center" allowEmpty />
             </div>
           </div>
           {hoursChanged && (
@@ -109,15 +111,15 @@ export default function DeliveryTab({ store }: { store: PanelStore }) {
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label htmlFor="tier-min" className="field-label">من (كم)</label>
-                <input id="tier-min" required type="number" inputMode="decimal" min="0" step="any" value={minKm} onChange={e => setMinKm(e.target.value)} className="field" />
+                <NumberInput id="tier-min" required inputMode="decimal" min="0" value={minKm} onChange={e => setMinKm(e.target.value)} className="field" />
               </div>
               <div>
                 <label htmlFor="tier-max" className="field-label">إلى (كم)</label>
-                <input id="tier-max" required type="number" inputMode="decimal" min="0" step="any" value={maxKm} onChange={e => setMaxKm(e.target.value)} className="field" />
+                <NumberInput id="tier-max" required inputMode="decimal" min="0" value={maxKm} onChange={e => setMaxKm(e.target.value)} className="field" />
               </div>
               <div>
                 <label htmlFor="tier-fee" className="field-label">السعر</label>
-                <input id="tier-fee" required type="number" inputMode="decimal" min="0" step="any" value={fee} onChange={e => setFee(e.target.value)} className="field" />
+                <NumberInput id="tier-fee" required inputMode="decimal" min="0" value={fee} onChange={e => setFee(e.target.value)} className="field" />
               </div>
             </div>
             <button type="submit" className="btn btn-secondary btn-block">إضافة سعر</button>

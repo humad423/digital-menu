@@ -1,5 +1,6 @@
 'use client'
 
+import NumberInput from '@/components/NumberInput'
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
@@ -219,9 +220,8 @@ export default function MenuItem({
           <div>
             <label htmlFor={`amount-${item.id}`} className="field-label">أو اكتب المبلغ الذي تريده ({CURRENCY_SYMBOL})</label>
             <div className="flex gap-2">
-              <input
+              <NumberInput
                 id={`amount-${item.id}`}
-                type="number"
                 inputMode="decimal"
                 min="1"
                 value={customAmount}

@@ -1,5 +1,8 @@
 'use client'
 
+import NumberInput from '@/components/NumberInput'
+import TimeInput from '@/components/TimeInput'
+import { DATE_LOCALE } from '@/utils/numbers'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { triggerRevalidate } from '@/utils/revalidate'
@@ -842,7 +845,7 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <label className="f-label">نطاق التوصيل (كم)</label>
-                          <input type="number" min="1" max="100" step="0.5" value={resForm.delivery_radius_km}
+                          <NumberInput min="1" max="100" required value={resForm.delivery_radius_km}
                             onChange={e => setResForm({ ...resForm, delivery_radius_km: e.target.value })}
                             className="f-input" />
                         </div>
@@ -858,11 +861,11 @@ export default function AdminDashboard() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="f-label">يفتح الساعة</label>
-                          <input type="time" value={resForm.opening_time} onChange={e => setResForm({ ...resForm, opening_time: e.target.value })} className="f-input text-center" />
+                          <TimeInput value={resForm.opening_time} onChange={value => setResForm({ ...resForm, opening_time: value })} className="f-input text-center" />
                         </div>
                         <div>
                           <label className="f-label">يغلق الساعة</label>
-                          <input type="time" value={resForm.closing_time} onChange={e => setResForm({ ...resForm, closing_time: e.target.value })} className="f-input text-center" />
+                          <TimeInput value={resForm.closing_time} onChange={value => setResForm({ ...resForm, closing_time: value })} className="f-input text-center" />
                         </div>
                       </div>
                       <div>
@@ -938,7 +941,7 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <label className="f-label">الحد الأقصى للعروض</label>
-                          <input type="number" min="1" max="100" value={resForm.max_offers_limit} onChange={e => setResForm({ ...resForm, max_offers_limit: e.target.value })} className="f-input" placeholder="5" />
+                          <NumberInput min="1" max="100" value={resForm.max_offers_limit} onChange={e => setResForm({ ...resForm, max_offers_limit: e.target.value })} className="f-input" placeholder="5" />
                         </div>
                         <div>
                           <div className="flex items-center justify-between gap-2">
@@ -1408,29 +1411,23 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-3 gap-2">
                               <div>
                                 <label className="block text-sm text-muted mb-1">خط العرض Lat</label>
-                                <input
-                                  type="number"
-                                  step="any"
-                                  value={adForm.latitude ?? ''}
+                                <NumberInput
+                                  negative value={adForm.latitude ?? ''}
                                   onChange={e => setAdForm({ ...adForm, latitude: parseFloat(e.target.value) || null })}
                                   className="f-input"
                                 />
                               </div>
                               <div>
                                 <label className="block text-sm text-muted mb-1">خط الطول Lng</label>
-                                <input
-                                  type="number"
-                                  step="any"
-                                  value={adForm.longitude ?? ''}
+                                <NumberInput
+                                  negative value={adForm.longitude ?? ''}
                                   onChange={e => setAdForm({ ...adForm, longitude: parseFloat(e.target.value) || null })}
                                   className="f-input"
                                 />
                               </div>
                               <div>
                                 <label className="block text-sm text-muted mb-1">نصف القطر (كم)</label>
-                                <input
-                                  type="number"
-                                  step="0.5"
+                                <NumberInput
                                   placeholder="15"
                                   value={adForm.radius_km ?? ''}
                                   onChange={e => setAdForm({ ...adForm, radius_km: parseFloat(e.target.value) || null })}
@@ -1445,7 +1442,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="w-28">
                       <label className="f-label">الترتيب</label>
-                      <input type="number" value={adForm.sort_order} onChange={e => setAdForm({ ...adForm, sort_order: parseInt(e.target.value) || 0 })} className="f-input" />
+                      <NumberInput value={adForm.sort_order} onChange={e => setAdForm({ ...adForm, sort_order: parseInt(e.target.value) || 0 })} className="f-input" />
                     </div>
                     <div className="flex justify-end gap-2">
                       <button type="button" onClick={() => { setShowAdForm(false); setEditAdId(null) }} className="btn btn-ghost">إلغاء</button>
@@ -1734,7 +1731,7 @@ export default function AdminDashboard() {
                             )}
                           </td>
                           <td className="text-sm text-muted font-medium">
-                            {new Date(order.created_at).toLocaleString('ar-SA', { hour12: true })}
+                            {new Date(order.created_at).toLocaleString(DATE_LOCALE, { hour12: true })}
                           </td>
                           <td>
                             <button

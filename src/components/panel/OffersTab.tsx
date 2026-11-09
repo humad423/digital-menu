@@ -1,5 +1,6 @@
 'use client'
 
+import NumberInput from '@/components/NumberInput'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import MultiImageUpload from '@/components/MultiImageUpload'
@@ -230,9 +231,8 @@ export default function OffersTab({ store }: { store: PanelStore }) {
                 </div>
                 <div>
                   <label htmlFor={slot.quantity} className="field-label">العدد</label>
-                  <input
+                  <NumberInput
                     id={slot.quantity}
-                    type="number"
                     inputMode="numeric"
                     min="1"
                     value={form[slot.quantity]}
@@ -251,11 +251,11 @@ export default function OffersTab({ store }: { store: PanelStore }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="offer-price" className="field-label">سعر البكج ({CURRENCY_SYMBOL})</label>
-                <input id="offer-price" required type="number" inputMode="decimal" min="0" step="any" value={form.offer_price} onChange={e => setForm({ ...form, offer_price: e.target.value })} className="field" />
+                <NumberInput id="offer-price" required inputMode="decimal" min="0" value={form.offer_price} onChange={e => setForm({ ...form, offer_price: e.target.value })} className="field" />
               </div>
               <div>
                 <label htmlFor="offer-original" className="field-label">قبل الخصم</label>
-                <input id="offer-original" type="number" inputMode="decimal" min="0" step="any" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
+                <NumberInput id="offer-original" inputMode="decimal" min="0" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
               </div>
             </div>
 

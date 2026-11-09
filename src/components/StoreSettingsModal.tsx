@@ -1,5 +1,7 @@
 'use client'
 
+import NumberInput from '@/components/NumberInput'
+import TimeInput from '@/components/TimeInput'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import ImageUpload from '@/components/ImageUpload'
@@ -114,6 +116,10 @@ export default function StoreSettingsModal({
       return setErrorMsg('⚠️ عذراً، اشتراك المتجر معلق حالياً. يرجى تجديد الاشتراك لتتمكن من تعديل الإعدادات.')
     }
 
+    if (hasDelivery && !(deliveryRadiusKm > 0)) {
+      return setErrorMsg('اكتب نطاق التوصيل بالكيلومتر.')
+    }
+
     setSaving(true)
     setErrorMsg('')
 
@@ -223,21 +229,17 @@ export default function StoreSettingsModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-bold text-muted mb-1 block">وقت الفتح ⏰</label>
-                <input
-                  type="time"
+                <TimeInput
                   value={openingTime}
-                  onChange={e => setOpeningTime(e.target.value)}
-                  className="f-input text-center font-bold"
-                />
+                  onChange={setOpeningTime}
+                  className="f-input text-center font-bold" />
               </div>
               <div>
                 <label className="text-sm font-bold text-muted mb-1 block">وقت الإغلاق 🌙</label>
-                <input
-                  type="time"
+                <TimeInput
                   value={closingTime}
-                  onChange={e => setClosingTime(e.target.value)}
-                  className="f-input text-center font-bold"
-                />
+                  onChange={setClosingTime}
+                  className="f-input text-center font-bold" />
               </div>
             </div>
           </div>
@@ -310,8 +312,7 @@ export default function StoreSettingsModal({
                   </h4>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold text-muted">أقصى نطاق:</span>
-                    <input
-                      type="number"
+                    <NumberInput
                       value={deliveryRadiusKm}
                       onChange={e => setDeliveryRadiusKm(Number(e.target.value))}
                       className="w-16 p-1 text-center bg-white border border-slate-300 rounded-lg text-sm font-black text-brand outline-none"
@@ -326,9 +327,7 @@ export default function StoreSettingsModal({
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-sm font-bold text-muted block mb-0.5">من (كم)</label>
-                  <input
-                    type="number"
-                    step="0.1"
+                  <NumberInput
                     placeholder="0"
                     value={newTier.min_km}
                     onChange={e => setNewTier({ ...newTier, min_km: e.target.value })}
@@ -337,9 +336,7 @@ export default function StoreSettingsModal({
                 </div>
                 <div>
                   <label className="text-sm font-bold text-muted block mb-0.5">إلى (كم)</label>
-                  <input
-                    type="number"
-                    step="0.1"
+                  <NumberInput
                     placeholder="10"
                     value={newTier.max_km}
                     onChange={e => setNewTier({ ...newTier, max_km: e.target.value })}
@@ -348,9 +345,7 @@ export default function StoreSettingsModal({
                 </div>
                 <div>
                   <label className="text-sm font-bold text-muted block mb-0.5">الأجرة TL</label>
-                  <input
-                    type="number"
-                    step="0.5"
+                  <NumberInput
                     placeholder="25"
                     value={newTier.fee}
                     onChange={e => setNewTier({ ...newTier, fee: e.target.value })}

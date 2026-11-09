@@ -6,6 +6,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Maximize2, Minimize2, RotateCcw } from 'lucide-react'
 import { getStoreStatus } from '@/utils/storeStatus'
+import { formatNumber } from '@/utils/numbers'
 
 declare global {
   interface Window {
@@ -195,7 +196,7 @@ export default function AdminInteractiveMap({
               </span>
             </div>
             <p style="margin: 4px 0; font-size: 11px; color: #475569; font-weight: 700;">
-              🛵 نطاق التوصيل: <b>${radiusKm} كم (${radiusMeters.toLocaleString()} متر)</b>
+              🛵 نطاق التوصيل: <b>${radiusKm} كم (${formatNumber(radiusMeters)} متر)</b>
             </p>
             ${store.has_delivery !== false ? `
               <button
@@ -283,7 +284,7 @@ export default function AdminInteractiveMap({
               المنطقة المستهدفة: <b>${ad.target_region || 'محددة بالخريطة'}</b>
             </p>
             <p style="margin: 2px 0; font-size: 11px; color: #374151; font-weight: 700; margin-bottom: 6px;">
-              نطاق البث: <b>${radiusKm} كم (${radiusMeters.toLocaleString()} متر)</b>
+              نطاق البث: <b>${radiusKm} كم (${formatNumber(radiusMeters)} متر)</b>
             </p>
             <button
               onclick="window.toggleMapItemCircle('${adKey}')"

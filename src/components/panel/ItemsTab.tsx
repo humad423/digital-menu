@@ -1,5 +1,6 @@
 'use client'
 
+import NumberInput from '@/components/NumberInput'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import MultiImageUpload from '@/components/MultiImageUpload'
@@ -248,11 +249,11 @@ export default function ItemsTab({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="item-price" className="field-label">{isSupermarket ? 'سعر العرض' : 'السعر'} ({CURRENCY_SYMBOL})</label>
-                <input id="item-price" required type="number" inputMode="decimal" min="0" step="any" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="field" />
+                <NumberInput id="item-price" required inputMode="decimal" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="field" />
               </div>
               <div>
                 <label htmlFor="item-original" className="field-label">قبل الخصم{isSupermarket ? '' : ' (اختياري)'}</label>
-                <input id="item-original" required={isSupermarket} type="number" inputMode="decimal" min="0" step="any" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
+                <NumberInput id="item-original" required={isSupermarket} inputMode="decimal" min="0" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
               </div>
             </div>
 

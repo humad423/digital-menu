@@ -5,6 +5,7 @@ import TopProgressBar from "@/components/TopProgressBar";
 import PwaManager from "@/components/pwa/PwaManager";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import Toaster from "@/components/Toaster";
+import LatinDigits from "@/components/LatinDigits";
 import { Suspense } from "react";
 import { SITE_URL } from "@/config/site";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
         {children}
         <PwaManager />
         <Toaster />
+        <LatinDigits />
       </body>
     </html>
   );
