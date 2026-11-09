@@ -9,13 +9,13 @@ import CategoriesTab from '@/components/panel/CategoriesTab'
 import DeliveryTab from '@/components/panel/DeliveryTab'
 import ItemsTab from '@/components/panel/ItemsTab'
 import OffersTab from '@/components/panel/OffersTab'
+import StoreStats from '@/components/panel/StoreStats'
 import TemporaryChanges from '@/components/panel/TemporaryChanges'
 import type { PanelStore } from '@/components/panel/shared'
 import InstallAppButton from '@/components/pwa/InstallAppButton'
 import { supabase } from '@/lib/supabase'
 import { notifyError } from '@/utils/notify'
 import { getMainDomainMenuUrl } from '@/utils/url'
-import { fetchTodayVisits } from '@/utils/visitsHelper'
 
 // Rarely opened and heavy, so they load only when used
 const StoreSettingsModal = dynamic(() => import('@/components/StoreSettingsModal'))
@@ -32,14 +32,13 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [categories, setCategories] = useState<any[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [offers, setOffers] = useState<any[]>([])
-  const [todayVisits, setTodayVisits] = useState(0)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<PanelTab>('items')
   const [showSettings, setShowSettings] = useState(false)
   const [showQr, setShowQr] = useState(false)
 
   const refresh = useCallback(async () => {
-    const [restaurantResult, categoriesResult, offersResult, visits] = await Promise.all([
+    const [restaurantResult, categoriesResult, offersResult] = await Promise.all([
       supabase
         .from('restaurants')
         .select(
@@ -60,7 +59,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         .select('id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity')
         .eq('restaurant_id', id)
         .order('created_at', { ascending: false }),
-      fetchTodayVisits(supabase, id),
     ])
 
     if (restaurantResult.error || categoriesResult.error || offersResult.error) {
@@ -81,7 +79,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setCategories(categoryRows)
     setMenuItems(items || [])
     setOffers(offersResult.data || [])
-    setTodayVisits(visits)
   }, [id])
 
   // Roles live in app_metadata, which only the server can write. RLS enforces the
@@ -154,7 +151,6 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
       <main className="page-narrow py-4 space-y-4">
         <div>
           <h1 className="text-2xl font-black leading-snug">{restaurant?.name}</h1>
-          <p className="text-muted font-medium">زيارات اليوم: {todayVisits}</p>
         </div>
 
         {access === 'admin' && <p className="notice notice-info">أنت تعدّل هذا المتجر بصلاحية الإدارة.</p>}
@@ -179,6 +175,8 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           </button>
           <InstallAppButton variant="tile" appName="لوحة الشريك" label="ثبّت التطبيق" />
         </div>
+
+        <StoreStats restaurantId={id} />
 
         <TemporaryChanges store={store} />
 

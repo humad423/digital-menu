@@ -5,6 +5,7 @@ import { MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react
 import { useCartStore } from '@/store/cartStore'
 import { publicInsert } from '@/utils/publicInsert'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
+import { ORDER_SOURCE_LINE } from '@/utils/whatsappMessage'
 import { deliveryNow, type DeliveryNow } from '@/utils/schedule'
 import { getStoreStatus, type StoreStatus } from '@/utils/storeStatus'
 import { trackGAWhatsAppOrder } from '@/utils/analytics'
@@ -45,6 +46,7 @@ function buildOrderMessage({
   if (customerName.trim()) parts.push(`👤 الاسم: ${customerName.trim()}`)
   if (note.trim()) parts.push(`📝 ملاحظة: ${note.trim()}`)
   if (locationUrl) parts.push(`📍 موقع التوصيل:\n${locationUrl}`)
+  parts.push(ORDER_SOURCE_LINE)
 
   return parts.join('\n\n')
 }

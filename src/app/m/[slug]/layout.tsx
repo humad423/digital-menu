@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowRight, MapPin, MessageCircle } from 'lucide-react'
+import { ArrowRight, MapPin } from 'lucide-react'
 import CartButton from '@/components/CartButton'
 import CartHydrator from '@/components/CartHydrator'
+import ContactStoreButton from '@/components/ContactStoreButton'
 import MenuQrTracker from '@/components/MenuQrTracker'
 import StoreInfo from '@/components/StoreInfo'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
@@ -109,10 +110,7 @@ export default async function RestaurantLayout({
 
           <div className="grid grid-cols-2 gap-2">
             {restaurant.whatsapp_number && (
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                <MessageCircle size={18} className="shrink-0" />
-                <span>مراسلة</span>
-              </a>
+              <ContactStoreButton restaurantId={restaurant.id} whatsappNumber={restaurant.whatsapp_number} />
             )}
             {hasCoords && (
               <a

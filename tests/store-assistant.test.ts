@@ -230,7 +230,7 @@ describe('keeping the agent inside its own shop', () => {
     assert.equal(fromLocalTime('٢٠٢٦-١١-٠٨ ١٨:٠٠', 'Europe/Istanbul'), '2026-11-08T15:00:00.000Z')
     assert.equal(fromLocalTime('بكرا', 'Europe/Istanbul'), null)
 
-    const saved = checkAction(ctx(), { op: 'update', record: 'P1', fields: { is_available: false, out_of_stock_until: '2026-11-08 18:00' } }).step as any
+    const saved = checkAction(ctx({ now: Date.parse('2026-11-08T09:00:00Z') }), { op: 'update', record: 'P1', fields: { is_available: false, out_of_stock_until: '2026-11-08 18:00' } }).step as any
     assert.equal(saved.fields.out_of_stock_until, '2026-11-08T15:00:00.000Z')
     assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { out_of_stock_until: 'الساعة 6' } }).problem!, /not a time/)
   })
