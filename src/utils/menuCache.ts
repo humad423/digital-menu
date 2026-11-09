@@ -42,7 +42,7 @@ export const getRestaurantBySlug = cache((slug: string): Promise<any> =>
             'id, name, slug, primary_color, whatsapp_number, logo_url, cover_url, ' +
             'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
             'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, ' +
-            'store_type, menu_note, is_subscription_active, is_menu_active, show_on_home'
+            'store_type, menu_note, is_subscription_active, is_menu_active, show_on_home, show_stores_button'
           )
           .eq('slug', slug)
           .maybeSingle()

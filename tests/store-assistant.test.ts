@@ -135,7 +135,7 @@ describe('keeping the agent inside its own shop', () => {
   })
 
   test('what the panel keeps for admins stays out of reach', () => {
-    for (const key of ['slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone']) {
+    for (const key of ['slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'show_stores_button', 'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone']) {
       assert.match(checkAction(ctx(), { op: 'update', record: 'S', fields: { [key]: true } }).problem!, /belongs to the Alfsouq team/)
     }
   })

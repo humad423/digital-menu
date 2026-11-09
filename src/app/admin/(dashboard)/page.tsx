@@ -72,7 +72,7 @@ export default function AdminDashboard() {
           'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, store_type, ' +
           'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
-          'enable_whatsapp_orders, menu_note, is_subscription_active, is_menu_active, show_on_home, subscription_notes, created_at'
+          'enable_whatsapp_orders, menu_note, is_subscription_active, is_menu_active, show_on_home, show_stores_button, subscription_notes, created_at'
         )
         .order('created_at', { ascending: false }),
       supabase.from('platform_categories').select('id, name, icon, created_at').order('created_at', { ascending: true }),
@@ -243,6 +243,13 @@ export default function AdminDashboard() {
     triggerRevalidate(r.slug, 'all')
   }
 
+  const toggleRestaurantStoresButton = async (r: any) => {
+    const newVal = r.show_stores_button !== true
+    setRestaurants(prev => prev.map(item => item.id === r.id ? { ...item, show_stores_button: newVal } : item))
+    reportWriteResult(await supabase.from('restaurants').update({ show_stores_button: newVal }).eq('id', r.id))
+    triggerRevalidate(r.slug, 'all')
+  }
+
   const toggleRestaurantMenu = async (r: any) => {
     const newVal = r.is_menu_active === false ? true : false
     setRestaurants(prev => prev.map(item => item.id === r.id ? { ...item, is_menu_active: newVal } : item))
@@ -260,7 +267,7 @@ export default function AdminDashboard() {
     logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
     opening_time: '09:00', closing_time: '23:00', timezone: STORE_TIMEZONE, days_off: [] as string[], is_on_holiday: false, holiday_message: '', enable_whatsapp_orders: true,
-    is_subscription_active: true, is_menu_active: true, show_on_home: true, subscription_notes: ''
+    is_subscription_active: true, is_menu_active: true, show_on_home: true, show_stores_button: false, subscription_notes: ''
   }
   const [resForm, setResForm] = useState(emptyRes)
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([])
@@ -314,6 +321,7 @@ export default function AdminDashboard() {
       is_subscription_active: resForm.is_subscription_active !== false,
       is_menu_active: resForm.is_menu_active !== false,
       show_on_home: resForm.show_on_home !== false,
+      show_stores_button: resForm.show_stores_button === true,
       subscription_notes: resForm.subscription_notes?.trim() || null,
     }
     let restaurantId = editResId
@@ -382,6 +390,7 @@ export default function AdminDashboard() {
       is_subscription_active: r.is_subscription_active !== false,
       is_menu_active: r.is_menu_active !== false,
       show_on_home: r.show_on_home !== false,
+      show_stores_button: r.show_stores_button === true,
       subscription_notes: r.subscription_notes || '',
     })
     setSelectedCatIds(restaurantCategoryMap[r.id] || [])
@@ -759,6 +768,7 @@ export default function AdminDashboard() {
                       <h3 className="section-title">الظهور للزبائن</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4">
                         <CheckRow label="ظاهر في الرئيسية" checked={resForm.show_on_home !== false} onChange={checked => setResForm({ ...resForm, show_on_home: checked })} />
+                        <CheckRow label="زر كل المتاجر في المنيو" checked={resForm.show_stores_button === true} onChange={checked => setResForm({ ...resForm, show_stores_button: checked })} />
                         <CheckRow label="المنيو منشور" checked={resForm.is_menu_active !== false} onChange={checked => setResForm({ ...resForm, is_menu_active: checked })} />
                         <CheckRow label="الاشتراك نشط" checked={resForm.is_subscription_active !== false} onChange={checked => setResForm({ ...resForm, is_subscription_active: checked })} />
                       </div>
@@ -1138,6 +1148,8 @@ export default function AdminDashboard() {
                     ]
                     // The card only mentions these when something needs noticing
                     const warnings = switches.filter(item => !item.on).map(item => item.offText === 'مخفي' ? 'مخفي من الرئيسية' : item.offText === 'مغلق' ? 'المنيو مغلق' : 'الاشتراك معلق')
+                    // Off is this button's normal state, so it isn't one of the warnings above
+                    switches.splice(1, 0, { label: 'زر كل المتاجر', on: r.show_stores_button === true, onText: 'ظاهر', offText: 'مخفي', toggle: toggleRestaurantStoresButton })
 
                     return (
                       <div key={r.id} className="bg-white rounded-2xl p-4 border border-line flex flex-col gap-4">

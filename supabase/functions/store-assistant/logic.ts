@@ -24,7 +24,7 @@ type Row = Record<string, unknown>
 
 /** The same settings the store panel refuses to let an owner change. */
 const ADMIN_ONLY = new Set([
-  'slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home',
+  'slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'show_stores_button',
   'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone',
 ])
 /**
