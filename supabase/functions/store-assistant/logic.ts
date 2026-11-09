@@ -79,6 +79,8 @@ export interface Context {
   lastReply?: string
   /** The time now, in milliseconds; tests set it */
   now?: number
+  /** Ready-made photos of products that look the same everywhere, named ST1, ST2... */
+  stockPhotos?: { code: string; name: string; keywords: string[]; url: string }[]
 }
 
 /** One of the messages the owner sent in a row, in the order sent. */
@@ -230,6 +232,8 @@ function savedPhotos(row: Row): string[] {
 
 /** How the model names a photo a record already has: P3#1 is the first photo of P3. */
 const SAVED_PHOTO = /^([A-Z]\d+)#(\d+)$/
+/** How the model names a ready-made photo: ST1, ST2... */
+const STOCK_PHOTO = /^ST\d+$/
 
 /**
  * A record as the model reads it: short, with links to other records written as their codes, times on the shop's clock,
@@ -255,6 +259,11 @@ function readSavedPhotos(ctx: Context, value: unknown): { value?: unknown; probl
   let problem: string | undefined
   const swap = (inner: unknown): unknown => {
     if (typeof inner === 'string') {
+      if (STOCK_PHOTO.test(inner)) {
+        const stock = ctx.stockPhotos?.find(photo => photo.code === inner)
+        if (!stock) problem ??= `${inner} is not one of the ready-made photos. Nothing was saved for this.`
+        return stock?.url ?? inner
+      }
       const match = inner.match(SAVED_PHOTO)
       if (!match) return inner
       const photo = savedPhotos(ctx.records.find(record => record.code === match[1])?.row ?? {})[Number(match[2]) - 1]
@@ -425,6 +434,7 @@ export function buildInput(ctx: Context, aliases: { said: string; menu_item_id: 
     `Other names the owner uses:\n${known.join('\n') || 'none'}`,
     `Links you may share:\n${shopLinkLines(ctx.store, history)}`,
     `Photos you can use: ${photoLine(ctx)}`,
+    `Ready-made photos:\n${(ctx.stockPhotos ?? []).map(photo => `${photo.code} ${photo.name}${photo.keywords.length ? ` (${photo.keywords.join(', ')})` : ''}`).join('\n') || 'none'}`,
     `Worth noticing in this shop now:\n${noticeLines(ctx).join('\n') || 'nothing'}`,
     `Recent conversation:\n${history.slice(-HISTORY_SENT).map(historyLine).join('\n') || 'none'}`,
     `New message from the owner:\n${text || '(no text)'}`,

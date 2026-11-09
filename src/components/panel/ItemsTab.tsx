@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import OptionPicker from '@/components/panel/OptionPicker'
+import StockPhotoPicker from '@/components/panel/StockPhotoPicker'
 import { CheckRow, FormSheet, parseList, type PanelStore } from '@/components/panel/shared'
 import { supabase } from '@/lib/supabase'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
@@ -265,6 +266,9 @@ export default function ItemsTab({
             <div>
               <span className="field-label">الصور</span>
               <MultiImageUpload images={form.images} onChange={images => setForm({ ...form, images })} />
+              {form.images.length === 0 && (
+                <StockPhotoPicker productName={form.name} onPick={url => setForm(current => ({ ...current, images: [url] }))} />
+              )}
             </div>
 
             <div>

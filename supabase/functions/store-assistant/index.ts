@@ -16,6 +16,8 @@ const MAX_MEDIA_BYTES = 8 * 1024 * 1024
 const MAX_MEDIA = 6
 // Unused photos kept for the owner's next message
 const MAX_KEPT_PHOTOS = 4
+// Ready-made photos listed for the model
+const MAX_STOCK_PHOTOS = 300
 const UNDO_DAYS = 7
 const RETRY_WAITS = [5000, 15000, 25000]
 // How long a message waits for the next piece before it's answered
@@ -423,11 +425,12 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
   const countCall = async () => (await db.rpc('assistant_count_call', { daily_limit: DAILY_AI_LIMIT })).data !== false
   if (!await countCall()) return reply('عندي ضغط اليوم. جرّب بكرا إن شاء الله.')
 
-  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }] = await Promise.all([
+  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }, { data: rawStockPhotos }] = await Promise.all([
     db.from('categories').select('*').eq('restaurant_id', store.id).order('sort_order'),
     db.from('menu_items').select('*, categories!inner(restaurant_id)').eq('categories.restaurant_id', store.id).limit(500),
     db.from('assistant_aliases').select('said, menu_item_id').eq('store_id', store.id),
     db.from('offers').select('*').eq('restaurant_id', store.id).order('sort_order'),
+    db.from('stock_photos').select('name, keywords, image_url').order('name').limit(MAX_STOCK_PHOTOS),
   ])
 
   const coded = (table: StoreRecord['table'], prefix: string, rows: any[] | null): StoreRecord[] =>
@@ -449,6 +452,7 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
     photos: keptPhotos.length + photos.length,
     photosKept: keptPhotos.length,
     lastReply: history.filter(entry => entry.from === 'bot').at(-1)?.text,
+    stockPhotos: (rawStockPhotos || []).map((photo, index) => ({ code: `ST${index + 1}`, name: photo.name, keywords: photo.keywords || [], url: photo.image_url })),
   }
 
   const base = buildInput(ctx, aliases || [], history, describePieces(pieces, keptPhotos.length), storeLocalTime(store))

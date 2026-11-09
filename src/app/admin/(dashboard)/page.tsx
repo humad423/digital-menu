@@ -18,7 +18,8 @@ import dynamicImport from 'next/dynamic'
 const AdminBusinessTypesTab = dynamicImport(() => import('@/components/AdminBusinessTypesTab'))
 const AdminLegalPagesTab = dynamicImport(() => import('@/components/AdminLegalPagesTab'))
 const AdminQrAnalyticsTab = dynamicImport(() => import('@/components/AdminQrAnalyticsTab'))
-import { Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
+const AdminStockPhotos = dynamicImport(() => import('@/components/AdminStockPhotos'))
+import { Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Images, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
 import { notifyError, reportWriteResult } from '@/utils/notify'
 import { normalizePhoneNumber, formatPhoneDisplay } from '@/utils/phone'
 
@@ -33,6 +34,7 @@ const TABS = [
   { key: 'map', label: 'الخريطة التفاعلية', Icon: MapIcon },
   { key: 'categories', label: 'التصنيفات الفرعية', Icon: LayoutGrid },
   { key: 'ads', label: 'الإعلانات', Icon: ImageIcon },
+  { key: 'stock_photos', label: 'خزان الصور', Icon: Images },
   { key: 'orders', label: 'الطلبات', Icon: ClipboardList },
 ] as const
 
@@ -574,6 +576,8 @@ export default function AdminDashboard() {
             <AdminQrAnalyticsTab restaurants={restaurants} />
           </TabErrorBoundary>
         )}
+
+        {!loading && !tabLoading && activeTab === 'stock_photos' && <AdminStockPhotos />}
 
         {/* ══════════════════════════════════════
             BUSINESS TYPES TAB

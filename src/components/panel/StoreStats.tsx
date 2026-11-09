@@ -80,8 +80,6 @@ export default function StoreStats({ restaurantId }: { restaurantId: string }) {
           ))}
         </div>
       )}
-
-      <p className="text-muted font-medium text-sm">يُحسب كل زائر مرة واحدة في الزيارة. «أرسلوا طلباً» تعني الضغط على إرسال الطلب، وقد لا يكتمل كل طلب.</p>
     </section>
   )
 }
