@@ -51,9 +51,12 @@ function compressImageToWebpBlob(file: File, maxWidth = 1200, quality = 0.8): Pr
 
 export default function MultiImageUpload({
   images = [],
+  max,
   onChange
 }: {
   images: string[]
+  /** The most photos allowed. No limit when left out. */
+  max?: number
   onChange: (urls: string[]) => void
 }) {
   const [uploading, setUploading] = useState(false)
@@ -90,10 +93,20 @@ export default function MultiImageUpload({
       return
     }
 
+    const room = max === undefined ? validSizeFiles.length : Math.max(0, max - images.length)
+    const filesToUpload = validSizeFiles.slice(0, room)
+    if (filesToUpload.length < validSizeFiles.length) {
+      notifyError(`يمكن إضافة ${max} صور كحد أقصى، فتم أخذ أول ${filesToUpload.length} فقط.`)
+    }
+    if (filesToUpload.length === 0) {
+      e.target.value = ''
+      return
+    }
+
     setUploading(true)
     const newUrls: string[] = []
 
-    for (const file of validSizeFiles) {
+    for (const file of filesToUpload) {
       try {
         const compressedBlob = await compressImageToWebpBlob(file)
         const webpFileName = file.name.replace(/\.[^/.]+$/, '') + '.webp'
@@ -125,6 +138,8 @@ export default function MultiImageUpload({
     e.target.value = ''
   }
 
+  const canAdd = max === undefined || images.length < max
+
   const removeImage = (index: number) => {
     const updated = images.filter((_, i) => i !== index)
     onChange(updated)
@@ -152,7 +167,7 @@ export default function MultiImageUpload({
         ))}
 
         {/* Add Image Button */}
-        <label className="h-24 rounded-2xl border-2 border-dashed border-slate-300 hover:border-orange-500 bg-slate-50 hover:bg-orange-50/40 flex flex-col items-center justify-center cursor-pointer p-2 text-center">
+        {canAdd && <label className="h-24 rounded-2xl border-2 border-dashed border-slate-300 hover:border-orange-500 bg-slate-50 hover:bg-orange-50/40 flex flex-col items-center justify-center cursor-pointer p-2 text-center">
           {uploading ? (
             <div className="flex flex-col items-center gap-1">
               <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -172,10 +187,14 @@ export default function MultiImageUpload({
             disabled={uploading}
             className="hidden"
           />
-        </label>
+        </label>}
       </div>
       <p className="text-sm text-muted font-bold">
-        💡 يمكنك رفع أكثر من صورة للموديل (مثال: صورة أمامية، صورة خلفية، تفاصيل القماش). الصورة الأولى هي الرئيسية.
+        {max === undefined
+          ? '💡 يمكنك رفع أكثر من صورة للموديل (مثال: صورة أمامية، صورة خلفية، تفاصيل القماش). الصورة الأولى هي الرئيسية.'
+          : images.length > max
+            ? `عدد الصور الآن ${images.length} والحد ${max}. احذف صورة لتصبح ضمن الحد.`
+            : `💡 يمكنك إضافة حتى ${max} صور. الصورة الأولى هي الرئيسية.`}
       </p>
     </div>
   )

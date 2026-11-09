@@ -60,6 +60,13 @@ describe('what only the admin can do', () => {
     assert.equal(safeReply('صار السعر ٤٠'), 'صار السعر 40')
   })
 
+  test('a product can have 3 photos at most', () => {
+    const product = { code: 'P1', table: 'menu_items' as const, id: 'item-1', row: { name: 'شاورما', price: 100 } }
+    const ctx = owner({ photos: 4, records: [{ code: 'S', table: 'restaurants', id: store.id, row: store }, product] })
+    assert.ok(checkAction(ctx, { op: 'update', record: 'P1', fields: { images: ['PHOTO1', 'PHOTO2', 'PHOTO3'] } }).step)
+    assert.match(checkAction(ctx, { op: 'update', record: 'P1', fields: { images: ['PHOTO1', 'PHOTO2', 'PHOTO3', 'PHOTO4'] } }).problem!, /at most 3 photos/)
+  })
+
   test('nobody can delete, the admin included', () => {
     assert.match(checkAction(admin(), { op: 'delete', record: 'S' }).problem!, /cannot delete/)
   })

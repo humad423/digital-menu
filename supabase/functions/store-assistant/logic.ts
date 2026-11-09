@@ -20,6 +20,7 @@ export const LOOKS = ['recent_changes', 'visits', 'orders'] as const
 export type Look = (typeof LOOKS)[number]
 /** A new price this many times higher or lower than the old one is checked with the owner first. */
 const PRICE_JUMP = 3
+const MAX_PRODUCT_PHOTOS = 3
 
 export type StoreTable = 'restaurants' | 'categories' | 'menu_items' | 'offers'
 type Row = Record<string, unknown>
@@ -585,6 +586,9 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
     if (key === 'image_url' || key === 'images') {
       const saved = readSavedPhotos(ctx, value)
       if (saved.problem) return { problem: saved.problem }
+      if (table === 'menu_items' && key === 'images' && Array.isArray(saved.value) && saved.value.length > MAX_PRODUCT_PHOTOS) {
+        return { problem: `A product can have at most ${MAX_PRODUCT_PHOTOS} photos and this lists ${saved.value.length}, so nothing was saved for this. Keep the clearest ${MAX_PRODUCT_PHOTOS}, or ask which ones to keep.` }
+      }
       fields[key] = saved.value
       continue
     }

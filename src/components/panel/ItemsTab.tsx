@@ -14,6 +14,7 @@ import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
 import { COLOR_OPTIONS, SIZE_OPTIONS, isRealDiscount, orderOptions } from '@/utils/productOptions'
 
+const MAX_PHOTOS = 3
 const COLOR_NAMES = COLOR_OPTIONS.map(color => color.name)
 const COLOR_SWATCHES = Object.fromEntries(COLOR_OPTIONS.map(color => [color.name, color.hex]))
 
@@ -266,7 +267,7 @@ export default function ItemsTab({
 
             <div>
               <span className="field-label">الصور</span>
-              <MultiImageUpload images={form.images} onChange={images => setForm({ ...form, images })} />
+              <MultiImageUpload images={form.images} max={MAX_PHOTOS} onChange={images => setForm({ ...form, images })} />
               {form.images.length === 0 && (
                 <StockPhotoPicker productName={form.name} onPick={url => setForm(current => ({ ...current, images: [url] }))} />
               )}
