@@ -1,11 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import {
-  HISTORY_SAVED, MAX_ROUNDS, PHOTO_MINUTES, SYSTEM_INSTRUCTION,
+  HISTORY_SAVED, MAX_ROUNDS, NO_STORE, PHOTO_MINUTES, SYSTEM_INSTRUCTION,
   allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, describePieces, isOngoing, normalizeName, photosUsed,
-  pickStore, pieceKind, readActions, readLooks, readMessage, replyDelay, safeReply, shopLinks, storeLocalTime, storeZone, toLocalTime,
+  pickStore, pieceKind, readActions, readLooks, readMessage, readSwitchStore, replyDelay, safeReply, shopLinks, storeLocalTime, storeZone, toLocalTime,
   withFacts, withPhoto, withPhotoQuestion,
-  type Context, type HistoryEntry, type Look, type Parsed, type Piece, type Step, type Store, type StoreRecord,
+  type Context, type HistoryEntry, type Look, type Parsed, type Piece, type Step, type Store, type StorePick, type StoreRecord,
 } from './logic.ts'
 
 // Stays under Google's free limit of 500 requests a day, so the bot answers instead of failing
@@ -27,6 +27,11 @@ const BUSY_WAIT_MS = 30000
 // The same public upload settings the site's own forms use
 const CLOUDINARY_CLOUD = 'o2iy0uxo'
 const CLOUDINARY_PRESET = 'digital_menu_preset'
+// The admin can move between shops in one message, and a whole menu is a long answer
+const ADMIN_ROUNDS = 6
+const ADMIN_REPLY_LENGTH = 4000
+const REPLY_TOKENS = 8000
+const ADMIN_REPLY_TOKENS = 30000
 
 const env = (name: string, fallback = '') => Deno.env.get(name) || fallback
 const WAHA_URL = env('WAHA_URL').replace(/\/+$/, '')
@@ -87,6 +92,19 @@ async function downloadMedia(url: string): Promise<Uint8Array | null> {
   }
 }
 
+/** A photo kept from an earlier message, read again so the admin's "its name is..." is answered with the menu in view. */
+async function readKeptPhoto(url: string, label: string) {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (bytes.length > MAX_MEDIA_BYTES) return null
+    return { label, base64: encodeBase64(bytes), mimeType: (response.headers.get('content-type') || 'image/jpeg').split(';')[0] }
+  } catch {
+    return null
+  }
+}
+
 async function uploadImage(base64: string, mimeType: string): Promise<string | null> {
   const form = new FormData()
   form.append('file', `data:${mimeType};base64,${base64}`)
@@ -99,7 +117,7 @@ async function uploadImage(base64: string, mimeType: string): Promise<string | n
   return (await response.json()).secure_url || null
 }
 
-async function askGemini(input: unknown): Promise<{ parsed?: Parsed; busy?: boolean }> {
+async function askGemini(input: unknown, maxTokens: number): Promise<{ parsed?: Parsed; busy?: boolean }> {
   // Google's busy spells pass quickly, and a slow answer is fine, so it waits and asks again
   for (let attempt = 0; attempt <= RETRY_WAITS.length; attempt++) {
     const started = Date.now()
@@ -111,7 +129,7 @@ async function askGemini(input: unknown): Promise<{ parsed?: Parsed; busy?: bool
         system_instruction: SYSTEM_INSTRUCTION,
         input,
         store: false,
-        generation_config: { thinking_level: 'low', temperature: 0.7, max_output_tokens: 8000 },
+        generation_config: { thinking_level: 'low', temperature: 0.7, max_output_tokens: maxTokens },
         response_format: { type: 'text', mime_type: 'application/json' },
       }),
     }).catch(error => { console.error('Gemini unreachable', error); return null })
@@ -158,6 +176,15 @@ async function runStep(step: Step, ctx: Context, phone: string, batch: string, g
     step.fields = withPhoto(step.fields, urls)
   }
 
+  // Left out of the change log on purpose: "undo" removes what's logged as added, and a shop is never deleted from here
+  if (step.op === 'create_store') {
+    const { data, error } = await db.from('restaurants').insert(step.fields).select('*').single()
+    if (error) { console.error(error); return `${step.label}: the database refused this: ${error.message}` }
+    console.log(`Shop opened by the admin: ${data.slug}`)
+    applyToContext(ctx, step, data)
+    return null
+  }
+
   if (step.op === 'update') {
     const { error } = await db.from(step.table).update(step.fields).eq('id', step.id)
     if (error) { console.error(error); return `${step.label}: the database refused this: ${error.message}` }
@@ -176,6 +203,33 @@ async function runStep(step: Step, ctx: Context, phone: string, batch: string, g
   await log('add', step.table, data.id, null, { name: step.label })
   applyToContext(ctx, step, data)
   return null
+}
+
+/** A shop's records, each under the short code the model calls it by, and the other names its owner uses. */
+async function loadShop(store: Store): Promise<{ records: StoreRecord[]; aliases: { said: string; menu_item_id: string }[] }> {
+  if (!store.id) return { records: [], aliases: [] }
+  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }] = await Promise.all([
+    db.from('categories').select('*').eq('restaurant_id', store.id).order('sort_order'),
+    db.from('menu_items').select('*, categories!inner(restaurant_id)').eq('categories.restaurant_id', store.id).limit(500),
+    db.from('assistant_aliases').select('said, menu_item_id').eq('store_id', store.id),
+    db.from('offers').select('*').eq('restaurant_id', store.id).order('sort_order'),
+  ])
+
+  const coded = (table: StoreRecord['table'], prefix: string, rows: any[] | null): StoreRecord[] =>
+    (rows || []).map((row, index) => {
+      const { categories: _store, ...fields } = row
+      return { code: `${prefix}${index + 1}`, table, id: row.id, row: fields }
+    })
+
+  return {
+    records: [
+      { code: 'S', table: 'restaurants', id: store.id, row: store },
+      ...coded('categories', 'C', rawCategories),
+      ...coded('menu_items', 'P', rawItems),
+      ...coded('offers', 'O', rawOffers),
+    ],
+    aliases: aliases || [],
+  }
 }
 
 /** Takes back everything saved in the owner's last request. Returns a note for the model if it couldn't. */
@@ -336,16 +390,18 @@ async function handleMessage(body: unknown) {
 
   // Store owners are recognised automatically. Anyone else gets no reply at all.
   const e164 = `+${phone}`
-  const [{ data: owners }, { data: ownStores }, { data: overrides }] = await Promise.all([
+  const [{ data: owners }, { data: ownStores }, { data: overrides }, { data: admin }] = await Promise.all([
     db.from('profiles').select('restaurant_id').eq('phone', e164).eq('role', 'restaurant_owner'),
     db.from('restaurants').select('id').eq('whatsapp_number', e164),
     db.from('assistant_numbers').select('store_id, enabled').eq('phone', phone),
+    db.from('assistant_admins').select('phone').eq('phone', phone).maybeSingle(),
   ])
+  const isAdmin = Boolean(admin)
   const storeIds = allowedStoreIds(
     [...(owners || []).map(owner => owner.restaurant_id), ...(ownStores || []).map(store => store.id)],
     overrides || [],
   )
-  if (storeIds.length === 0) return { reply: null, ignored: 'not a store owner' }
+  if (storeIds.length === 0 && !isAdmin) return { reply: null, ignored: 'not a store owner' }
 
   const kind = pieceKind(message)
   if (kind === 'text' && !message.text) return { reply: null, ignored: 'empty message' }
@@ -354,7 +410,7 @@ async function handleMessage(body: unknown) {
   if (!batch) return { reply: null, ignored: 'answered together with a later message' }
 
   try {
-    return await answer(message.session, phone, storeIds, batch)
+    return await answer(message.session, phone, storeIds, batch, isAdmin)
   } finally {
     await db.from('assistant_inbox').update({ done_at: new Date().toISOString() }).in('message_id', batch.map(row => row.message_id))
     // Old rows are only needed for a few minutes
@@ -363,17 +419,19 @@ async function handleMessage(body: unknown) {
 }
 
 /** Reads everything the owner just sent, looks at the shop, acts and answers once. */
-async function answer(session: string, phone: string, storeIds: string[], batch: InboxRow[]) {
+async function answer(session: string, phone: string, storeIds: string[], batch: InboxRow[], isAdmin: boolean) {
   const to = `${phone}@c.us`
   let ongoing = false
   const reply = (text: string) => ({ reply: text, chatId: to, session, wait_seconds: replyDelay(text, ongoing) })
 
-  const { data: found } = await db.from('restaurants').select('*').in('id', storeIds)
-  if (!found?.length) return { reply: null, ignored: 'store not found' }
+  const { data: found } = isAdmin
+    ? await db.from('restaurants').select('*').order('created_at')
+    : await db.from('restaurants').select('*').in('id', storeIds)
+  if (!found?.length && !isAdmin) return { reply: null, ignored: 'store not found' }
 
-  // Same rule as the store panel: a suspended subscription can't edit
-  const stores = found.filter(store => store.is_subscription_active !== false)
-  if (stores.length === 0) return reply('اشتراك متجرك متوقف. تواصل مع الإدارة لتجديده على الرقم +90 535 257 41 34')
+  // Same rule as the store panel: a suspended subscription can't edit. The admin reaches every shop.
+  const stores: Store[] = isAdmin ? found || [] : found!.filter(store => store.is_subscription_active !== false)
+  if (stores.length === 0 && !isAdmin) return reply('اشتراك متجرك متوقف. تواصل مع الإدارة لتجديده على الرقم +90 535 257 41 34')
 
   const { data: chat } = await db.from('assistant_chats').select('*').eq('phone', phone).maybeSingle()
   // Mid-conversation, the owner sees it being read and typed straight away, while the answer is worked out
@@ -386,14 +444,17 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
 
   // The words, all together, are what a store is picked by; a voice note or photo alone has none
   const words = batch.map(row => row.text).filter(Boolean).join('\n')
-  const pick = pickStore(stores, chat?.store_id ?? null, held, words || '(media)')
+  // The admin stays on the last shop they worked on, and the model moves between shops itself
+  const pick: StorePick = isAdmin
+    ? { storeId: stores.some(store => store.id === chat?.store_id) ? chat.store_id : null, text: words || '(media)', held: null, reply: null, switched: false }
+    : pickStore(stores, chat?.store_id ?? null, held, words || '(media)')
   const keptPhotos = pick.switched && stores.length > 1 ? [] : savedPhotos
-  if (!pick.storeId || pick.reply) {
+  if (!isAdmin && (!pick.storeId || pick.reply)) {
     const entries: HistoryEntry[] = [{ from: 'owner', text: words || '(media)' }, { from: 'bot', text: pick.reply! }]
     await saveChat(phone, chat, entries, pick.storeId, pick.held ? { type: 'choose_store', text: pick.held } : null)
     return reply(pick.reply!)
   }
-  const store = stores.find(candidate => candidate.id === pick.storeId)! as Store
+  const store = stores.find(candidate => candidate.id === pick.storeId) ?? NO_STORE
 
   // Each photo, voice note and sticker, downloaded in the order sent. A request held while the owner
   // picked a store comes first, since that's what they want done.
@@ -422,44 +483,42 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
     pieces.push({ kind: row.kind, text })
   }
 
+  // A menu sent earlier is seen again by the admin's next message, as far as there's room after the new photos
+  if (isAdmin && keptPhotos.length) {
+    const room = Math.max(0, MAX_MEDIA - mediaCount)
+    const wanted = keptPhotos.map((url, index) => ({ url, label: `PHOTO${index + 1}:` })).slice(Math.max(0, keptPhotos.length - room))
+    const earlier = await Promise.all(wanted.map(photo => readKeptPhoto(photo.url, photo.label)))
+    images.unshift(...earlier.filter(photo => photo !== null))
+  }
+
   const countCall = async () => (await db.rpc('assistant_count_call', { daily_limit: DAILY_AI_LIMIT })).data !== false
   if (!await countCall()) return reply('عندي ضغط اليوم. جرّب بكرا إن شاء الله.')
 
-  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }, { data: rawStockPhotos }] = await Promise.all([
-    db.from('categories').select('*').eq('restaurant_id', store.id).order('sort_order'),
-    db.from('menu_items').select('*, categories!inner(restaurant_id)').eq('categories.restaurant_id', store.id).limit(500),
-    db.from('assistant_aliases').select('said, menu_item_id').eq('store_id', store.id),
-    db.from('offers').select('*').eq('restaurant_id', store.id).order('sort_order'),
+  const [shop, { data: rawStockPhotos }] = await Promise.all([
+    loadShop(store),
     db.from('stock_photos').select('name, keywords, image_url').order('name').limit(MAX_STOCK_PHOTOS),
   ])
-
-  const coded = (table: StoreRecord['table'], prefix: string, rows: any[] | null): StoreRecord[] =>
-    (rows || []).map((row, index) => {
-      const { categories: _store, ...fields } = row
-      return { code: `${prefix}${index + 1}`, table, id: row.id, row: fields }
-    })
+  let aliases = shop.aliases
 
   // Only the conversation and shop details go to Google: no owner's number or sender name
   const history: HistoryEntry[] = chat?.history || []
   const ctx: Context = {
     store,
-    records: [
-      { code: 'S', table: 'restaurants', id: store.id, row: store },
-      ...coded('categories', 'C', rawCategories),
-      ...coded('menu_items', 'P', rawItems),
-      ...coded('offers', 'O', rawOffers),
-    ],
+    records: shop.records,
     photos: keptPhotos.length + photos.length,
     photosKept: keptPhotos.length,
     lastReply: history.filter(entry => entry.from === 'bot').at(-1)?.text,
     stockPhotos: (rawStockPhotos || []).map((photo, index) => ({ code: `ST${index + 1}`, name: photo.name, keywords: photo.keywords || [], url: photo.image_url })),
+    isAdmin,
+    stores: isAdmin ? stores.map((candidate, index) => ({ code: `A${index + 1}`, id: candidate.id, name: candidate.name, slug: candidate.slug })) : undefined,
   }
 
-  const base = buildInput(ctx, aliases || [], history, describePieces(pieces, keptPhotos.length), storeLocalTime(store))
+  const said = describePieces(pieces, keptPhotos.length)
   let seen = ''
   // Photos and stickers come before the words, so each is judged on its own; voice notes after them
   const request = (note: string) => {
-    const text = [base, seen, note].filter(Boolean).join('\n\n')
+    // Built each time, since the admin may have moved to another shop or opened a new one
+    const text = [buildInput(ctx, aliases, history, said, storeLocalTime(ctx.store)), seen, note].filter(Boolean).join('\n\n')
     if (!images.length && !voices.length) return text
     const media = (items: typeof images, type: 'image' | 'audio') =>
       items.flatMap(item => [{ type: 'text', text: item.label }, { type, data: item.base64, mime_type: item.mimeType }])
@@ -485,11 +544,14 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
   let looked = false
   let answered = false
   let busy = false
+  const rounds = isAdmin ? ADMIN_ROUNDS : MAX_ROUNDS
+  // Every shop changed in this message, by id, to refresh once it's done
+  const changed = new Map<string, string>()
 
   // The agent looks, acts, hears what really happened, and can put it right before answering
-  for (let round = 0; round < MAX_ROUNDS; round++) {
+  for (let round = 0; round < rounds; round++) {
     if (round > 0 && !await countCall()) break
-    const result = await askGemini(request(note))
+    const result = await askGemini(request(note), isAdmin ? ADMIN_REPLY_TOKENS : REPLY_TOKENS)
     if (!result.parsed) { busy = !!result.busy; break }
 
     // A voice note it wrote nothing down for wasn't really heard, so it isn't acted on
@@ -509,18 +571,33 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
       heard = [shows && `صورة: ${shows}`, String(result.parsed.heard ?? '')].filter(Boolean).join(' - ')
     }
 
+    // Moving comes before anything else it sent, so nothing lands on the shop it's leaving
+    const target = round < rounds - 2 ? readSwitchStore(ctx, result.parsed.switch_store) : null
+    if (target) {
+      const next = stores.find(candidate => candidate.id === target.id) ?? ctx.store
+      const loaded = await loadShop(next)
+      ctx.store = next
+      ctx.records = loaded.records
+      aliases = loaded.aliases
+      seen = ''
+      looked = false
+      console.log(`Admin moved to ${target.slug}`)
+      note = `You are now on ${target.name}, and only moved: nothing was saved by that. Saved so far: ${describeForMemory(done) || 'nothing'}. Do what they asked and answer.`
+      continue
+    }
+
     // It can look around once before deciding, while there are rounds left to act and answer
     const looks = readLooks(result.parsed.look)
-    if (looks.length && !looked && round < MAX_ROUNDS - 2) {
+    if (looks.length && !looked && round < rounds - 2 && ctx.store.id) {
       looked = true
       console.log(`Looked at: ${looks.join(', ')}`)
-      seen = `What you asked to see:\n${await lookAt(looks, store)}`
+      seen = `What you asked to see:\n${await lookAt(looks, ctx.store)}`
       note = 'Now decide what to do and answer.'
       continue
     }
 
     // Its last try is only for answering, so the owner always hears something real
-    const lastRound = round === MAX_ROUNDS - 1
+    const lastRound = round === rounds - 1
     const actions = lastRound ? [] : readActions(result.parsed.actions)
     const problems: string[] = []
     for (const action of actions) {
@@ -530,35 +607,39 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
       const failed = await runStep(step, ctx, phone, batchId, getPhoto)
       if (failed) { problems.push(failed); continue }
       done.push(step)
+      changed.set(ctx.store.id, ctx.store.slug)
       photosInStep.forEach(number => used.add(number))
     }
 
-    draft = safeReply(result.parsed.reply, shopLinks(ctx.store))
+    draft = safeReply(result.parsed.reply, shopLinks(ctx.store), isAdmin ? ADMIN_REPLY_LENGTH : undefined)
     const emptyClaim = actions.length === 0 && done.length === 0 && claimsSave(draft)
     if (problems.length === 0 && draft && !emptyClaim) { answered = true; break }
 
     note = `System note: your draft reply was not sent. Saved so far: ${describeForMemory(done) || 'nothing'}. ${
       emptyClaim ? 'Your draft said something changed, but you sent no actions, so nothing did.' : ''
     }${problems.length ? ` These did not go through:\n${problems.join('\n')}` : ''}${!draft && !problems.length ? ' Your reply was empty or held a link other than the ones you may share.' : ''}
-${round === MAX_ROUNDS - 2 ? 'This is your last try, so nothing more can be saved: leave actions empty and tell the owner honestly what was saved, what was not, and ask for whatever is missing.' : 'Fix what you can with new actions, without repeating what was saved, or tell the owner honestly, asking for whatever is missing. Then write your reply.'}`
+${round === rounds - 2 ? 'This is your last try, so nothing more can be saved: leave actions empty and tell the owner honestly what was saved, what was not, and ask for whatever is missing.' : 'Fix what you can with new actions, without repeating what was saved, or tell the owner honestly, asking for whatever is missing. Then write your reply.'}`
   }
 
   const unheard = voices.length ? '(رسالة صوتية ما انفهمت)' : images.length ? '(صورة)' : ''
   const owner: HistoryEntry = { from: 'owner', text: (heard || words || unheard).slice(0, 500) }
 
+  // The admin setting up a whole menu doesn't need asking about photos for it
+  const withAsk = (text: string) => (isAdmin ? text : withPhotoQuestion(text, done))
   let finalReply: string
   if (answered) {
-    finalReply = withPhotoQuestion(withFacts(draft, done), done)
+    finalReply = withAsk(withFacts(draft, done))
   } else if (done.length > 0) {
-    finalReply = `${withPhotoQuestion(withFacts('', done), done)}\nوالباقي ما زبط معي، فيك تبعتلي ياه كمان مرة؟`
+    finalReply = `${withAsk(withFacts('', done))}\nوالباقي ما زبط معي، فيك تبعتلي ياه كمان مرة؟`
   } else {
     finalReply = busy ? 'عندي ضغط هلق، جرّب بعد شوي.' : 'معليش، ما زبط معي. فيك تبعتها كمان مرة؟'
   }
 
   // Photos not used yet, earlier ones and new ones, are kept for a while, so "this one is for the bread" still works.
   // The newest are kept when there are too many.
+  // A menu the admin has just had added isn't kept, or their next message would read it and add it again.
   const photosLeft: string[] = []
-  for (let number = ctx.photos; number >= 1 && photosLeft.length < MAX_KEPT_PHOTOS; number--) {
+  for (let number = isAdmin && done.length > 0 ? 0 : ctx.photos; number >= 1 && photosLeft.length < MAX_KEPT_PHOTOS; number--) {
     if (used.has(number)) continue
     const url = await getPhoto(number)
     if (url) photosLeft.unshift(url)
@@ -567,8 +648,8 @@ ${round === MAX_ROUNDS - 2 ? 'This is your last try, so nothing more can be save
   const bot: HistoryEntry = { from: 'bot', text: finalReply }
   const did = describeForMemory(done)
   if (did) bot.did = did
-  await saveChat(phone, chat, [owner, bot], store.id, photosLeft.length ? { type: 'photos', urls: photosLeft } : null)
-  if (done.length > 0) await publishChanges(store.slug, store.id)
+  await saveChat(phone, chat, [owner, bot], ctx.store.id || null, photosLeft.length ? { type: 'photos', urls: photosLeft } : null)
+  await Promise.all([...changed].map(([id, slug]) => publishChanges(slug, id)))
 
   return reply(finalReply)
 }

@@ -2,6 +2,8 @@
 // This file gives it the shop's data and keeps it inside that one shop, nothing more.
 // Free of network and database code so it can be tested.
 
+import { ADMIN_BRIEF } from './brief.ts'
+
 export const HISTORY_SAVED = 30
 export const HISTORY_SENT = 20
 export const PHOTO_MINUTES = 30
@@ -81,7 +83,21 @@ export interface Context {
   now?: number
   /** Ready-made photos of products that look the same everywhere, named ST1, ST2... */
   stockPhotos?: { code: string; name: string; keywords: string[]; url: string }[]
+  /** True when the Alfsouq admin is writing: any shop, and new ones. */
+  isAdmin?: boolean
+  /** Every shop, for the admin, named A1, A2... */
+  stores?: ShopChoice[]
 }
+
+export interface ShopChoice {
+  code: string
+  id: string
+  name: string
+  slug: string
+}
+
+/** Stands in for the shop until the admin picks or opens one; nothing can be saved on it. */
+export const NO_STORE: Store = { id: '', name: '(no shop chosen yet)', slug: '', store_type: null, max_offers_limit: null }
 
 /** One of the messages the owner sent in a row, in the order sent. */
 export interface Piece {
@@ -93,6 +109,7 @@ export interface Piece {
 export type Step =
   | { op: 'update'; table: StoreTable; id: string; code: string; label: string; said: string; fields: Row; before: Row }
   | { op: 'add'; table: Exclude<StoreTable, 'restaurants'>; label: string; ref: string | null; fields: Row }
+  | { op: 'create_store'; label: string; fields: Row }
   | { op: 'undo' }
 
 export interface RawAction {
@@ -108,8 +125,16 @@ export interface Parsed {
   photo_shows?: unknown
   heard?: unknown
   look?: unknown
+  switch_store?: unknown
   actions?: unknown
   reply?: unknown
+}
+
+/** The shop the admin's message wants to move to, if it's a real one and not the current one. */
+export function readSwitchStore(ctx: Context, raw: unknown): ShopChoice | null {
+  if (!ctx.isAdmin || typeof raw !== 'string') return null
+  const choice = ctx.stores?.find(store => store.code === raw)
+  return choice && choice.id !== ctx.store.id ? choice : null
 }
 
 /** What the model asked to see, limited to what it can ask for. */
@@ -425,6 +450,7 @@ export function buildInput(ctx: Context, aliases: { said: string; menu_item_id: 
   const historyLine = (e: HistoryEntry) => `${e.from === 'owner' ? 'Owner' : 'You'}: ${e.text}${e.did ? `\nDid: ${e.did}` : ''}`
 
   return [
+    ...(ctx.isAdmin ? [ADMIN_BRIEF, `All shops:\n${(ctx.stores ?? []).map(store => `${store.code} ${store.name} (${store.slug})`).join('\n') || 'none'}`] : []),
     `How you've been talking: ${titleUse(history)}`,
     `Local time: ${localTime}`,
     `Shop:\n${section('restaurants')}`,
@@ -508,14 +534,26 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
   const fields: Row = {}
   for (const [key, value] of Object.entries(raw as Row)) {
     if (LOCKED.has(key)) continue
-    if (table === 'restaurants' && ADMIN_ONLY.has(key)) return { problem: `${key} belongs to the Alfsouq team. Nothing was saved for this.` }
-    if (table === 'restaurants' && PANEL_ONLY.has(key)) {
+    if (table === 'restaurants' && !ctx.isAdmin && ADMIN_ONLY.has(key)) return { problem: `${key} belongs to the Alfsouq team. Nothing was saved for this.` }
+    if (table === 'restaurants' && !ctx.isAdmin && PANEL_ONLY.has(key)) {
       return { problem: `${key} is one of the shop's lasting settings, which the owner changes in the store panel, so nothing was saved. You only make changes for a while: special_days for a day's hours or delivery, delivery_paused_until to stop delivery for a while, closed_until to close the shop for a while. If they meant it for good, tell them they can change it from the store panel and send its link.` }
     }
     if (table === 'restaurants' && key === 'special_days') {
       const days = readNewSpecialDays(value, ctx.store, now)
       if (days.problem) return { problem: days.problem }
       fields[key] = days.list
+      continue
+    }
+    if (table === 'restaurants' && (key === 'whatsapp_number' || key === 'phone') && value !== null) {
+      const number = readPhone(value)
+      if (!number) return { problem: `"${String(value)}" is not a full phone number, so nothing was saved for this. Ask for it again.` }
+      fields[key] = number
+      continue
+    }
+    if (table === 'restaurants' && SHOP_HOURS.has(key) && value !== null) {
+      const hour = latinDigits(String(value).trim()).match(HOUR)
+      if (!hour) return { problem: `${key}: "${String(value)}" is not a time written as HH:MM. Nothing was saved for this.` }
+      fields[key] = `${hour[1].padStart(2, '0')}:${hour[2]}`
       continue
     }
     if (key.endsWith('_id') && value !== null) {
@@ -552,6 +590,16 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
 }
 
 const HOUR = /^([01]?\d|2[0-3]):([0-5]\d)$/
+const SHOP_HOURS = new Set(['opening_time', 'closing_time', 'delivery_from', 'delivery_until'])
+
+/** A phone number the way the site saves it, like +905321234567, or null when it isn't a whole one. A number with no country code is taken as Turkish. */
+function readPhone(value: unknown): string | null {
+  const typed = latinDigits(String(value ?? '')).replace(/[^\d+]/g, '')
+  const digits = typed.replace(/\D/g, '').replace(/^00/, '')
+  const international = typed.startsWith('+') || typed.startsWith('00')
+  const full = international ? digits : digits.startsWith('0') ? `90${digits.slice(1)}` : digits.length === 10 ? `90${digits}` : digits
+  return /^[1-9]\d{10,14}$/.test(full) ? `+${full}` : null
+}
 
 /** A date some days before or after a YYYY-MM-DD one. */
 function shiftDay(date: string, days: number): string {
@@ -607,6 +655,33 @@ function priceJumpProblem(label: string, before: unknown, after: unknown, lastRe
   return `${label}: the new price ${next} is far from the current ${old}, so it was NOT saved yet. Ask the owner if they really mean ${next}, and save it once they say yes.`
 }
 
+const NEW_STORE_FIELDS = ['store_type', 'whatsapp_number', 'latitude', 'longitude', 'opening_time', 'closing_time', 'delivery_radius_km', 'menu_note']
+
+/**
+ * A new shop as the admin's message described it. It starts off the home page until it's ready,
+ * and its page stays closed until it has a number to take the orders.
+ */
+function readNewStore(ctx: Context, raw: unknown): { step?: Step; problem?: string } {
+  const given = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Row
+  const name = clean(given.name, 80)
+  if (!name) return { problem: 'A new shop needs a name, so nothing was created. Ask for it.' }
+  const slug = String(given.slug ?? '').trim().toLowerCase()
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return { problem: `"${String(given.slug)}" can't be the shop's link. Use only latin letters, digits and dashes, like "halwayat-ariha". Nothing was created.` }
+  const same = ctx.stores?.find(store => store.slug === slug || normalizeName(store.name) === normalizeName(name))
+  if (same) return { problem: `${same.code} "${same.name}" already exists, so nothing was created. Ask if they mean that shop, or use a different name and link.` }
+
+  const wanted = Object.fromEntries(NEW_STORE_FIELDS.filter(key => given[key] !== undefined && given[key] !== null && given[key] !== '').map(key => [key, given[key]]))
+  const { fields, problem } = readFields(ctx, 'restaurants', wanted)
+  if (!fields) return { problem }
+  return {
+    step: {
+      op: 'create_store',
+      label: name,
+      fields: { store_type: 'restaurant', ...fields, name, slug, show_on_home: false, whatsapp_number: fields.whatsapp_number ?? '', is_menu_active: Boolean(fields.whatsapp_number) },
+    },
+  }
+}
+
 /** Reads one action. Anything outside this shop comes back as a note the model reads, so it can answer in its own words. */
 export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?: string } {
   const action = (raw && typeof raw === 'object' ? raw : {}) as RawAction
@@ -615,10 +690,20 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
 
   if (op === 'undo') return { step: { op: 'undo' } }
 
+  if (op === 'create_store') {
+    return ctx.isAdmin ? readNewStore(ctx, action.fields) : { problem: 'You cannot create a shop. Only the Alfsouq team can.' }
+  }
+
+  if ((op === 'update' || op === 'add') && !ctx.store.id) {
+    return { problem: 'No shop is chosen yet, so nothing was saved. Use switch_store or create_store first, or ask which shop they mean.' }
+  }
+
   if (op === 'update') {
     if (!record) return { problem: `${String(action.record)} is not a record in this shop.` }
     const { fields, problem } = readFields(ctx, record.table, action.fields)
     if (!fields) return { problem }
+    // A shop opened without a number has its page closed; its first number is what opens it
+    if (record.table === 'restaurants' && fields.whatsapp_number && !record.row.whatsapp_number && !('is_menu_active' in fields)) fields.is_menu_active = true
     const before: Row = {}
     for (const key of Object.keys(fields)) {
       if (sameValue(fields[key], record.row[key])) delete fields[key]
@@ -710,6 +795,12 @@ export function applyToContext(ctx: Context, step: Step, saved?: Row): void {
   if (step.op === 'update') {
     const record = ctx.records.find(candidate => candidate.id === step.id)
     if (record) record.row = { ...record.row, ...step.fields }
+    if (step.table === 'restaurants') ctx.store = { ...ctx.store, ...step.fields }
+  } else if (step.op === 'create_store' && saved) {
+    const opened = saved as Store
+    ctx.store = opened
+    ctx.records = [{ code: 'S', table: 'restaurants', id: opened.id, row: opened }]
+    ctx.stores = [...(ctx.stores ?? []), { code: `A${(ctx.stores?.length ?? 0) + 1}`, id: opened.id, name: opened.name, slug: opened.slug }]
   } else if (step.op === 'add' && saved) {
     const prefix = { categories: 'C', menu_items: 'P', offers: 'O' }[step.table]
     const code = step.ref || `${prefix}${ctx.records.filter(record => record.table === step.table).length + 1}`
@@ -725,6 +816,7 @@ export function describeForMemory(done: Step[]): string {
     switch (step.op) {
       case 'update': return `updated ${step.code} ${step.label}: ${Object.entries(step.fields).map(([key, value]) => `${key} ${shortValue(key, step.before[key])} to ${shortValue(key, value)}`).join(', ')}`
       case 'add': return `added to ${step.table}: ${step.label}`
+      case 'create_store': return `opened a new shop: ${step.label}`
       case 'undo': return 'took back the last request'
     }
   }).join('; ')
@@ -742,6 +834,7 @@ export function describeForOwner(done: Step[]): string {
     switch (step.op) {
       case 'update': return price !== undefined ? `${step.label} صار بـ${money(price)}` : `عدلت ${step.label}`
       case 'add': return price !== undefined ? `ضفت ${step.label} بـ${money(price)}` : `ضفت ${step.label}`
+      case 'create_store': return `فتحت متجر جديد: ${step.label}`
       case 'undo': return 'رجعت آخر تعديل'
     }
   }).join('، ')
@@ -782,7 +875,7 @@ const URL_PATTERN = /https?:\/\/[^\s]+/gi
  * The model's message to the owner, or an empty string if it can't be sent as it is.
  * Lines and *bold* are kept for WhatsApp; the only links allowed are the shop's own.
  */
-export function safeReply(value: unknown, allowedLinks: string[] = []): string {
+export function safeReply(value: unknown, allowedLinks: string[] = [], maxLength = 1500): string {
   const reply = String(value ?? '')
     .replace(/\r/g, '')
     .replace(/\*\*/g, '*')
@@ -792,7 +885,7 @@ export function safeReply(value: unknown, allowedLinks: string[] = []): string {
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
-    .slice(0, 1500)
+    .slice(0, maxLength)
   const links = reply.match(URL_PATTERN) ?? []
   const allowed = links.every(link => allowedLinks.includes(link.replace(/[.,،!?؟:;)]+$/, '')))
   return !allowed || /www\.|\.com/i.test(reply.replace(URL_PATTERN, '')) ? '' : reply
