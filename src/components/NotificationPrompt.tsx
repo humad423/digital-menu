@@ -42,7 +42,10 @@ export default function NotificationPrompt() {
     const timer = window.setTimeout(async () => {
       if (cancelled || isStaffPage(window.location.pathname)) return
       if ((await readAlertsState()) !== 'off' || Notification.permission !== 'default') return
-      if (!cancelled) setVisible(true)
+      if (cancelled) return
+      // The app card is showing: ask on the next page instead of on top of it
+      if (document.querySelector('[data-install-banner]')) return
+      setVisible(true)
     }, DELAY_MS)
     return () => { cancelled = true; window.clearTimeout(timer) }
   }, [pathname, visible])

@@ -7,7 +7,7 @@ import CartHydrator from '@/components/CartHydrator'
 import ContactStoreButton from '@/components/ContactStoreButton'
 import HideFromQrVisitors from '@/components/HideFromQrVisitors'
 import MenuQrTracker from '@/components/MenuQrTracker'
-import InstallAppButton from '@/components/pwa/InstallAppButton'
+import StoreInstallBanner from '@/components/pwa/StoreInstallBanner'
 import ShareButton from '@/components/ShareButton'
 import StoreInfo from '@/components/StoreInfo'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
@@ -70,22 +70,23 @@ export default async function RestaurantLayout({
       <CartHydrator />
       <MenuQrTracker restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
 
+      <StoreInstallBanner />
+
       <header className="bg-white border-b border-line">
-        <div className="page-narrow py-3 flex items-center justify-between gap-3 empty:hidden">
-          {/* Someone who scanned the QR code in the shop stays on its menu */}
-          {showStoresButton && (
-            <HideFromQrVisitors>
+        {/* Someone who scanned the QR code in the shop stays on its menu */}
+        {showStoresButton && (
+          <HideFromQrVisitors>
+            <div className="page-narrow pt-3">
               <Link href="/" className="btn btn-secondary btn-sm">
                 <ArrowRight size={18} />
                 <span>كل المتاجر</span>
               </Link>
-            </HideFromQrVisitors>
-          )}
-          <InstallAppButton variant="header" />
-        </div>
+            </div>
+          </HideFromQrVisitors>
+        )}
 
         {restaurant.cover_url && (
-          <div className="page-narrow">
+          <div className="page-narrow pt-3">
             <img
               src={getOptimizedImageUrl(restaurant.cover_url, 800)}
               alt=""
