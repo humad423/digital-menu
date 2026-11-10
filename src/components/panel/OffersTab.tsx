@@ -42,8 +42,8 @@ export default function OffersTab({ store }: { store: PanelStore }) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // One refresh covers the store's page and the home and offers pages
   const publish = () => {
-    triggerRevalidate(restaurant?.slug, 'menu')
     triggerRevalidate(restaurant?.slug, 'offers')
     return refresh()
   }

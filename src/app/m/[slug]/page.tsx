@@ -3,6 +3,13 @@ import { notFound } from 'next/navigation'
 import MenuClient from '@/components/MenuClient'
 import SupermarketOffers from '@/components/SupermarketOffers'
 
+// No store is built ahead of time. Each store's page is built on its first visit and then served
+// ready from the CDN, until the store changes (its data is revalidated by tag) or a day passes.
+// Opening hours, delivery and stock depend on the moment, so the browser works those out.
+export async function generateStaticParams() {
+  return []
+}
+
 export default async function RestaurantMenuPage({
   params,
 }: {

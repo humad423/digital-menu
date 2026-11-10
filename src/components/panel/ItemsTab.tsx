@@ -54,8 +54,9 @@ export default function ItemsTab({
   const [saving, setSaving] = useState(false)
   const [outOfStockItem, setOutOfStockItem] = useState<any | null>(null)
 
+  // A product's photo and name also show in its store's offers on the home and offers pages
   const publish = () => {
-    triggerRevalidate(restaurant?.slug, 'menu')
+    triggerRevalidate(restaurant?.slug, 'offers')
     return refresh()
   }
 

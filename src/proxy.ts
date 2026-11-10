@@ -101,8 +101,16 @@ export async function proxy(request: NextRequest) {
   return response
 }
 
+// Only where it does something: the signed-in areas, and every page on the admin and partner addresses,
+// which it rewrites. Customers' pages skip it, so a visit served from the CDN costs no server work at all.
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|partner-manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|json|woff|woff2|ttf|otf)).*)',
+    '/admin/:path*',
+    '/dashboard/:path*',
+    '/restaurant-panel/:path*',
+    {
+      source: '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|partner-manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|json|woff|woff2|ttf|otf)).*)',
+      has: [{ type: 'header', key: 'host', value: '(admin|partner|restaurant)[.-].*' }],
+    },
   ],
 }
