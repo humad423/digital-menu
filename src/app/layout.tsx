@@ -6,6 +6,7 @@ import PwaManager from "@/components/pwa/PwaManager";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import Toaster from "@/components/Toaster";
 import LatinDigits from "@/components/LatinDigits";
+import NotificationPrompt from "@/components/NotificationPrompt";
 import { Suspense } from "react";
 import { SITE_URL } from "@/config/site";
 
@@ -48,6 +49,13 @@ export default function RootLayout({
       className={`${tajawal.variable} h-full antialiased`}
     >
       <body className="min-h-full w-full overflow-x-hidden">
+        {/* Registered as the page arrives, before the app's own code, so it works on slow connections too.
+            The admin panel isn't an installable app and gets none. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "if('serviceWorker' in navigator&&!/^admin[.-]/.test(location.hostname)&&location.pathname.indexOf('/admin')!==0){navigator.serviceWorker.register('/sw.js').catch(function(){})}",
+          }}
+        />
         <GoogleAnalytics />
         <Suspense fallback={null}>
           <TopProgressBar />
@@ -56,6 +64,7 @@ export default function RootLayout({
         <PwaManager />
         <Toaster />
         <LatinDigits />
+        <NotificationPrompt />
       </body>
     </html>
   );

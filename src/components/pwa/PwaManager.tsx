@@ -11,11 +11,8 @@ export default function PwaManager() {
   const [isOffline, setIsOffline] = useState(false)
 
   useEffect(() => {
-    // The admin panel isn't an installable app and needs nothing offline
+    // The service worker itself is registered by a small script in the root layout, as the page arrives
     const isAdmin = window.location.hostname.startsWith('admin.') || window.location.pathname.startsWith('/admin')
-    if ('serviceWorker' in navigator && !isAdmin) {
-      navigator.serviceWorker.register('/sw.js').catch(error => console.warn('Service worker failed:', error))
-    }
 
     // The customers' app only: the store panel is an app of its own and isn't counted here
     const isPanel = window.location.hostname.startsWith('partner.') || /^\/(dashboard|restaurant-panel)/.test(window.location.pathname)

@@ -14,12 +14,15 @@ export default function ShareButton({
   text,
   className = 'btn btn-secondary',
   label = 'شارك',
+  iconOnly = false,
 }: {
   restaurantId: string
   slug: string
   text: string
   className?: string
   label?: string
+  /** Just the icon, with the label read out to screen readers */
+  iconOnly?: boolean
 }) {
   const share = async () => {
     const url = `${SITE_URL}/m/${slug}?source=share`
@@ -37,9 +40,9 @@ export default function ShareButton({
   }
 
   return (
-    <button type="button" onClick={share} className={className}>
+    <button type="button" onClick={share} className={className} aria-label={iconOnly ? label : undefined} title={iconOnly ? label : undefined}>
       <Share2 size={18} className="shrink-0" />
-      <span>{label}</span>
+      {!iconOnly && <span>{label}</span>}
     </button>
   )
 }

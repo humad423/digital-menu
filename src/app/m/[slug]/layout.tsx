@@ -62,8 +62,8 @@ export default async function RestaurantLayout({
   }
 
   const hasCoords = restaurant.latitude && restaurant.longitude
-  // The share button fills the row when it would otherwise sit alone
-  const quickActions = (restaurant.whatsapp_number ? 1 : 0) + (hasCoords ? 1 : 0) + 1
+  // Contact or the map fills the row when it is the only one
+  const quickActions = (restaurant.whatsapp_number ? 1 : 0) + (hasCoords ? 1 : 0)
 
   return (
     <div dir="rtl" className="min-h-screen bg-page pb-28">
@@ -71,17 +71,18 @@ export default async function RestaurantLayout({
       <MenuQrTracker restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
 
       <header className="bg-white border-b border-line">
-        {/* Someone who scanned the QR code in the shop stays on its menu */}
-        {showStoresButton && (
-          <HideFromQrVisitors>
-          <div className="page-narrow py-3">
-            <Link href="/" className="btn btn-secondary btn-sm">
-              <ArrowRight size={18} />
-              <span>كل المتاجر</span>
-            </Link>
-          </div>
-          </HideFromQrVisitors>
-        )}
+        <div className="page-narrow py-3 flex items-center justify-between gap-3 empty:hidden">
+          {/* Someone who scanned the QR code in the shop stays on its menu */}
+          {showStoresButton && (
+            <HideFromQrVisitors>
+              <Link href="/" className="btn btn-secondary btn-sm">
+                <ArrowRight size={18} />
+                <span>كل المتاجر</span>
+              </Link>
+            </HideFromQrVisitors>
+          )}
+          <InstallAppButton variant="header" />
+        </div>
 
         {restaurant.cover_url && (
           <div className="page-narrow">
@@ -105,12 +106,21 @@ export default async function RestaurantLayout({
                 className="w-14 h-14 rounded-xl object-contain border border-line bg-white shrink-0"
               />
             )}
-            <h1 className="text-2xl font-black leading-snug min-w-0">{restaurant.name}</h1>
+            <h1 className="text-2xl font-black leading-snug min-w-0 flex-1">{restaurant.name}</h1>
+            {/* Small, beside the name, out of the way of the store's own buttons */}
+            <ShareButton
+              restaurantId={restaurant.id}
+              slug={restaurant.slug}
+              text={`شوف ${restaurant.name} على ألف سوق، المنيو والأسعار`}
+              iconOnly
+              className="shrink-0 w-11 h-11 inline-flex items-center justify-center rounded-full border border-line bg-white text-slate-600 hover:bg-slate-50"
+            />
           </div>
 
           <StoreInfo restaurant={restaurant} />
 
-          <div className="grid grid-cols-2 gap-2">
+          {quickActions > 0 && (
+          <div className={`grid gap-2 ${quickActions === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {restaurant.whatsapp_number && (
               <ContactStoreButton restaurantId={restaurant.id} whatsappNumber={restaurant.whatsapp_number} />
             )}
@@ -125,17 +135,8 @@ export default async function RestaurantLayout({
                 <span>الموقع</span>
               </a>
             )}
-            <ShareButton
-              restaurantId={restaurant.id}
-              slug={restaurant.slug}
-              text={`شوف ${restaurant.name} على ألف سوق، المنيو والأسعار`}
-              className={`btn btn-secondary${quickActions % 2 ? ' col-span-2' : ''}`}
-            />
           </div>
-          {/* Quiet, under the store's own actions, and only on phones that can install it */}
-          <div className="flex justify-center empty:hidden">
-            <InstallAppButton variant="link" label="ثبّت ألف سوق على هاتفك" />
-          </div>
+          )}
         </div>
       </header>
 

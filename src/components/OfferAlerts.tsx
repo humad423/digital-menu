@@ -2,48 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import { Bell, BellOff } from 'lucide-react'
-import { VAPID_PUBLIC_KEY } from '@/config/push'
-import { isInstalledApp, isIos } from '@/utils/appMode'
 import { notifyError } from '@/utils/notify'
-import { keyToBytes } from '@/utils/push'
-import { readUserLocation } from '@/utils/userLocation'
+import { OFFER_ALERTS_CHANGED, readAlertsState, turnOffAlerts, turnOnAlerts, type AlertsState } from '@/utils/offerAlerts'
 
-type State = 'unsupported' | 'loading' | 'off' | 'on' | 'blocked'
-
-function canNotify(): boolean {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false
-  // On iPhones, only the installed app can receive notifications
-  return !isIos() || isInstalledApp()
-}
+type State = AlertsState | 'loading'
 
 /** Lets a visitor hear about offers from stores near them. Nothing is asked until they press the button. */
 export default function OfferAlerts() {
   const [state, setState] = useState<State>('loading')
 
   useEffect(() => {
-    if (!canNotify()) return setState('unsupported')
-    if (Notification.permission === 'denied') return setState('blocked')
-    navigator.serviceWorker.ready
-      .then(registration => registration.pushManager.getSubscription())
-      .then(subscription => setState(subscription ? 'on' : 'off'))
-      .catch(() => setState('unsupported'))
+    const refresh = () => { readAlertsState().then(setState) }
+    refresh()
+    window.addEventListener(OFFER_ALERTS_CHANGED, refresh)
+    return () => window.removeEventListener(OFFER_ALERTS_CHANGED, refresh)
   }, [])
 
   const turnOn = async () => {
     setState('loading')
     try {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') return setState(permission === 'denied' ? 'blocked' : 'off')
-      const registration = await navigator.serviceWorker.ready
-      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(VAPID_PUBLIC_KEY) })
-      const location = readUserLocation()
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: subscription.toJSON(), lat: location?.lat, lng: location?.lng }),
-      })
-      if (!response.ok) throw new Error(String(response.status))
-      setState('on')
+      setState(await turnOnAlerts())
     } catch {
       notifyError('تعذر تشغيل الإشعارات. حاول مرة أخرى.')
       setState('off')
@@ -52,18 +30,7 @@ export default function OfferAlerts() {
 
   const turnOff = async () => {
     setState('loading')
-    try {
-      const registration = await navigator.serviceWorker.ready
-      const subscription = await registration.pushManager.getSubscription()
-      if (subscription) {
-        await fetch('/api/push/subscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: subscription.endpoint }),
-        })
-        await subscription.unsubscribe()
-      }
-    } catch {}
+    await turnOffAlerts()
     setState('off')
   }
 

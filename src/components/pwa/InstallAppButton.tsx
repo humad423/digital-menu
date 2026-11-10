@@ -6,7 +6,8 @@ import { Download, PlusSquare, Share, X } from 'lucide-react'
 import { promptInstall, useInstallAvailability } from '@/utils/pwaInstall'
 
 const STYLES = {
-  header: 'btn btn-secondary btn-sm',
+  // Pushed to the far end of a header row, whatever else is in it
+  header: 'btn btn-primary btn-sm shrink-0 ms-auto',
   panel: 'btn btn-secondary btn-sm shrink-0',
   link: 'inline-flex items-center gap-1.5 min-h-11 font-bold text-ink underline underline-offset-4',
   solid: 'btn btn-secondary btn-sm shrink-0',

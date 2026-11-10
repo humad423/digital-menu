@@ -149,7 +149,10 @@ export default function PlatformClient({
     return (
       <div dir="rtl" className="min-h-screen flex flex-col bg-page">
         <header className="site-header">
-          <div className="page-narrow py-3"><BrandLogo /></div>
+          <div className="page-narrow py-3 flex items-center justify-between gap-3">
+            <BrandLogo />
+            <InstallAppButton variant="header" />
+          </div>
         </header>
 
         <main className="page-narrow py-6 flex-1 space-y-5">
@@ -206,7 +209,7 @@ export default function PlatformClient({
       <header className="site-header">
         <div className="page py-3 flex items-center justify-between gap-3">
           <BrandLogo />
-          <InstallAppButton variant="header" label="التطبيق" />
+          <InstallAppButton variant="header" />
         </div>
       </header>
 

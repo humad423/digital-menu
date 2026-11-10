@@ -533,16 +533,6 @@ export default function AdminDashboard() {
 
   return (
     <div dir="rtl">
-      <div className="flex justify-end mb-2">
-        <button
-          type="button"
-          onClick={async () => { await triggerRevalidate(null, 'all'); notifySuccess('تم تحديث صفحات الموقع للزبائن.') }}
-          className="btn btn-secondary btn-sm"
-          title="استخدمه فقط بعد تعديل البيانات من خارج اللوحة، مثل قاعدة البيانات مباشرة"
-        >
-          تحديث الموقع للزبائن
-        </button>
-      </div>
       {/* ── Tab Bar ── */}
       <div className="dash-tab-bar">
         {TABS.map(({ key, label, Icon }) => (
@@ -1785,6 +1775,18 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Rarely needed: changes made in the panel already show straight away */}
+      <p className="text-center text-xs text-slate-500 py-6">
+        عدّلت البيانات من خارج اللوحة؟{' '}
+        <button
+          type="button"
+          onClick={async () => { await triggerRevalidate(null, 'all'); notifySuccess('تم تحديث صفحات الموقع للزبائن.') }}
+          className="underline hover:text-slate-700"
+        >
+          حدّث صفحات الموقع
+        </button>
+      </p>
     </div>
   )
 }

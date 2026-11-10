@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import Footer from '@/components/Footer'
+import InstallAppButton from '@/components/pwa/InstallAppButton'
 import { getOffersPageData } from '@/utils/menuCache'
 import OffersClient from './OffersClient'
 
@@ -16,11 +17,12 @@ export default async function AllOffersPage() {
   return (
     <div dir="rtl" className="min-h-screen flex flex-col bg-page">
       <header className="site-header">
-        <div className="page py-3">
+        <div className="page py-3 flex items-center justify-between gap-3">
           <Link href="/" className="btn btn-secondary btn-sm">
             <ArrowRight size={18} />
             <span>الرئيسية</span>
           </Link>
+          <InstallAppButton variant="header" />
         </div>
       </header>
 
