@@ -14,12 +14,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
   }
 
+  const lat = roundCoordinate(body?.lat, 90)
+  const lng = roundCoordinate(body?.lng, 180)
+  // A phone checking in without a location keeps the one it gave before
   const { error } = await createAdminClient().from('push_subscriptions').upsert({
     endpoint,
     p256dh,
     auth,
-    lat: roundCoordinate(body?.lat, 90),
-    lng: roundCoordinate(body?.lng, 180),
+    ...(lat !== null && lng !== null ? { lat, lng } : {}),
     updated_at: new Date().toISOString(),
   })
   if (error) {

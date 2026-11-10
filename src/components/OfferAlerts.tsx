@@ -1,13 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, BellOff } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { notifyError } from '@/utils/notify'
-import { OFFER_ALERTS_CHANGED, readAlertsState, turnOffAlerts, turnOnAlerts, type AlertsState } from '@/utils/offerAlerts'
+import { OFFER_ALERTS_CHANGED, readAlertsState, turnOnAlerts, type AlertsState } from '@/utils/offerAlerts'
 
 type State = AlertsState | 'loading'
 
-/** Lets a visitor hear about offers from stores near them. Nothing is asked until they press the button. */
+/**
+ * Invites a visitor to hear about offers from stores near them. Once they hear about them it disappears:
+ * there is no switch here to turn them off (the phone's own settings still can).
+ */
 export default function OfferAlerts() {
   const [state, setState] = useState<State>('loading')
 
@@ -28,34 +31,27 @@ export default function OfferAlerts() {
     }
   }
 
-  const turnOff = async () => {
-    setState('loading')
-    await turnOffAlerts()
-    setState('off')
-  }
-
-  if (state === 'unsupported' || state === 'loading') return null
+  if (state === 'unsupported' || state === 'loading' || state === 'on') return null
 
   if (state === 'blocked') {
-    return <p className="notice notice-info">الإشعارات متوقفة من إعدادات المتصفح. يمكنك تشغيلها من هناك متى أردت.</p>
+    return (
+      <aside className="card p-4 space-y-1">
+        <p className="font-bold">لا تفوّت عروض المتاجر القريبة منك</p>
+        <p className="text-sm text-slate-600">الإشعارات متوقفة على هاتفك. شغّلها من إعدادات المتصفح أو التطبيق لتصلك العروض أولاً بأول.</p>
+      </aside>
+    )
   }
 
   return (
     <aside className="card p-4 space-y-3">
-      <p className="font-bold">
-        {state === 'on' ? 'ستصلك إشعارات بعروض المتاجر القريبة منك.' : 'هل تريد أن نعلمك بعروض المتاجر القريبة منك؟'}
-      </p>
-      {state === 'on' ? (
-        <button type="button" onClick={turnOff} className="btn btn-secondary btn-sm">
-          <BellOff size={16} className="shrink-0" />
-          <span>إيقاف الإشعارات</span>
-        </button>
-      ) : (
-        <button type="button" onClick={turnOn} className="btn btn-primary btn-block">
-          <Bell size={18} className="shrink-0" />
-          <span>نعم، أعلمني</span>
-        </button>
-      )}
+      <div>
+        <p className="font-bold">لا تفوّت عروض المتاجر القريبة منك</p>
+        <p className="text-sm text-slate-600">نرسل لك العروض والخصومات الجديدة أولاً بأول.</p>
+      </div>
+      <button type="button" onClick={turnOn} className="btn btn-primary btn-block">
+        <Bell size={18} className="shrink-0" />
+        <span>فعّل الإشعارات</span>
+      </button>
     </aside>
   )
 }

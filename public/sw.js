@@ -1,5 +1,5 @@
 // Bump VERSION to drop every cache from older releases.
-const VERSION = 'v6'
+const VERSION = 'v7'
 const STATIC_CACHE = `alfsouq-static-${VERSION}`
 const PAGE_CACHE = `alfsouq-pages-${VERSION}`
 const IMAGE_CACHE = `alfsouq-images-${VERSION}`
@@ -114,6 +114,21 @@ self.addEventListener('push', (event) => {
     lang: 'ar',
     data: { url: data.url || '/' },
   }))
+})
+
+// The push service replaced this phone's address: subscribe again with the same key and tell the site,
+// so offers keep arriving without the visitor doing anything
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    const key = event.oldSubscription?.options?.applicationServerKey
+    const subscription = event.newSubscription || (key ? await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }) : null)
+    if (!subscription) return
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: subscription.toJSON() }),
+    }).catch(() => {})
+  })())
 })
 
 // Opens the page the notification is about, reusing an open window when there is one. Only pages on this site.
