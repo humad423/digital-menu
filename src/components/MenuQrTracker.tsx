@@ -2,6 +2,7 @@
 
 import { useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { isInstalledApp } from '@/utils/appMode'
 import { publicInsert } from '@/utils/publicInsert'
 
 interface MenuQrTrackerProps {
@@ -16,7 +17,8 @@ function MenuQrTrackerContent({ restaurantId }: MenuQrTrackerProps) {
     if (!restaurantId) return
 
     const source = searchParams?.get('source') || searchParams?.get('src')
-    const visitSource = source === 'qr' ? 'qr' : 'direct'
+    // Where the visit came from: the shop's QR code, a shared link, a notification, the installed app, or anywhere else
+    const visitSource = source === 'qr' ? 'qr' : source === 'share' ? 'share' : source === 'push' ? 'push' : isInstalledApp() ? 'app' : 'direct'
 
     // Debounce / deduplicate visits within the same session
     const sessionKey = `menu_visited_${restaurantId}`

@@ -5,7 +5,10 @@ import { ArrowRight, MapPin } from 'lucide-react'
 import CartButton from '@/components/CartButton'
 import CartHydrator from '@/components/CartHydrator'
 import ContactStoreButton from '@/components/ContactStoreButton'
+import HideFromQrVisitors from '@/components/HideFromQrVisitors'
 import MenuQrTracker from '@/components/MenuQrTracker'
+import InstallAppButton from '@/components/pwa/InstallAppButton'
+import ShareButton from '@/components/ShareButton'
 import StoreInfo from '@/components/StoreInfo'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { getRestaurantBySlug } from '@/utils/menuCache'
@@ -50,13 +53,17 @@ export default async function RestaurantLayout({
         <main className="page-narrow py-8 space-y-4">
           <h1 className="text-2xl font-black">{restaurant.name}</h1>
           <p className="notice notice-warn">هذا المتجر غير متاح حالياً على ألف سوق.</p>
-          <Link href="/" className="btn btn-primary btn-block">تصفح المتاجر الأخرى</Link>
+          <HideFromQrVisitors>
+            <Link href="/" className="btn btn-primary btn-block">تصفح المتاجر الأخرى</Link>
+          </HideFromQrVisitors>
         </main>
       </div>
     )
   }
 
   const hasCoords = restaurant.latitude && restaurant.longitude
+  // The share button fills the row when it would otherwise sit alone
+  const quickActions = (restaurant.whatsapp_number ? 1 : 0) + (hasCoords ? 1 : 0) + 1
 
   return (
     <div dir="rtl" className="min-h-screen bg-page pb-28">
@@ -64,13 +71,16 @@ export default async function RestaurantLayout({
       <MenuQrTracker restaurantId={restaurant.id} restaurantSlug={restaurant.slug} />
 
       <header className="bg-white border-b border-line">
+        {/* Someone who scanned the QR code in the shop stays on its menu */}
         {showStoresButton && (
+          <HideFromQrVisitors>
           <div className="page-narrow py-3">
             <Link href="/" className="btn btn-secondary btn-sm">
               <ArrowRight size={18} />
               <span>كل المتاجر</span>
             </Link>
           </div>
+          </HideFromQrVisitors>
         )}
 
         {restaurant.cover_url && (
@@ -115,6 +125,16 @@ export default async function RestaurantLayout({
                 <span>الموقع</span>
               </a>
             )}
+            <ShareButton
+              restaurantId={restaurant.id}
+              slug={restaurant.slug}
+              text={`شوف ${restaurant.name} على ألف سوق، المنيو والأسعار`}
+              className={`btn btn-secondary${quickActions % 2 ? ' col-span-2' : ''}`}
+            />
+          </div>
+          {/* Quiet, under the store's own actions, and only on phones that can install it */}
+          <div className="flex justify-center empty:hidden">
+            <InstallAppButton variant="link" label="ثبّت ألف سوق على هاتفك" />
           </div>
         </div>
       </header>

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { WifiOff } from 'lucide-react'
 // Imported here so install events are captured on every page, not only where a button shows
 import '@/utils/pwaInstall'
+import { isInstalledApp } from '@/utils/appMode'
+import { logAppEventOnce } from '@/utils/appEvents'
 
 export default function PwaManager() {
   const [isOffline, setIsOffline] = useState(false)
@@ -13,6 +15,14 @@ export default function PwaManager() {
     const isAdmin = window.location.hostname.startsWith('admin.') || window.location.pathname.startsWith('/admin')
     if ('serviceWorker' in navigator && !isAdmin) {
       navigator.serviceWorker.register('/sw.js').catch(error => console.warn('Service worker failed:', error))
+    }
+
+    // The customers' app only: the store panel is an app of its own and isn't counted here
+    const isPanel = window.location.hostname.startsWith('partner.') || /^\/(dashboard|restaurant-panel)/.test(window.location.pathname)
+    if (!isAdmin && !isPanel && isInstalledApp()) {
+      // Counted the first time it opens as an app on this phone, which works on iPhones too
+      logAppEventOnce('install', 'alfsouq_app_counted', true)
+      logAppEventOnce('app_open', 'alfsouq_app_open_counted')
     }
 
     const update = () => setIsOffline(!navigator.onLine)

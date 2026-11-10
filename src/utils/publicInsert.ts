@@ -3,7 +3,7 @@
  * which customers on slow connections shouldn't have to download for this.
  * keepalive lets the request finish even when the page is leaving for WhatsApp.
  */
-export async function publicInsert(table: 'orders' | 'qr_scans' | 'contact_clicks', row: Record<string, unknown>): Promise<void> {
+export async function publicInsert(table: 'orders' | 'qr_scans' | 'contact_clicks' | 'app_events', row: Record<string, unknown>): Promise<void> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',

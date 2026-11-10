@@ -22,8 +22,10 @@ const AdminBusinessTypesTab = dynamicImport(() => import('@/components/AdminBusi
 const AdminLegalPagesTab = dynamicImport(() => import('@/components/AdminLegalPagesTab'))
 const AdminQrAnalyticsTab = dynamicImport(() => import('@/components/AdminQrAnalyticsTab'))
 const AdminStockPhotos = dynamicImport(() => import('@/components/AdminStockPhotos'))
-import { Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Images, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
-import { notifyError, reportWriteResult } from '@/utils/notify'
+const AdminAppStats = dynamicImport(() => import('@/components/AdminAppStats'))
+const AdminPushTab = dynamicImport(() => import('@/components/AdminPushTab'))
+import { Bell, Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Images, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
+import { notifyError, notifySuccess, reportWriteResult } from '@/utils/notify'
 import { normalizePhoneNumber, formatPhoneDisplay, managerPhones } from '@/utils/phone'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
@@ -38,6 +40,7 @@ const TABS = [
   { key: 'categories', label: 'التصنيفات الفرعية', Icon: LayoutGrid },
   { key: 'ads', label: 'الإعلانات', Icon: ImageIcon },
   { key: 'stock_photos', label: 'خزان الصور', Icon: Images },
+  { key: 'notifications', label: 'الإشعارات', Icon: Bell },
   { key: 'orders', label: 'الطلبات', Icon: ClipboardList },
 ] as const
 
@@ -290,6 +293,8 @@ export default function AdminDashboard() {
   const handleResSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSavingRes(true)
+    // A renamed store's old address is refreshed too, so it stops showing the old page
+    const previousSlug: string | null = editResId ? restaurants.find(r => r.id === editResId)?.slug ?? null : null
     // A number manages one store, so saving it here would take it away from any other store
     const managers = managerPhones([resForm.owner_phone, ...resForm.extra_phones])
     for (const phone of managers) {
@@ -372,9 +377,9 @@ export default function AdminDashboard() {
     }
     setSavingRes(false); setShowResForm(false); setEditResId(null); setResForm(emptyRes); setSelectedCatIds([])
     fetchData()
-    // Invalidate public pages: restaurant edit affects menu + home listing
-    triggerRevalidate(resForm.slug, 'menu')
-    triggerRevalidate(null, 'home')
+    // The store's page, the home page and the offers page all show the store
+    triggerRevalidate(resForm.slug, 'home', restaurantId)
+    if (previousSlug && previousSlug !== resForm.slug) triggerRevalidate(previousSlug, 'menu')
   }
 
   const handleEditRes = (r: any) => {
@@ -416,8 +421,8 @@ export default function AdminDashboard() {
     if (window.prompt(`سيتم حذف "${name}" مع كل منتجاته وطلباته نهائياً. للتأكيد اكتب اسم المتجر:`)?.trim() === name.trim()) {
       reportWriteResult(await supabase.from('restaurants').delete().eq('id', id))
       fetchData()
-      // Restaurant deleted: revalidate home page
-      triggerRevalidate(null, 'home')
+      // Its own page goes too, not only its place on the home page
+      triggerRevalidate(restaurants.find(r => r.id === id)?.slug, 'home', id)
     }
   }
 
@@ -528,6 +533,16 @@ export default function AdminDashboard() {
 
   return (
     <div dir="rtl">
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={async () => { await triggerRevalidate(null, 'all'); notifySuccess('تم تحديث صفحات الموقع للزبائن.') }}
+          className="btn btn-secondary btn-sm"
+          title="استخدمه فقط بعد تعديل البيانات من خارج اللوحة، مثل قاعدة البيانات مباشرة"
+        >
+          تحديث الموقع للزبائن
+        </button>
+      </div>
       {/* ── Tab Bar ── */}
       <div className="dash-tab-bar">
         {TABS.map(({ key, label, Icon }) => (
@@ -585,11 +600,16 @@ export default function AdminDashboard() {
         ══════════════════════════════════════ */}
         {!loading && !tabLoading && activeTab === 'qr_analytics' && (
           <TabErrorBoundary tabName="إحصائيات الـ QR">
-            <AdminQrAnalyticsTab restaurants={restaurants} />
+            <div className="space-y-5">
+              <AdminAppStats />
+              <AdminQrAnalyticsTab restaurants={restaurants} />
+            </div>
           </TabErrorBoundary>
         )}
 
         {!loading && !tabLoading && activeTab === 'stock_photos' && <AdminStockPhotos />}
+
+        {!loading && !tabLoading && activeTab === 'notifications' && <AdminPushTab restaurants={restaurants} businessTypes={businessTypes} categories={platformCategories} />}
 
         {/* ══════════════════════════════════════
             BUSINESS TYPES TAB

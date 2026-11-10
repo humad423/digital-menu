@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from 'react'
 import { trackEvent } from '@/utils/analytics'
+import { isInstalledApp, isIos } from '@/utils/appMode'
+import { visitEntry } from '@/utils/visitOrigin'
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -19,6 +21,8 @@ const notify = () => listeners.forEach(listener => listener())
 // Listening at import time, because the browser can fire this before React hydrates.
 // Stopping the default also stops Chrome's own install popup: we only offer it quietly.
 if (typeof window !== 'undefined') {
+  // Noted on the very first page of the visit, before any link is followed, so a QR visit is known later
+  visitEntry()
   window.addEventListener('beforeinstallprompt', event => {
     event.preventDefault()
     deferredPrompt = event as InstallPromptEvent
@@ -32,17 +36,8 @@ if (typeof window !== 'undefined') {
   })
 }
 
-function isStandalone(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true
-}
-
-function isIos(): boolean {
-  const iPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) || iPadOs
-}
-
 function getAvailability(): InstallAvailability {
-  if (installed || isStandalone()) return 'none'
+  if (installed || isInstalledApp()) return 'none'
   if (deferredPrompt) return 'prompt'
   return isIos() ? 'ios' : 'none'
 }

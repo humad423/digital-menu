@@ -10,6 +10,8 @@ import OfferCard from '@/components/OfferCard'
 import StoreCard from '@/components/StoreCard'
 import InstallAppButton from '@/components/pwa/InstallAppButton'
 import InstallSuggestion from '@/components/pwa/InstallSuggestion'
+import OfferAlerts from '@/components/OfferAlerts'
+import { logAppEventOnce } from '@/utils/appEvents'
 import { calculateDistance, isStoreWithinRange } from '@/utils/distance'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { trackEvent } from '@/utils/analytics'
@@ -54,6 +56,22 @@ export default function PlatformClient({
   const [locationReady, setLocationReady] = useState(false)
   const [locating, setLocating] = useState(false)
   const [locationIssue, setLocationIssue] = useState<LocationIssue>(null)
+
+  useEffect(() => {
+    logAppEventOnce('home_visit', 'alfsouq_home_counted')
+    // A notification can open the home page on one kind of store, or on one category of restaurant
+    const params = new URLSearchParams(window.location.search)
+    const category = params.get('category')
+    const type = params.get('type')
+    if (category && categories.some(candidate => candidate.id === category)) {
+      setActiveType('restaurant')
+      setActiveCategory(category)
+    } else if (type && businessTypes.some(candidate => candidate.slug === type)) {
+      setActiveType(type)
+    }
+    // Only the address the page opened with matters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const userLoc = location ? { lat: location.lat, lng: location.lng } : null
 
   const locate = useCallback((quiet = false) => {
@@ -314,6 +332,7 @@ export default function PlatformClient({
           )}
         </section>
 
+        <OfferAlerts />
         <InstallSuggestion />
       </main>
 

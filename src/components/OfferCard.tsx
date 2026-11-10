@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import ShareButton from '@/components/ShareButton'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { CURRENCY_SYMBOL } from '@/config/site'
 
@@ -7,7 +8,8 @@ export default function OfferCard({ offer }: { offer: any }) {
   if (!store) return null
 
   return (
-    <Link href={`/m/${store.slug}`} prefetch={false} className="card text-ink no-underline">
+    <div className="card text-ink">
+    <Link href={`/m/${store.slug}`} prefetch={false} className="block text-ink no-underline">
       <div className="h-40 bg-slate-200">
         <SmartOfferImage
           primaryImage={offer.primary_item?.image_url}
@@ -32,5 +34,15 @@ export default function OfferCard({ offer }: { offer: any }) {
         </p>
       </div>
     </Link>
+      <div className="px-4 pb-4">
+        <ShareButton
+          restaurantId={store.id}
+          slug={store.slug}
+          text={`${offer.title} بـ ${offer.offer_price} ${CURRENCY_SYMBOL} عند ${store.name} على ألف سوق`}
+          label="شارك العرض"
+          className="btn btn-secondary btn-sm btn-block"
+        />
+      </div>
+    </div>
   )
 }

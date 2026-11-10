@@ -1,5 +1,5 @@
 // Bump VERSION to drop every cache from older releases.
-const VERSION = 'v5'
+const VERSION = 'v6'
 const STATIC_CACHE = `alfsouq-static-${VERSION}`
 const PAGE_CACHE = `alfsouq-pages-${VERSION}`
 const IMAGE_CACHE = `alfsouq-images-${VERSION}`
@@ -98,4 +98,36 @@ self.addEventListener('fetch', (event) => {
   if (sameOrigin && url.pathname.startsWith('/_next/static/')) {
     event.respondWith(cacheFirst(request, STATIC_CACHE))
   }
+})
+
+// An offer notification sent from the admin panel
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {}
+  event.waitUntil(self.registration.showNotification(data.title || 'ألف سوق', {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    dir: 'rtl',
+    lang: 'ar',
+    data: { url: data.url || '/' },
+  }))
+})
+
+// Opens the page the notification is about, reusing an open window when there is one. Only pages on this site.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = new URL(event.notification.data?.url || '/', self.location.origin)
+  if (target.origin !== self.location.origin) return
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    const open = windows.find((client) => client.url.startsWith(self.location.origin))
+    if (open) {
+      await open.navigate(target.href).catch(() => {})
+      return open.focus()
+    }
+    return self.clients.openWindow(target.href)
+  })())
 })

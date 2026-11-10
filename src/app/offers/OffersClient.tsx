@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
+import OfferAlerts from '@/components/OfferAlerts'
 import OfferCard from '@/components/OfferCard'
 import { isStoreWithinRange } from '@/utils/distance'
 import { matchesSearch } from '@/utils/text'
@@ -86,6 +87,8 @@ export default function OffersClient({ offers, businessTypes }: { offers: any[];
           عرض المزيد من العروض
         </button>
       )}
+
+      <OfferAlerts />
     </div>
   )
 }
