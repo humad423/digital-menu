@@ -6,6 +6,7 @@ import { WifiOff } from 'lucide-react'
 import '@/utils/pwaInstall'
 import { isInstalledApp } from '@/utils/appMode'
 import { logAppEventOnce } from '@/utils/appEvents'
+import { captureCampaign, logCampaignEventOnce } from '@/utils/campaign'
 
 export default function PwaManager() {
   const [isOffline, setIsOffline] = useState(false)
@@ -16,7 +17,10 @@ export default function PwaManager() {
 
     // The customers' app only: the store panel is an app of its own and isn't counted here
     const isPanel = window.location.hostname.startsWith('partner.') || /^\/(dashboard|restaurant-panel)/.test(window.location.pathname)
+    // A campaign link the visitor came through is remembered before anything else is counted
+    if (!isAdmin && !isPanel) captureCampaign()
     if (!isAdmin && !isPanel && isInstalledApp()) {
+      logCampaignEventOnce('install', 'alfsouq_campaign_install_counted')
       // Counted the first time it opens as an app on this phone, which works on iPhones too
       logAppEventOnce('install', 'alfsouq_app_counted', true)
       logAppEventOnce('app_open', 'alfsouq_app_open_counted')

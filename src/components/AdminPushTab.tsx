@@ -137,7 +137,7 @@ export default function AdminPushTab({ restaurants, businessTypes, categories }:
           المشتركون: {counts ? formatNumber(counts.all) : '...'}
           {counts && <span className="text-muted"> ، منهم {formatNumber(counts.located)} حددوا موقعهم</span>}
         </p>
-        <p className="text-muted font-medium">يصل الإشعار فقط لمن ضغط «نعم، أعلمني» في الموقع. لا ترسل أكثر من إشعار أو اثنين في الأسبوع حتى لا يوقفوها.</p>
+        <p className="text-muted font-medium">يصل الإشعار لكل من فعّل الإشعارات من الموقع أو التطبيق أو إعدادات هاتفه. لا ترسل أكثر من إشعار أو اثنين في الأسبوع حتى لا يوقفوها.</p>
       </section>
 
       <form onSubmit={send} className="bg-white rounded-2xl p-4 border border-line space-y-5">

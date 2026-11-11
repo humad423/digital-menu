@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { publicInsert } from '@/utils/publicInsert'
+import { logCampaignEvent } from '@/utils/campaign'
 import { calculateDistance, getDeliveryFeeForDistance } from '@/utils/distance'
 import { ORDER_SOURCE_LINE } from '@/utils/whatsappMessage'
 import { deliveryNow, type DeliveryNow } from '@/utils/schedule'
@@ -133,6 +134,7 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
       location_url: locationUrl,
       status: 'pending',
     }).catch(error => console.warn(error.message))
+    logCampaignEvent('order', restaurant.id)
 
     cartStore.clearCart()
     setNote('')

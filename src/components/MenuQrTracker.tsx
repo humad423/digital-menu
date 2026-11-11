@@ -4,6 +4,7 @@ import { useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { isInstalledApp } from '@/utils/appMode'
 import { publicInsert } from '@/utils/publicInsert'
+import { logCampaignEvent } from '@/utils/campaign'
 
 interface MenuQrTrackerProps {
   restaurantId: string
@@ -31,6 +32,7 @@ function MenuQrTrackerContent({ restaurantId }: MenuQrTrackerProps) {
         if (typeof window !== 'undefined') {
           sessionStorage.setItem(sessionKey, 'true')
         }
+        logCampaignEvent('store_view', restaurantId)
 
         const ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
         let deviceType = 'mobile'

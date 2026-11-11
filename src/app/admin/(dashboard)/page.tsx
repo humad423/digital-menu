@@ -24,7 +24,8 @@ const AdminQrAnalyticsTab = dynamicImport(() => import('@/components/AdminQrAnal
 const AdminStockPhotos = dynamicImport(() => import('@/components/AdminStockPhotos'))
 const AdminAppStats = dynamicImport(() => import('@/components/AdminAppStats'))
 const AdminPushTab = dynamicImport(() => import('@/components/AdminPushTab'))
-import { Bell, Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Images, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
+const AdminCampaignsTab = dynamicImport(() => import('@/components/AdminCampaignsTab'))
+import { Bell, Link2, Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Images, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
 import { notifyError, notifySuccess, reportWriteResult } from '@/utils/notify'
 import { normalizePhoneNumber, formatPhoneDisplay, managerPhones } from '@/utils/phone'
 
@@ -41,6 +42,7 @@ const TABS = [
   { key: 'ads', label: 'الإعلانات', Icon: ImageIcon },
   { key: 'stock_photos', label: 'خزان الصور', Icon: Images },
   { key: 'notifications', label: 'الإشعارات', Icon: Bell },
+  { key: 'campaigns', label: 'روابط الحملات', Icon: Link2 },
   { key: 'orders', label: 'الطلبات', Icon: ClipboardList },
 ] as const
 
@@ -600,6 +602,12 @@ export default function AdminDashboard() {
         {!loading && !tabLoading && activeTab === 'stock_photos' && <AdminStockPhotos />}
 
         {!loading && !tabLoading && activeTab === 'notifications' && <AdminPushTab restaurants={restaurants} businessTypes={businessTypes} categories={platformCategories} />}
+
+        {!loading && !tabLoading && activeTab === 'campaigns' && (
+          <TabErrorBoundary tabName="روابط الحملات">
+            <AdminCampaignsTab restaurants={restaurants} />
+          </TabErrorBoundary>
+        )}
 
         {/* ══════════════════════════════════════
             BUSINESS TYPES TAB

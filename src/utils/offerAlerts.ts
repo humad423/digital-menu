@@ -2,6 +2,7 @@ import { VAPID_PUBLIC_KEY } from '@/config/push'
 import { isInstalledApp, isIos } from '@/utils/appMode'
 import { keyToBytes } from '@/utils/push'
 import { readUserLocation } from '@/utils/userLocation'
+import { logCampaignEventOnce } from '@/utils/campaign'
 
 /** Sent on window whenever this phone starts hearing about offers, so every card on the page agrees. */
 export const OFFER_ALERTS_CHANGED = 'alfsouq:offer-alerts'
@@ -49,6 +50,7 @@ export async function turnOnAlerts(): Promise<AlertsState> {
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off'
   await saveSubscription(await subscribeThisPhone())
+  logCampaignEventOnce('push_on', 'alfsouq_campaign_push_counted')
   window.dispatchEvent(new Event(OFFER_ALERTS_CHANGED))
   return 'on'
 }
@@ -66,6 +68,7 @@ export async function syncAlerts(): Promise<void> {
     try { lastSync = Number(localStorage.getItem(SYNCED_KEY)) || 0 } catch {}
     if (existing && Date.now() - lastSync < SYNC_EVERY_MS) return
     await saveSubscription(existing ?? await subscribeThisPhone())
+    if (!existing) logCampaignEventOnce('push_on', 'alfsouq_campaign_push_counted')
     window.dispatchEvent(new Event(OFFER_ALERTS_CHANGED))
   } catch {}
 }

@@ -2,6 +2,7 @@
 
 import { MessageCircle } from 'lucide-react'
 import { publicInsert } from '@/utils/publicInsert'
+import { logCampaignEvent } from '@/utils/campaign'
 import { CONTACT_MESSAGE, whatsappLink } from '@/utils/whatsappMessage'
 
 /** Opens WhatsApp with a message saying the customer came from Alfsouq, and counts the press for the store's numbers. */
@@ -15,6 +16,7 @@ export default function ContactStoreButton({ restaurantId, whatsappNumber }: { r
     } catch {}
     // A failed count must never hold up the message
     publicInsert('contact_clicks', { restaurant_id: restaurantId }).catch(error => console.warn(error.message))
+    logCampaignEvent('contact', restaurantId)
   }
 
   return (
