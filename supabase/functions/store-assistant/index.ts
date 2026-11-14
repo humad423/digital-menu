@@ -158,12 +158,38 @@ async function askGemini(input: unknown, maxTokens: number): Promise<{ parsed?: 
   return {}
 }
 
+/**
+ * Sends an owner's request for something only the team can do, like a new address, to every admin's WhatsApp,
+ * so the owner never has to write to another number. Returns the reason if no one got it.
+ */
+async function askTeam(session: string, store: Store, phone: string, note: string): Promise<string | null> {
+  const { data: admins } = await db.from('assistant_admins').select('phone')
+  const text = `طلب من ${store.name} (+${phone}):\n${note}`
+  let sent = 0
+  for (const admin of admins || []) {
+    const response = await fetch(`${WAHA_URL}/api/sendText`, {
+      method: 'POST',
+      headers: { ...wahaHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session, chatId: `${admin.phone}@c.us`, text }),
+    }).catch(error => { console.error('WAHA unreachable', error); return null })
+    if (response?.ok) sent++
+    else console.error('Passing to the team failed', response?.status)
+    await response?.body?.cancel()
+  }
+  if (sent) {
+    console.log(`Passed to the team from ${store.slug}`)
+    return null
+  }
+  return 'Passing it to the team did not go through, so the team did NOT get it. Tell the owner honestly and give them the team\'s WhatsApp so they can send it themselves.'
+}
+
 /** Saves one change and logs it so it can be undone. Returns the reason if it didn't go through. */
-async function runStep(step: Step, ctx: Context, phone: string, batch: string, getPhoto: (number: number) => Promise<string | null>): Promise<string | null> {
+async function runStep(step: Step, ctx: Context, phone: string, batch: string, getPhoto: (number: number) => Promise<string | null>, session: string): Promise<string | null> {
   const log = (action: string, table: string, id: string, before: unknown, after: Record<string, unknown>) =>
     db.from('assistant_changes').insert({ store_id: ctx.store.id, phone, action, target_table: table, target_id: id, before, after: { ...after, batch } })
 
   if (step.op === 'undo') return undoLast(ctx.store.id, phone)
+  if (step.op === 'ask_team') return askTeam(session, ctx.store, phone, step.note)
 
   const wanted = photosUsed(step)
   if (wanted.length) {
@@ -603,11 +629,13 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
     for (const action of actions) {
       const { step, problem } = checkAction(ctx, action)
       if (!step) { problems.push(problem!); continue }
+      // The team hears about one request once, however many rounds this answer takes
+      if (step.op === 'ask_team' && done.some(earlier => earlier.op === 'ask_team')) continue
       const photosInStep = photosUsed(step)
-      const failed = await runStep(step, ctx, phone, batchId, getPhoto)
+      const failed = await runStep(step, ctx, phone, batchId, getPhoto, session)
       if (failed) { problems.push(failed); continue }
       done.push(step)
-      changed.set(ctx.store.id, ctx.store.slug)
+      if (step.op !== 'ask_team') changed.set(ctx.store.id, ctx.store.slug)
       photosInStep.forEach(number => used.add(number))
     }
 

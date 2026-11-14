@@ -344,6 +344,30 @@ describe('what the model is given', () => {
     assert.match(input, /Wednesday 09:30/)
   })
 
+  test('a word the owner used for one product is only a hint once another product fits it too', () => {
+    const sweets: StoreRecord[] = [
+      ...records,
+      { code: 'P4', table: 'menu_items', id: 'item-4', row: { name: 'معجوقة بالقشطة والفستق الحلبي', price: 400 } },
+      { code: 'P5', table: 'menu_items', id: 'item-5', row: { name: 'معجوقه بالقشطه', price: 400 } },
+      { code: 'P6', table: 'menu_items', id: 'item-6', row: { name: 'معجوقة قديمة', price: 300, is_hidden: true } },
+    ]
+    const given = buildInput(ctx({ records: sweets }), [{ said: 'المعجوقه', menu_item_id: 'item-4' }, { said: 'طماطم', menu_item_id: 'item-1' }], [], 'المعجوقة خلصت', 'now')
+    assert.match(given, /المعجوقه used to mean P4, but P5 fits it too now: ask which one they mean/)
+    assert.doesNotMatch(given, /P6 fits/, 'a hidden product is not a choice')
+    assert.match(given, /طماطم means P1/, 'a word that still fits one product stays as it was')
+  })
+
+  test('a request only the team can do is passed to them, never by the admin, and never empty', () => {
+    const passed = checkAction(ctx(), { op: 'ask_team', note: '  عنوان جديد:\r\nMUSTAFAPAŞA MAH. 711. SK. NO: 8 B GEBZE  ' })
+    assert.deepEqual(passed.step, { op: 'ask_team', note: 'عنوان جديد:\nMUSTAFAPAŞA MAH. 711. SK. NO: 8 B GEBZE' })
+    assert.match(checkAction(ctx(), { op: 'ask_team', note: ' ' }).problem!, /needs a note/)
+    assert.match(checkAction(ctx({ isAdmin: true }), { op: 'ask_team', note: 'x' }).problem!, /talking to the Alfsouq team itself/)
+    const step = passed.step as Step
+    assert.match(describeForMemory([step]), /passed to the Alfsouq team: عنوان جديد/)
+    assert.equal(withFacts('', [step]), 'بعتت طلبك لفريق ألف سوق')
+    assert.deepEqual(photosUsed(step), [])
+  })
+
   test('the time it is given is the shop\'s own, with the date and offset', () => {
     const moment = new Date('2026-11-07T21:30:00Z')
     assert.match(storeLocalTime(store, moment), /Sunday, 08\/11\/2026, 00:30 GMT\+3/)

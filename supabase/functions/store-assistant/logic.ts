@@ -21,6 +21,8 @@ export type Look = (typeof LOOKS)[number]
 /** A new price this many times higher or lower than the old one is checked with the owner first. */
 const PRICE_JUMP = 3
 const MAX_PRODUCT_PHOTOS = 3
+/** How long a request passed to the Alfsouq team can be. */
+const MAX_TEAM_NOTE = 600
 
 export type StoreTable = 'restaurants' | 'categories' | 'menu_items' | 'offers'
 type Row = Record<string, unknown>
@@ -112,6 +114,8 @@ export type Step =
   | { op: 'add'; table: Exclude<StoreTable, 'restaurants'>; label: string; ref: string | null; fields: Row }
   | { op: 'create_store'; label: string; fields: Row }
   | { op: 'undo' }
+  /** Something only the Alfsouq team can do, sent to their WhatsApp with the shop's name and the owner's number. */
+  | { op: 'ask_team'; note: string }
 
 export interface RawAction {
   op?: unknown
@@ -120,6 +124,7 @@ export interface RawAction {
   fields?: unknown
   ref?: unknown
   said_name?: unknown
+  note?: unknown
 }
 
 export interface Parsed {
@@ -420,7 +425,7 @@ export function noticeLines(ctx: Context, now: number = Date.now()): string[] {
     byName.set(key, [...(byName.get(key) ?? []), product])
   }
   for (const same of byName.values()) {
-    if (same.length > 1) notes.push(`These products have the same name: ${same.map(name).join(', ')}.`)
+    if (same.length > 1) notes.push(`These products have the same name: ${same.map(name).join(', ')}. Customers see it more than once, so when the owner talks about it, tell them and offer to hide the extra one.`)
   }
 
   const bare = products.filter(product => !hasPhoto(product.row))
@@ -441,11 +446,26 @@ export function titleUse(history: HistoryEntry[]): string {
   return `you called them "أستاذ" in ${used} of your last ${recent.length} messages${used >= 2 ? ', which is already a lot: leave it out now' : ''}.`
 }
 
+/** A name without "ال" at the start of its words, so "المعجوقة" is found in "معجوقة بالقشطة". */
+const withoutAl = (value: unknown) => normalizeName(value).replace(/(^|\s)ال/g, '$1')
+
+/**
+ * An owner's own word for a product. A word learned while the shop had one such product
+ * can fit a second one added later, and then the model has to ask which they mean.
+ */
+function aliasLine(ctx: Context, said: string, record: StoreRecord): string {
+  const word = withoutAl(said)
+  const also = word.length < 3 ? [] : ctx.records.filter(other =>
+    other.table === 'menu_items' && other.id !== record.id && other.row.is_hidden !== true && withoutAl(other.row.name).includes(word))
+  if (!also.length) return `${said} means ${record.code}`
+  return `${said} used to mean ${record.code}, but ${also.map(other => other.code).join(', ')} ${also.length === 1 ? 'fits' : 'fit'} it too now: ask which one they mean`
+}
+
 export function buildInput(ctx: Context, aliases: { said: string; menu_item_id: string }[], history: HistoryEntry[], text: string, localTime: string): string {
   const known = aliases
     .map(alias => {
       const record = ctx.records.find(candidate => candidate.id === alias.menu_item_id)
-      return record ? `${alias.said} means ${record.code}` : null
+      return record ? aliasLine(ctx, alias.said, record) : null
     })
     .filter(Boolean)
 
@@ -698,6 +718,13 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
 
   if (op === 'undo') return { step: { op: 'undo' } }
 
+  if (op === 'ask_team') {
+    if (ctx.isAdmin) return { problem: 'You are talking to the Alfsouq team itself, so there is no one to pass this to. Do it, or tell them what you can\'t do.' }
+    const note = String(action.note ?? '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim().slice(0, MAX_TEAM_NOTE)
+    if (!note) return { problem: 'ask_team needs a note saying what they want from the team, with the details they gave. Nothing was sent.' }
+    return { step: { op: 'ask_team', note } }
+  }
+
   if (op === 'create_store') {
     return ctx.isAdmin ? readNewStore(ctx, action.fields) : { problem: 'You cannot create a shop. Only the Alfsouq team can.' }
   }
@@ -826,6 +853,7 @@ export function describeForMemory(done: Step[]): string {
       case 'add': return `added to ${step.table}: ${step.label}`
       case 'create_store': return `opened a new shop: ${step.label}`
       case 'undo': return 'took back the last request'
+      case 'ask_team': return `passed to the Alfsouq team: ${clean(step.note, 200)}`
     }
   }).join('; ')
 }
@@ -844,6 +872,7 @@ export function describeForOwner(done: Step[]): string {
       case 'add': return price !== undefined ? `ضفت ${step.label} بـ${money(price)}` : `ضفت ${step.label}`
       case 'create_store': return `فتحت متجر جديد: ${step.label}`
       case 'undo': return 'رجعت آخر تعديل'
+      case 'ask_team': return 'بعتت طلبك لفريق ألف سوق'
     }
   }).join('، ')
 }
