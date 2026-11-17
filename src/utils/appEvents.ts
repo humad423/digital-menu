@@ -2,6 +2,7 @@
 
 import { isInstalledApp } from '@/utils/appMode'
 import { publicInsert } from '@/utils/publicInsert'
+import { countVisitOnce } from '@/utils/visitGap'
 
 export type AppEventKind = 'install' | 'app_open' | 'home_visit' | 'share'
 
@@ -10,13 +11,16 @@ export function logAppEvent(kind: AppEventKind, restaurantId?: string | null): v
   publicInsert('app_events', { kind, restaurant_id: restaurantId ?? null, from_app: isInstalledApp() }).catch(() => {})
 }
 
-/** Counts something once per visit, or once per device when `forever` is set. */
+/** Counts something once per phone every few hours, or once per phone ever when `forever` is set. */
 export function logAppEventOnce(kind: AppEventKind, key: string, forever = false): void {
-  try {
-    const storage = forever ? localStorage : sessionStorage
-    if (storage.getItem(key)) return
-    storage.setItem(key, '1')
-  } catch {
+  if (forever) {
+    try {
+      if (localStorage.getItem(key)) return
+      localStorage.setItem(key, '1')
+    } catch {
+      return
+    }
+  } else if (!countVisitOnce(key)) {
     return
   }
   logAppEvent(kind)

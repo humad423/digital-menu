@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { isInstalledApp } from '@/utils/appMode'
 import { publicInsert } from '@/utils/publicInsert'
 import { logCampaignEvent } from '@/utils/campaign'
+import { countVisitOnce } from '@/utils/visitGap'
 
 interface MenuQrTrackerProps {
   restaurantId: string
@@ -21,17 +22,11 @@ function MenuQrTrackerContent({ restaurantId }: MenuQrTrackerProps) {
     // Where the visit came from: the shop's QR code, a shared link, a notification, the installed app, or anywhere else
     const visitSource = source === 'qr' ? 'qr' : source === 'share' ? 'share' : source === 'push' ? 'push' : isInstalledApp() ? 'app' : 'direct'
 
-    // Debounce / deduplicate visits within the same session
-    const sessionKey = `menu_visited_${restaurantId}`
-    if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey)) {
-      return
-    }
+    // The same phone opening the same store again within a few hours is still one visit
+    if (!countVisitOnce(`menu_visited_${restaurantId}`)) return
 
     const logScan = async () => {
       try {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem(sessionKey, 'true')
-        }
         logCampaignEvent('store_view', restaurantId)
 
         const ua = typeof window !== 'undefined' ? window.navigator.userAgent : ''
