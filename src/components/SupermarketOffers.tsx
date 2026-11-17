@@ -33,9 +33,10 @@ function DealCard({ item, restaurantId, canOrder }: { item: any; restaurantId: s
 
   return (
     <article className={`card flex flex-col ${isOutOfStock ? 'opacity-70' : ''}`}>
-      <div className="relative aspect-square bg-slate-200">
+      {/* The photo fills a square, so a tall photo can't stretch its card and every row lines up */}
+      <div className="relative aspect-square bg-slate-100 overflow-hidden">
         {item.image_url && (
-          <img src={getOptimizedImageUrl(item.image_url, 400)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+          <img src={getOptimizedImageUrl(item.image_url, 400)} alt="" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         )}
         {discount !== null && (
           <span className="absolute top-2 right-2 bg-red-700 text-white font-black px-2 py-0.5 rounded-lg">خصم {discount}%</span>
@@ -44,6 +45,7 @@ function DealCard({ item, restaurantId, canOrder }: { item: any; restaurantId: s
 
       <div className="p-3 flex-1 flex flex-col gap-1">
         <h3 className="font-black leading-snug">{item.name}</h3>
+        {item.description && <p className="text-sm text-muted font-medium leading-snug line-clamp-2">{item.description}</p>}
         <div className="mt-auto">
           {discount !== null && (
             <p className="text-muted font-medium line-through">كان {item.original_price} {CURRENCY_SYMBOL}</p>
@@ -104,13 +106,28 @@ export default function SupermarketOffers({
 
   const categoriesWithDeals = categories.filter(c => menuItems.some(i => i.category_id === c.id))
   const canOrder = restaurant.enable_whatsapp_orders !== false
+  // A shop with no discounts, like one selling home-made food, is a product list, not a flyer
+  const hasDeals = offers.length > 0 || menuItems.some(item => discountPercent(item) !== null)
+  const word = hasDeals ? 'العروض' : 'المنتجات'
+  // With nothing searched or picked, a plain product list reads best category by category, in the shop's own order
+  const sections = !hasDeals && !query && !activeCategory && categoriesWithDeals.length > 1
+    ? categoriesWithDeals.map(category => ({ category, items: deals.filter(item => item.category_id === category.id) }))
+    : null
+
+  const grid = (items: any[]) => (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9.5rem),1fr))] gap-3">
+      {items.map(item => (
+        <DealCard key={item.id} item={item} restaurantId={restaurant.id} canOrder={canOrder} />
+      ))}
+    </div>
+  )
 
   return (
     <div className="space-y-4">
-      <h2 className="section-title">عروض {restaurant.name} ({deals.length})</h2>
+      <h2 className="section-title">{hasDeals ? 'عروض' : 'منتجات'} {restaurant.name} ({deals.length})</h2>
 
       <div>
-        <label htmlFor="deal-search" className="field-label">ابحث في العروض</label>
+        <label htmlFor="deal-search" className="field-label">ابحث في {word}</label>
         <div className="relative">
           <Search size={20} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
           <input
@@ -126,7 +143,7 @@ export default function SupermarketOffers({
 
       {categoriesWithDeals.length > 1 && (
         <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1">
-          {[{ id: null, name: 'كل العروض' }, ...categoriesWithDeals].map(category => (
+          {[{ id: null, name: hasDeals ? 'كل العروض' : 'الكل' }, ...categoriesWithDeals].map(category => (
             <button
               key={category.id ?? 'all'}
               aria-pressed={activeCategory === category.id}
@@ -140,13 +157,16 @@ export default function SupermarketOffers({
       )}
 
       {deals.length === 0 ? (
-        <p className="notice notice-info text-center">لا توجد عروض مطابقة.</p>
+        <p className="notice notice-info text-center">لا توجد نتائج مطابقة.</p>
+      ) : sections ? (
+        sections.filter(section => section.items.length).map(({ category, items }) => (
+          <section key={category.id} className="space-y-3 pt-2">
+            <h3 className="text-lg font-black">{category.name}</h3>
+            {grid(items)}
+          </section>
+        ))
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9.5rem),1fr))] gap-3">
-          {deals.map(item => (
-            <DealCard key={item.id} item={item} restaurantId={restaurant.id} canOrder={canOrder} />
-          ))}
-        </div>
+        grid(deals)
       )}
     </div>
   )
