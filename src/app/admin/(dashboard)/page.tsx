@@ -28,6 +28,7 @@ const AdminCampaignsTab = dynamicImport(() => import('@/components/AdminCampaign
 import { Bell, Link2, Plus, Edit, Trash2, LayoutGrid, Image as ImageIcon, Images, Store, ClipboardList, CheckCircle, X, ExternalLink, MapPin, Phone, Flame, Utensils, Map as MapIcon, Tag, ShieldCheck, QrCode, Search, List, Grid as GridIcon, MoreHorizontal } from 'lucide-react'
 import { notifyError, notifySuccess, reportWriteResult } from '@/utils/notify'
 import { normalizePhoneNumber, formatPhoneDisplay, managerPhones } from '@/utils/phone'
+import { areaLocation } from '@/utils/areaLocation'
 
 const AdminInteractiveMap = dynamicImport(() => import('@/components/AdminInteractiveMap'), { ssr: false })
 
@@ -82,7 +83,7 @@ export default function AdminDashboard() {
         .select(
           'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, store_type, ' +
           'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, ' +
-          'latitude, longitude, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
+          'latitude, longitude, hide_location, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
           'enable_whatsapp_orders, menu_note, is_subscription_active, is_menu_active, show_on_home, show_stores_button, subscription_notes, created_at'
         )
         .order('created_at', { ascending: false }),
@@ -280,7 +281,7 @@ export default function AdminDashboard() {
   const [editResId, setEditResId] = useState<string | null>(null)
   const emptyRes = {
     name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '', extra_phones: [] as string[],
-    logo_url: '', cover_url: '', latitude: '', longitude: '', delivery_radius_km: '5',
+    logo_url: '', cover_url: '', latitude: '', longitude: '', hide_location: false, delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
     opening_time: '09:00', closing_time: '23:00', timezone: STORE_TIMEZONE, days_off: [] as string[], is_on_holiday: false, holiday_message: '', enable_whatsapp_orders: true,
     is_subscription_active: true, is_menu_active: true, show_on_home: true, show_stores_button: false, subscription_notes: ''
@@ -322,8 +323,10 @@ export default function AdminDashboard() {
       whatsapp_number: cleanWhatsapp || resForm.whatsapp_number.trim() || null,
       logo_url: resForm.logo_url || null,
       cover_url: resForm.cover_url || null,
-      latitude: resForm.latitude ? parseFloat(resForm.latitude) : null,
-      longitude: resForm.longitude ? parseFloat(resForm.longitude) : null,
+      // A home seller's location is kept only to the area, about a kilometre, so it never points at their house
+      latitude: resForm.latitude ? areaLocation(parseFloat(resForm.latitude), resForm.hide_location) : null,
+      longitude: resForm.longitude ? areaLocation(parseFloat(resForm.longitude), resForm.hide_location) : null,
+      hide_location: resForm.hide_location === true,
       delivery_radius_km: resForm.delivery_radius_km ? parseFloat(resForm.delivery_radius_km) : 5,
       max_offers_limit: resForm.max_offers_limit ? parseInt(resForm.max_offers_limit) : 5,
       store_type: resForm.store_type || 'restaurant',
@@ -395,7 +398,7 @@ export default function AdminDashboard() {
         .filter(phone => phone !== currentOwnerPhone && phone !== normalizePhoneNumber(r.whatsapp_number))
         .map(phone => formatPhoneDisplay(phone)),
       logo_url: r.logo_url || '', cover_url: r.cover_url || '',
-      latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '',
+      latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '', hide_location: r.hide_location === true,
       delivery_radius_km: r.delivery_radius_km?.toString() || '5',
       max_offers_limit: r.max_offers_limit?.toString() || '5',
       store_type: r.store_type || 'restaurant',
@@ -859,6 +862,14 @@ export default function AdminDashboard() {
                             </a>
                           ) : (
                             <p className="text-sm font-bold text-rose-700 mt-1">بدون موقع، لن يظهر المتجر للزبائن.</p>
+                          )}
+                          <CheckRow
+                            label="متجر منزلي: لا يظهر موقعه للزبائن"
+                            checked={resForm.hide_location}
+                            onChange={checked => setResForm({ ...resForm, hide_location: checked })}
+                          />
+                          {resForm.hide_location && (
+                            <p className="text-sm font-bold text-muted">ضع موقعاً تقريبياً للمنطقة، يُحفظ بدقة كيلومتر تقريباً. يُستخدم فقط لإظهار المتجر للزبائن القريبين، ولا يظهر زر الموقع في صفحته.</p>
                           )}
                         </div>
                         <div>

@@ -30,7 +30,19 @@ export default function StoreCard({ store }: { store: any }) {
         />
       )}
       <div className="p-4">
-        <h3 className="text-lg font-black leading-snug">{store.name}</h3>
+        <div className="flex items-center gap-2.5">
+          {/* The logo beside the name, unless it's already the big picture above */}
+          {store.logo_url && store.cover_url && (
+            <img
+              src={getOptimizedImageUrl(store.logo_url, 96)}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="w-10 h-10 shrink-0 rounded-xl object-cover border border-line bg-white"
+            />
+          )}
+          <h3 className="text-lg font-black leading-snug min-w-0">{store.name}</h3>
+        </div>
 
         <p className="mt-1 font-bold">
           <span className={status.isOpen ? 'text-whatsapp' : 'text-red-700'}>{status.statusText}</span>

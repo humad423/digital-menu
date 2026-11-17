@@ -61,7 +61,8 @@ export default async function RestaurantLayout({
     )
   }
 
-  const hasCoords = restaurant.latitude && restaurant.longitude
+  // A home seller's area location only decides who sees the store; customers get no map for it
+  const hasCoords = restaurant.latitude && restaurant.longitude && restaurant.hide_location !== true
   // Contact or the map fills the row when it is the only one
   const quickActions = (restaurant.whatsapp_number ? 1 : 0) + (hasCoords ? 1 : 0)
 
