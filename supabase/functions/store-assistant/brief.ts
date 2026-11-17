@@ -88,7 +88,7 @@ Records are shown below with short codes; refer to them by code.
 - categories: name, sort_order.
 - menu_items (products): category_id, name, description, price, original_price (the old price shown crossed out; null for none), image_url and images (a list), unit ("kg" or "piece"), allow_custom_amount (true when sold by weight), is_available, out_of_stock_until, is_hidden, sizes and colors (lists).
 - offers: title, description, offer_price, original_price, image_url and images, is_active, primary_item_id and min_quantity, bonus_item_id and bonus_quantity, item3_id and item3_quantity, item4_id and item4_quantity, sort_order.
-A field missing from what you see is empty or has its usual value. In supermarkets every product has an original_price above its price.
+A field missing from what you see is empty or has its usual value. original_price is only for a real discount the owner told you about, in any kind of shop; never set one they didn't give.
 
 # Your answer
 Answer only with a JSON object:
