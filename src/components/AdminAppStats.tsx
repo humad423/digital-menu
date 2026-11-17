@@ -11,8 +11,8 @@ const PERIODS = [
 
 const CARDS = [
   { key: 'install', label: 'ثبّتوا التطبيق وفتحوه', hint: 'أول مرة يُفتح فيها كتطبيق على هاتف' },
-  { key: 'app_open', label: 'زيارات من التطبيق المثبت', hint: 'الهاتف نفسه يُحسب مرة كل 6 ساعات' },
-  { key: 'home_visit', label: 'زيارات الصفحة الرئيسية', hint: 'الهاتف نفسه يُحسب مرة كل 6 ساعات' },
+  { key: 'app_open', label: 'زيارات من التطبيق المثبت', hint: '' },
+  { key: 'home_visit', label: 'زيارات الصفحة الرئيسية', hint: '' },
   { key: 'share', label: 'ضغطوا شارك', hint: 'في صفحة متجر أو عرض' },
   { key: 'share_visit', label: 'دخلوا من رابط مشاركة', hint: 'زيارات صفحات المحلات' },
   { key: 'app_store_visit', label: 'فتحوا متجراً من التطبيق', hint: 'زيارات صفحات المحلات' },
@@ -72,7 +72,7 @@ export default function AdminAppStats() {
             <p className="text-2xl font-black text-slate-900 my-1">
               {counts === null ? '...' : counts[card.key] === null ? '--' : formatNumber(counts[card.key] ?? 0)}
             </p>
-            <p className="text-sm font-bold text-muted">{card.hint}</p>
+            {card.hint && <p className="text-sm font-bold text-muted">{card.hint}</p>}
           </div>
         ))}
       </div>

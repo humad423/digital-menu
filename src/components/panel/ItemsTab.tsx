@@ -180,10 +180,6 @@ export default function ItemsTab({
         <span>{isSupermarket ? 'إضافة عرض جديد' : 'إضافة منتج جديد'}</span>
       </button>
 
-      {isSupermarket && (
-        <p className="notice notice-info">إذا كان على المنتج خصم، اكتب سعره قبل الخصم ليرى الزبون السعرين. وإذا لم يكن عليه خصم، اترك الخانة فارغة.</p>
-      )}
-
       {categories.map(category => {
         const items = menuItems.filter(item => item.category_id === category.id)
         return (
