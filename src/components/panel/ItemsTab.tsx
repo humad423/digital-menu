@@ -97,7 +97,8 @@ export default function ItemsTab({
       notifyError('اكتب الاسم والسعر واختر القسم.')
       return
     }
-    if ((isSupermarket || originalPrice > 0) && !isRealDiscount(price, originalPrice)) {
+    // The old price is only for a real discount; a product without one is fine as it is
+    if (originalPrice > 0 && !isRealDiscount(price, originalPrice)) {
       notifyError('السعر قبل الخصم يجب أن يكون أكبر من سعر العرض.')
       return
     }
@@ -180,7 +181,7 @@ export default function ItemsTab({
       </button>
 
       {isSupermarket && (
-        <p className="notice notice-info">أضف العروض فقط، وليس كل منتجات المتجر. الزبون يرى السعر قبل الخصم وبعده.</p>
+        <p className="notice notice-info">إذا كان على المنتج خصم، اكتب سعره قبل الخصم ليرى الزبون السعرين. وإذا لم يكن عليه خصم، اترك الخانة فارغة.</p>
       )}
 
       {categories.map(category => {
@@ -254,8 +255,8 @@ export default function ItemsTab({
                 <NumberInput id="item-price" required inputMode="decimal" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="field" />
               </div>
               <div>
-                <label htmlFor="item-original" className="field-label">قبل الخصم{isSupermarket ? '' : ' (اختياري)'}</label>
-                <NumberInput id="item-original" required={isSupermarket} inputMode="decimal" min="0" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
+                <label htmlFor="item-original" className="field-label">قبل الخصم (اختياري)</label>
+                <NumberInput id="item-original" inputMode="decimal" min="0" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
               </div>
             </div>
 
