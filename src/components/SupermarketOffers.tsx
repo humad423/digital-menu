@@ -115,7 +115,8 @@ export default function SupermarketOffers({
     : null
 
   const grid = (items: any[]) => (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9.5rem),1fr))] gap-3">
+    // Two in a row on any phone, even with the phone's text made larger, and more on wider screens
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
       {items.map(item => (
         <DealCard key={item.id} item={item} restaurantId={restaurant.id} canOrder={canOrder} />
       ))}

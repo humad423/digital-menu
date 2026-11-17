@@ -138,10 +138,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
 
   return (
     <div dir="rtl" className="min-h-screen bg-page pb-10">
-      <header className="site-header">
+      {/* Green and named, so an owner never mistakes the place they edit for the page customers see */}
+      <header className="bg-[#166534] text-white">
         <div className="page-narrow py-3 flex items-center justify-between gap-3">
-          <BrandLogo size="sm" />
-          <button onClick={logout} className="btn btn-secondary btn-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <BrandLogo size="sm" variant="light" />
+            <span className="rounded-lg bg-white/15 px-2.5 py-1 font-black whitespace-nowrap">لوحة الشريك</span>
+          </div>
+          <button onClick={logout} className="btn btn-secondary btn-sm shrink-0">
             <LogOut size={16} />
             <span>{access === 'admin' ? 'عودة للإدارة' : 'خروج'}</span>
           </button>
@@ -152,6 +156,10 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         <div>
           <h1 className="text-2xl font-black leading-snug">{restaurant?.name}</h1>
         </div>
+
+        <p className="rounded-2xl border border-green-200 bg-green-50 p-3 font-bold text-green-900 leading-relaxed">
+          هذه لوحة الشريك، تدير منها منتجات متجرك وأسعاره، ولا يراها الزبائن. الصفحة التي يراها الزبون هي «صفحة متجري».
+        </p>
 
         {access === 'admin' && <p className="notice notice-info">أنت تعدّل هذا المتجر بصلاحية الإدارة.</p>}
         {isSuspended && (
