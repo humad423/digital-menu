@@ -327,6 +327,38 @@ describe('reply timing', () => {
   })
 })
 
+describe('sizes at different prices', () => {
+  const cakeShop = { ...store, size_prices: true }
+  const cake: StoreRecord = { code: 'P9', table: 'menu_items', id: 'item-9', row: { name: 'كيكة', price: 600, sizes: [{ name: 'صغير', price: 600 }, { name: 'وسط', price: 850 }] } }
+  const withCake = (shop: typeof store) => ctx({ store: shop, records: [...records.map(record => ({ ...record })), cake] })
+
+  test('a shop with prices by size keeps one product, priced from its cheapest size', () => {
+    const added = checkAction(withCake(cakeShop), { op: 'add', table: 'menu_items', fields: { name: 'كيكة فانيلا', category_id: 'C2', sizes: [{ name: 'وسط', price: '٨٥٠' }, { name: 'صغير', price: 600 }] } })
+    assert.ok(added.step?.op === 'add')
+    assert.deepEqual(added.step.fields.sizes, [{ name: 'وسط', price: 850 }, { name: 'صغير', price: 600 }])
+    assert.equal(added.step.fields.price, 600)
+  })
+
+  test('a shop without it is told to make one product per size', () => {
+    const refused = checkAction(withCake(store), { op: 'add', table: 'menu_items', fields: { name: 'كيكة', category_id: 'C2', sizes: [{ name: 'وسط', price: 850 }] } })
+    assert.match(refused.problem!, /doesn't have prices by size/)
+    assert.ok(checkAction(withCake(store), { op: 'update', record: 'P1', fields: { sizes: ['S', 'M'] } }).step, 'plain sizes are still fine')
+  })
+
+  test('a size price is changed through the sizes, never the price alone', () => {
+    assert.match(checkAction(withCake(cakeShop), { op: 'update', record: 'P9', fields: { price: 700 } }).problem!, /sold in sizes/)
+    const changed = checkAction(withCake(cakeShop), { op: 'update', record: 'P9', fields: { sizes: [{ name: 'صغير', price: 650 }, { name: 'وسط', price: 900 }] } })
+    assert.ok(changed.step?.op === 'update')
+    assert.equal(changed.step.fields.price, 650)
+    assert.match(checkAction(withCake(cakeShop), { op: 'update', record: 'P9', fields: { sizes: [{ name: 'وسط', price: 0 }] } }).problem!, /real price/)
+  })
+
+  test('only the team switches prices by size or a hidden location on', () => {
+    assert.match(checkAction(ctx(), { op: 'update', record: 'S', fields: { size_prices: true } }).problem!, /belongs to the Alfsouq team/)
+    assert.match(checkAction(ctx(), { op: 'update', record: 'S', fields: { hide_location: true } }).problem!, /belongs to the Alfsouq team/)
+  })
+})
+
 describe('what the model is given', () => {
   const input = buildInput(
     ctx(),

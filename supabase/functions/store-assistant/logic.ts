@@ -30,7 +30,7 @@ type Row = Record<string, unknown>
 /** The same settings the store panel refuses to let an owner change. */
 const ADMIN_ONLY = new Set([
   'slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'show_stores_button',
-  'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone',
+  'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone', 'hide_location', 'size_prices',
 ])
 /**
  * Settings an owner could change and then forget to change back, like the hours or switching delivery off.
@@ -612,13 +612,56 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
       fields[key] = saved.value
       continue
     }
+    if (table === 'menu_items' && key === 'sizes' && value !== null) {
+      const sizes = readSizes(ctx, value)
+      if (sizes.problem) return { problem: sizes.problem }
+      fields[key] = sizes.list
+      continue
+    }
     fields[key] = latinWords(value)
   }
+  // A product sold in sizes at different prices shows its cheapest size as its own price
+  const priced = table === 'menu_items' ? sizePricesOf(fields.sizes) : []
+  if (priced.length) fields.price = Math.min(...priced.map(size => size.price))
   return { fields }
 }
 
 const HOUR = /^([01]?\d|2[0-3]):([0-5]\d)$/
 const SHOP_HOURS = new Set(['opening_time', 'closing_time', 'delivery_from', 'delivery_until'])
+
+/** A size with its own price, like {"name":"وسط","price":850}. */
+type SizePrice = { name: string; price: number }
+
+const isSizePrice = (entry: unknown): entry is SizePrice =>
+  !!entry && typeof entry === 'object' && typeof (entry as SizePrice).name === 'string' && Number((entry as SizePrice).price) > 0
+
+/** The sizes of a product that each have their own price. */
+export const sizePricesOf = (value: unknown): SizePrice[] => (Array.isArray(value) ? value.filter(isSizePrice) : [])
+
+/**
+ * A product's sizes as the model wrote them: plain names that share the product's price, as clothing has,
+ * or names each with its own price, which only a shop with prices by size can have.
+ */
+function readSizes(ctx: Context, value: unknown): { list?: unknown[]; problem?: string } {
+  if (!Array.isArray(value)) return { problem: 'sizes is a list, like ["S","M"] or [{"name":"وسط","price":850}]. Nothing was saved for this.' }
+  const list: unknown[] = []
+  for (const entry of value) {
+    if (typeof entry === 'string') {
+      if (entry.trim()) list.push(latinDigits(entry.trim()))
+      continue
+    }
+    const size = (entry && typeof entry === 'object' ? entry : {}) as { name?: unknown; price?: unknown }
+    const name = clean(size.name, 60)
+    const price = Number(latinDigits(String(size.price ?? '')))
+    if (!name || !(price > 0)) return { problem: 'Each size with a price needs a name and a real price, like {"name":"وسط","price":850}. Nothing was saved for this. Ask the owner for what is missing.' }
+    if (list.some(other => isSizePrice(other) && other.name === name)) return { problem: `The size "${name}" is listed twice. Nothing was saved for this.` }
+    list.push({ name, price })
+  }
+  if (list.some(isSizePrice) && ctx.store.size_prices !== true && !ctx.isAdmin) {
+    return { problem: "This shop doesn't have prices by size; the Alfsouq team switches that on. Nothing was saved for this. Add one product per size instead, like \"كيكة وسط\", or ask the team with ask_team if the owner wants prices by size." }
+  }
+  return { list }
+}
 
 /** A phone number the way the site saves it, like +905321234567, or null when it isn't a whole one. A number with no country code is taken as Turkish. */
 function readPhone(value: unknown): string | null {
@@ -737,6 +780,10 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
     if (!record) return { problem: `${String(action.record)} is not a record in this shop.` }
     const { fields, problem } = readFields(ctx, record.table, action.fields)
     if (!fields) return { problem }
+    // Its price follows its sizes, so changing the price alone would leave customers seeing the old size prices
+    if (record.table === 'menu_items' && 'price' in fields && !('sizes' in fields) && sizePricesOf(record.row.sizes).length) {
+      return { problem: `${labelOf(record.row)} is sold in sizes, each with its own price, so its price wasn't changed. Send the whole sizes list with the new prices, like {"sizes":[{"name":"صغير","price":600},{"name":"وسط","price":900}]}; its price follows the cheapest size.` }
+    }
     // A shop opened without a number has its page closed; its first number is what opens it
     if (record.table === 'restaurants' && fields.whatsapp_number && !record.row.whatsapp_number && !('is_menu_active' in fields)) fields.is_menu_active = true
     const before: Row = {}
