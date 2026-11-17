@@ -44,7 +44,7 @@ export default function OffersTab({ store }: { store: PanelStore }) {
 
   // One refresh covers the store's page and the home and offers pages
   const publish = () => {
-    triggerRevalidate(restaurant?.slug, 'offers')
+    triggerRevalidate(restaurant?.slug, 'offers', restaurantId)
     return refresh()
   }
 

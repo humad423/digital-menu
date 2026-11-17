@@ -43,7 +43,7 @@ export default function ItemsTab({
   store: PanelStore
   onGoToCategories: () => void
 }) {
-  const { restaurant, categories, menuItems, offers, refresh, canEdit } = store
+  const { restaurantId, restaurant, categories, menuItems, offers, refresh, canEdit } = store
   const isSupermarket = restaurant?.store_type === 'supermarket'
   const isClothing = restaurant?.store_type === 'clothing'
   const noun = isSupermarket ? 'العرض' : 'المنتج'
@@ -56,7 +56,7 @@ export default function ItemsTab({
 
   // A product's photo and name also show in its store's offers on the home and offers pages
   const publish = () => {
-    triggerRevalidate(restaurant?.slug, 'offers')
+    triggerRevalidate(restaurant?.slug, 'offers', restaurantId)
     return refresh()
   }
 

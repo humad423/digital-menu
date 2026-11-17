@@ -125,7 +125,7 @@ export default function SupermarketOffers({
 
   return (
     <div className="space-y-4">
-      <h2 className="section-title">{hasDeals ? 'عروض' : 'منتجات'} {restaurant.name} ({deals.length})</h2>
+      <h2 className="section-title">{hasDeals ? 'عروض' : 'منتجات'} {restaurant.name}</h2>
 
       <div>
         <label htmlFor="deal-search" className="field-label">ابحث في {word}</label>

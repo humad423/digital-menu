@@ -40,23 +40,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Store owners can only invalidate their own store
-    if (!isAdmin) {
-      let ownsTarget = type !== 'legal' && (!restaurantId || restaurantId === ownedRestaurantId)
-      if (ownsTarget && slug) {
-        const { data: store } = await supabase
-          .from('restaurants')
-          .select('slug')
-          .eq('id', ownedRestaurantId!)
-          .maybeSingle()
-        ownsTarget = store?.slug === slug
-      }
-      if (!ownsTarget) {
-        return NextResponse.json({ revalidated: false, error: 'Forbidden' }, { status: 403 })
-      }
+    if (!isAdmin && (type === 'legal' || (restaurantId && restaurantId !== ownedRestaurantId))) {
+      return NextResponse.json({ revalidated: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    if (slug) revalidateTag(storeTag(slug), expireNow)
-    if (restaurantId) revalidateTag(storeTag(restaurantId), expireNow)
+    // A store's link can change while its panel is open, so its current link is read from the database.
+    // An owner's request always refreshes their own store, whatever link the page sent.
+    const storeId = isAdmin ? restaurantId ?? null : ownedRestaurantId
+    const slugs = new Set<string>()
+    if (isAdmin && slug) slugs.add(slug)
+    if (storeId) {
+      revalidateTag(storeTag(storeId), expireNow)
+      const { data: store } = await supabase.from('restaurants').select('slug').eq('id', storeId).maybeSingle()
+      if (store?.slug) slugs.add(store.slug)
+    }
+    slugs.forEach(current => revalidateTag(storeTag(current), expireNow))
 
     if (type === 'offers' || type === 'home' || type === 'all') {
       revalidateTag(HOME_TAG, expireNow)

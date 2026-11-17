@@ -14,7 +14,7 @@ export default function CategoriesTab({ store }: { store: PanelStore }) {
   const [editName, setEditName] = useState('')
 
   const publish = () => {
-    triggerRevalidate(restaurant?.slug, 'menu')
+    triggerRevalidate(restaurant?.slug, 'menu', restaurantId)
     return refresh()
   }
 
