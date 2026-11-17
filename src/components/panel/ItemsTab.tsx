@@ -2,7 +2,7 @@
 
 import NumberInput from '@/components/NumberInput'
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import MultiImageUpload from '@/components/MultiImageUpload'
 import OptionPicker from '@/components/panel/OptionPicker'
 import StockPhotoPicker from '@/components/panel/StockPhotoPicker'
@@ -13,6 +13,7 @@ import { notifyError, reportWriteResult } from '@/utils/notify'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
 import { COLOR_OPTIONS, SIZE_OPTIONS, isRealDiscount, orderOptions } from '@/utils/productOptions'
+import { cleanSizeRows, lowestSizePrice, readPlainSizes, readSizePrices, type SizeRow } from '@/utils/sizePrices'
 
 const MAX_PHOTOS = 3
 const COLOR_NAMES = COLOR_OPTIONS.map(color => color.name)
@@ -26,6 +27,7 @@ const EMPTY_FORM = {
   original_price: '',
   images: [] as string[],
   sizes: [] as string[],
+  sizeRows: [] as SizeRow[],
   colors: [] as string[],
   soldByWeight: false,
   is_available: true,
@@ -46,6 +48,8 @@ export default function ItemsTab({
   const { restaurantId, restaurant, categories, menuItems, offers, refresh, canEdit } = store
   const isSupermarket = restaurant?.store_type === 'supermarket'
   const isClothing = restaurant?.store_type === 'clothing'
+  // Switched on by the Alfsouq team for stores that sell one product in sizes at different prices, like cakes
+  const sizePricesOn = restaurant?.size_prices === true && !isClothing
   const noun = isSupermarket ? 'العرض' : 'المنتج'
 
   const [form, setForm] = useState(EMPTY_FORM)
@@ -78,7 +82,8 @@ export default function ItemsTab({
       price: String(item.price),
       original_price: item.original_price ? String(item.original_price) : '',
       images,
-      sizes: parseList(item.sizes),
+      sizes: readPlainSizes(item.sizes),
+      sizeRows: readSizePrices(item.sizes).map(size => ({ name: size.name, price: String(size.price) })),
       colors: parseList(item.colors),
       soldByWeight: item.unit === 'kg' || item.allow_custom_amount === true,
       is_available: item.is_available !== false,
@@ -91,8 +96,15 @@ export default function ItemsTab({
     event.preventDefault()
     if (!canEdit()) return
 
-    const price = parseFloat(form.price)
-    const originalPrice = parseFloat(form.original_price)
+    const sized = sizePricesOn ? cleanSizeRows(form.sizeRows) : { sizes: [] }
+    if (sized.problem) {
+      notifyError(sized.problem)
+      return
+    }
+    // With sizes, the product's own price is its cheapest size, so lists and sorting still read right
+    const bySize = sized.sizes.length > 0
+    const price = bySize ? lowestSizePrice(sized.sizes) : parseFloat(form.price)
+    const originalPrice = bySize ? NaN : parseFloat(form.original_price)
     if (!form.category_id || !form.name.trim() || !(price >= 0)) {
       notifyError('اكتب الاسم والسعر واختر القسم.')
       return
@@ -111,7 +123,9 @@ export default function ItemsTab({
       original_price: originalPrice > 0 ? originalPrice : null,
       image_url: form.images[0] || null,
       images: form.images,
-      sizes: orderOptions(form.sizes, SIZE_OPTIONS),
+      sizes: isClothing
+        ? orderOptions(form.sizes, SIZE_OPTIONS)
+        : sizePricesOn ? sized.sizes : editingItem?.sizes ?? [],
       colors: orderOptions(form.colors, COLOR_NAMES),
       unit: form.soldByWeight ? 'kg' : 'piece',
       allow_custom_amount: form.soldByWeight,
@@ -201,7 +215,7 @@ export default function ItemsTab({
                   <div className="min-w-0 flex-1">
                     <h4 className="font-black leading-snug">{item.name}</h4>
                     <p className="font-black text-brand">
-                      {item.price} {CURRENCY_SYMBOL}
+                      {readSizePrices(item.sizes).length > 0 && 'من '}{item.price} {CURRENCY_SYMBOL}
                       {item.original_price > item.price && (
                         <span className="text-muted font-medium line-through ms-2">{item.original_price} {CURRENCY_SYMBOL}</span>
                       )}
@@ -245,16 +259,63 @@ export default function ItemsTab({
               <input id="item-name" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="field" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="item-price" className="field-label">{isSupermarket ? 'سعر العرض' : 'السعر'} ({CURRENCY_SYMBOL})</label>
-                <NumberInput id="item-price" required inputMode="decimal" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="field" />
+            {sizePricesOn && form.sizeRows.some(row => row.name.trim()) ? (
+              <p className="notice notice-info">السعر حسب المقاس. يختار الزبون المقاس ويرى سعره.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="item-price" className="field-label">{isSupermarket ? 'سعر العرض' : 'السعر'} ({CURRENCY_SYMBOL})</label>
+                  <NumberInput id="item-price" required inputMode="decimal" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="field" />
+                </div>
+                <div>
+                  <label htmlFor="item-original" className="field-label">قبل الخصم (اختياري)</label>
+                  <NumberInput id="item-original" inputMode="decimal" min="0" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
+                </div>
               </div>
-              <div>
-                <label htmlFor="item-original" className="field-label">قبل الخصم (اختياري)</label>
-                <NumberInput id="item-original" inputMode="decimal" min="0" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
-              </div>
-            </div>
+            )}
+
+            {sizePricesOn && (
+              <fieldset className="space-y-2">
+                <legend className="field-label">المقاسات والأسعار (اختياري)</legend>
+                <p className="text-sm text-muted font-medium">لمنتج بعدة مقاسات بأسعار مختلفة، مثل كيكة لـ 8 أو 12 شخصاً.</p>
+                {form.sizeRows.map((row, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_6.5rem_auto] gap-2">
+                    <input
+                      aria-label={`اسم المقاس ${index + 1}`}
+                      placeholder="اسم المقاس، مثل وسط"
+                      value={row.name}
+                      onChange={e => setForm({ ...form, sizeRows: form.sizeRows.map((other, at) => (at === index ? { ...other, name: e.target.value } : other)) })}
+                      className="field"
+                    />
+                    <NumberInput
+                      aria-label={`سعر المقاس ${index + 1}`}
+                      placeholder={`السعر ${CURRENCY_SYMBOL}`}
+                      inputMode="decimal"
+                      min="0"
+                      value={row.price}
+                      onChange={e => setForm({ ...form, sizeRows: form.sizeRows.map((other, at) => (at === index ? { ...other, price: e.target.value } : other)) })}
+                      className="field"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`إزالة المقاس ${index + 1}`}
+                      onClick={() => setForm({ ...form, sizeRows: form.sizeRows.filter((_, at) => at !== index) })}
+                      className="btn btn-secondary px-3"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, sizeRows: [...form.sizeRows, { name: '', price: '' }] })}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <Plus size={16} />
+                  <span>أضف مقاساً</span>
+                </button>
+              </fieldset>
+            )}
 
             <div>
               <label htmlFor="item-category" className="field-label">القسم</label>

@@ -45,7 +45,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
           'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, ' +
           'latitude, longitude, delivery_radius_km, delivery_tiers, has_delivery, ' +
           'enable_whatsapp_orders, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, store_type, ' +
-          'max_offers_limit, menu_note, is_subscription_active, is_menu_active'
+          'max_offers_limit, menu_note, is_subscription_active, is_menu_active, size_prices'
         )
         .eq('id', id)
         .maybeSingle() as any,

@@ -9,6 +9,7 @@ import { trackGAAddToCart } from '@/utils/analytics'
 import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { notifyError } from '@/utils/notify'
 import { CURRENCY_SYMBOL } from '@/config/site'
+import { readPlainSizes, readSizePrices } from '@/utils/sizePrices'
 
 const WEIGHT_OPTIONS = [
   { label: 'ربع كيلو', kg: 0.25 },
@@ -42,7 +43,7 @@ function QuantityStepper({ quantity, onDecrease, onIncrease }: { quantity: numbe
   )
 }
 
-function ChoiceRow({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (option: string) => void }) {
+function ChoiceRow({ label, options, value, onChange, prices }: { label: string; options: string[]; value: string; onChange: (option: string) => void; prices?: Record<string, number> }) {
   return (
     <div className="mt-2">
       <p className="font-bold mb-1">{label}</p>
@@ -50,6 +51,7 @@ function ChoiceRow({ label, options, value, onChange }: { label: string; options
         {options.map(option => (
           <button key={option} type="button" aria-pressed={value === option} onClick={() => onChange(option)} className="chip">
             {option}
+            {prices?.[option] !== undefined && <span className="font-black ms-2">{prices[option]} {CURRENCY_SYMBOL}</span>}
           </button>
         ))}
       </div>
@@ -93,7 +95,10 @@ export default function MenuItem({
 
   const images = stringList(item.images)
   if (images.length === 0 && item.image_url) images.push(item.image_url)
-  const sizes = stringList(item.sizes)
+  // Sizes either share the product's price, as clothing does, or each has its own, like a cake for 8 or 12
+  const sizePrices = readSizePrices(item.sizes)
+  const sizes = sizePrices.length > 0 ? sizePrices.map(option => option.name) : readPlainSizes(item.sizes)
+  const priceBySize = sizePrices.length > 0 ? Object.fromEntries(sizePrices.map(option => [option.name, option.price])) : undefined
   const colors = stringList(item.colors)
 
   const [size, setSize] = useState(sizes[0] || '')
@@ -108,10 +113,10 @@ export default function MenuItem({
   const restocked = now !== null && item.out_of_stock_until && new Date(item.out_of_stock_until).getTime() <= now
   const isOutOfStock = item.is_available === false && !restocked
 
-  const price = Number(item.price)
-  const isByWeight = item.unit === 'kg' || item.allow_custom_amount === true
+  const price = priceBySize?.[size] ?? Number(item.price)
+  const isByWeight = !priceBySize && (item.unit === 'kg' || item.allow_custom_amount === true)
   const originalPrice = Number(item.original_price)
-  const discount = originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : null
+  const discount = !priceBySize && originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : null
 
   // Each size and color combination is its own line in the cart and the WhatsApp message
   const variant = [size && `مقاس ${size}`, color && `لون ${color}`].filter(Boolean).join('، ')
@@ -172,7 +177,7 @@ export default function MenuItem({
           <h3 className="text-lg font-black leading-snug">{item.name}</h3>
           {item.description && <p className="text-muted font-medium leading-snug mt-0.5">{item.description}</p>}
           <p className="mt-1">
-            <span className="text-xl font-black text-brand">{item.price} {CURRENCY_SYMBOL}</span>
+            <span className="text-xl font-black text-brand">{price} {CURRENCY_SYMBOL}</span>
             {isByWeight && <span className="text-muted font-medium"> للكيلو</span>}
           </p>
           {discount !== null && (
@@ -184,7 +189,7 @@ export default function MenuItem({
         </div>
       </div>
 
-      {sizes.length > 0 && <ChoiceRow label="المقاس:" options={sizes} value={size} onChange={setSize} />}
+      {sizes.length > 0 && <ChoiceRow label="المقاس:" options={sizes} value={size} onChange={setSize} prices={priceBySize} />}
       {colors.length > 0 && <ChoiceRow label="اللون:" options={colors} value={color} onChange={setColor} />}
 
       <div className="mt-3">

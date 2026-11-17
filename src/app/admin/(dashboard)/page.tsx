@@ -83,7 +83,7 @@ export default function AdminDashboard() {
         .select(
           'id, name, slug, primary_color, whatsapp_number, phone, logo_url, cover_url, store_type, ' +
           'has_delivery, is_on_holiday, holiday_message, opening_time, closing_time, timezone, days_off, delivery_from, delivery_until, special_days, delivery_paused_until, closed_until, ' +
-          'latitude, longitude, hide_location, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
+          'latitude, longitude, hide_location, size_prices, delivery_radius_km, delivery_tiers, max_offers_limit, ' +
           'enable_whatsapp_orders, menu_note, is_subscription_active, is_menu_active, show_on_home, show_stores_button, subscription_notes, created_at'
         )
         .order('created_at', { ascending: false }),
@@ -281,7 +281,7 @@ export default function AdminDashboard() {
   const [editResId, setEditResId] = useState<string | null>(null)
   const emptyRes = {
     name: '', slug: '', primary_color: '#ea580c', whatsapp_number: '', owner_phone: '', extra_phones: [] as string[],
-    logo_url: '', cover_url: '', latitude: '', longitude: '', hide_location: false, delivery_radius_km: '5',
+    logo_url: '', cover_url: '', latitude: '', longitude: '', hide_location: false, size_prices: false, delivery_radius_km: '5',
     max_offers_limit: '5', store_type: 'restaurant', has_delivery: true, menu_note: '',
     opening_time: '09:00', closing_time: '23:00', timezone: STORE_TIMEZONE, days_off: [] as string[], is_on_holiday: false, holiday_message: '', enable_whatsapp_orders: true,
     is_subscription_active: true, is_menu_active: true, show_on_home: true, show_stores_button: false, subscription_notes: ''
@@ -327,6 +327,7 @@ export default function AdminDashboard() {
       latitude: resForm.latitude ? areaLocation(parseFloat(resForm.latitude), resForm.hide_location) : null,
       longitude: resForm.longitude ? areaLocation(parseFloat(resForm.longitude), resForm.hide_location) : null,
       hide_location: resForm.hide_location === true,
+      size_prices: resForm.size_prices === true,
       delivery_radius_km: resForm.delivery_radius_km ? parseFloat(resForm.delivery_radius_km) : 5,
       max_offers_limit: resForm.max_offers_limit ? parseInt(resForm.max_offers_limit) : 5,
       store_type: resForm.store_type || 'restaurant',
@@ -398,7 +399,7 @@ export default function AdminDashboard() {
         .filter(phone => phone !== currentOwnerPhone && phone !== normalizePhoneNumber(r.whatsapp_number))
         .map(phone => formatPhoneDisplay(phone)),
       logo_url: r.logo_url || '', cover_url: r.cover_url || '',
-      latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '', hide_location: r.hide_location === true,
+      latitude: r.latitude?.toString() || '', longitude: r.longitude?.toString() || '', hide_location: r.hide_location === true, size_prices: r.size_prices === true,
       delivery_radius_km: r.delivery_radius_km?.toString() || '5',
       max_offers_limit: r.max_offers_limit?.toString() || '5',
       store_type: r.store_type || 'restaurant',
@@ -873,7 +874,8 @@ export default function AdminDashboard() {
                           )}
                         </div>
                         <div>
-                          <label className="f-label">نطاق التوصيل (كم)</label>
+                          {/* A store without delivery still uses this distance: it's who the store is shown to */}
+                          <label className="f-label">{resForm.has_delivery ? 'نطاق التوصيل (كم)' : 'يظهر للزبائن ضمن (كم)'}</label>
                           <NumberInput min="1" max="100" required value={resForm.delivery_radius_km}
                             onChange={e => setResForm({ ...resForm, delivery_radius_km: e.target.value })}
                             className="f-input" />
@@ -882,6 +884,7 @@ export default function AdminDashboard() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
                         <CheckRow label="يقدم خدمة التوصيل" checked={resForm.has_delivery} onChange={checked => setResForm({ ...resForm, has_delivery: checked })} />
                         <CheckRow label="يستقبل الطلبات على واتساب" checked={resForm.enable_whatsapp_orders !== false} onChange={checked => setResForm({ ...resForm, enable_whatsapp_orders: checked })} />
+                        <CheckRow label="أسعار حسب المقاس (مثل الكيك)" checked={resForm.size_prices} onChange={checked => setResForm({ ...resForm, size_prices: checked })} />
                       </div>
                     </section>
 
