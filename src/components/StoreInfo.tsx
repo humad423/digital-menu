@@ -45,7 +45,10 @@ export default function StoreInfo({ restaurant }: { restaurant: any }) {
     const info = getDeliveryFeeForDistance(distance, restaurant.delivery_tiers, restaurant.delivery_radius_km)
     const away = `يبعد عنك ${distance.toFixed(1)} كم`
 
-    if (!info.available) {
+    if (!info.available && info.hasTiers) {
+      // The store set fees for nearer distances only; that says nothing about whether it delivers this far
+      setDelivery(`رسوم التوصيل غير معروفة · ${away}${hours}`)
+    } else if (!info.available) {
       setOutOfRange(true)
       setDelivery(away)
     } else if (!info.hasTiers) {

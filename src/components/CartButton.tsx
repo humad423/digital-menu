@@ -59,7 +59,7 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
   const [customerName, setCustomerName] = useState('')
   const [note, setNote] = useState('')
   const [status, setStatus] = useState<StoreStatus | null>(null)
-  const [estimate, setEstimate] = useState<{ fee: number | null; outOfRange: boolean }>({ fee: null, outOfRange: false })
+  const [estimate, setEstimate] = useState<{ fee: number | null; outOfRange: boolean; unknown?: boolean }>({ fee: null, outOfRange: false })
   const [delivery, setDelivery] = useState<DeliveryNow | null>(null)
   const cartStore = useCartStore()
 
@@ -82,7 +82,12 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
         restaurant.delivery_tiers,
         restaurant.delivery_radius_km
       )
-      setEstimate({ fee: info.available && info.hasTiers ? info.fee : null, outOfRange: !info.available })
+      // Fees set only for nearer distances leave this one's fee unknown, not the store out of reach
+      setEstimate({
+        fee: info.available && info.hasTiers ? info.fee : null,
+        outOfRange: !info.available && !info.hasTiers,
+        unknown: !info.available && info.hasTiers,
+      })
     }
   }, [isOpen, isPickup, restaurant, position])
 
@@ -239,7 +244,7 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
               {!isPickup && (
                 <div className="flex justify-between gap-3 font-bold">
                   <span>التوصيل المتوقع</span>
-                  <span>{estimate.fee === null ? 'حسب العنوان' : estimate.fee === 0 ? 'مجاني' : money(estimate.fee)}</span>
+                  <span>{estimate.unknown ? 'غير معروفة' : estimate.fee === null ? 'حسب العنوان' : estimate.fee === 0 ? 'مجاني' : money(estimate.fee)}</span>
                 </div>
               )}
               {!isPickup && !!estimate.fee && (
