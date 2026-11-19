@@ -138,9 +138,31 @@ export interface Parsed {
 
 /** The shop the admin's message wants to move to, if it's a real one and not the current one. */
 export function readSwitchStore(ctx: Context, raw: unknown): ShopChoice | null {
-  if (!ctx.isAdmin || typeof raw !== 'string') return null
-  const choice = ctx.stores?.find(store => store.code === raw)
+  if (!ctx.isAdmin || typeof raw !== 'string' || !raw.trim()) return null
+  // Its code, or its link or name when the model writes those instead
+  const wanted = raw.trim()
+  const choice = ctx.stores?.find(store => store.code === wanted || store.slug === wanted)
+    ?? namedStore(ctx.stores ?? [], wanted)
   return choice && choice.id !== ctx.store.id ? choice : null
+}
+
+/** A name compared without "ال", diacritics, punctuation or emoji, so "حلويات الجبل" is "حلويات جبل". */
+const plainName = (value: unknown) => withoutAl(String(value ?? '').replace(/[^\p{L}\p{N}]+/gu, ' ')).replace(/\s+/g, ' ').trim()
+
+/**
+ * The shop the admin's words name, if they name exactly one, the longest name winning when one holds another.
+ * Short names are left out, since they turn up inside ordinary words. A name may carry a joined و، ب، ل or ف, as in "لحلويات جبل".
+ */
+export function namedStore<T extends { name: string }>(stores: T[], text: string): T | null {
+  const said = plainName(text)
+  const found = stores
+    .map(store => ({ store, name: plainName(store.name) }))
+    .filter(({ name }) => name.length >= 4 && new RegExp(`(^| )[وبلف]?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( |$)`).test(said))
+    .sort((a, b) => b.name.length - a.name.length)
+  if (!found.length) return null
+  // Two different shops named with names of the same length can't be told apart
+  if (found.length > 1 && found[1].name.length === found[0].name.length && found[1].name !== found[0].name) return null
+  return found[0].store
 }
 
 /** What the model asked to see, limited to what it can ask for. */
@@ -814,6 +836,11 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
     if (table !== 'categories' && table !== 'menu_items' && table !== 'offers') return { problem: `"${clean(table, 30)}" is not something you can add to.` }
     const { fields, problem } = readFields(ctx, table, action.fields)
     if (!fields) return { problem }
+    // A category is only made once, so trying again after a problem never leaves copies behind
+    if (table === 'categories') {
+      const same = ctx.records.find(other => other.table === 'categories' && plainName(other.row.name) === plainName(fields.name))
+      if (same) return { problem: `The category "${labelOf(same.row)}" already exists as ${same.code}, so it was not added again. Use ${same.code} as the category_id.` }
+    }
     // Customers would see a product with no price as free
     const priceField = table === 'menu_items' ? 'price' : table === 'offers' ? 'offer_price' : null
     if (priceField && fields[priceField] === undefined) {
@@ -981,6 +1008,18 @@ export function claimsSave(reply: string): boolean {
   return /(خفيت|خفينا|اخفيت|اخفينا|عدلت|عدلنا|عدلتلك|ضفت|ضفنا|ضفتلك|نزلت|نزلنا|حطيت|حطينا|غيرت|غيرنا|حذفت|حذفنا|شلت|شلنا|رجعت|رجعنا|سجلت|سجلنا|صار السعر)/.test(said)
     || /(^|\s)تم(ت)?(\s|$)/.test(said)
 }
+
+/**
+ * True when a message promises work for later, like "ثواني وبتكون جاهزة". Nothing runs after the reply is sent,
+ * so a promise like that would never be kept.
+ */
+export function promisesLater(reply: string): boolean {
+  const said = normalizeName(reply)
+  return /(ثواني|ثانيه وبي|دقايق وبي|شغال عليه|عم اشتغل|عم نشتغل|عم جهز|عم نجهز|بلشت بتجهيز|بلشت بترتيب|عم نتابعها|رح خلص|رح كمل|بكملها|بخلصها|بخلصلك|بكون جاهز|بتكون جاهز|بيكون جاهز|بتكون الامور جاهز|برجعلك|برد عليك بعد)/.test(said)
+}
+
+/** True when the admin is told the assistant moved to another shop. */
+export const claimsMove = (reply: string) => /(انتقلت|نقلت ل|صرت على محل|صرت على متجر|هلق ع ?م? ?نشتغل على)/.test(normalizeName(reply))
 
 function mentionsPrice(reply: string, price: unknown): boolean {
   const number = String(price).replace('.', '\\.')

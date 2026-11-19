@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, describePieces, fromLocalTime, isOngoing, noticeLines, normalizeName,
+  allowedStoreIds, applyToContext, buildInput, checkAction, claimsMove, claimsSave, namedStore, promisesLater, readSwitchStore, describeForMemory, describePieces, fromLocalTime, isOngoing, noticeLines, normalizeName,
   photosUsed, pickStore, pieceKind, readActions, readLooks, readMessage, titleUse, toLocalTime, replyDelay, safeReply, shopLinks, storeLocalTime, usesPhoto, withPhotoQuestion, withFacts, withPhoto,
   type Context, type Step, type StoreRecord,
 } from '../supabase/functions/store-assistant/logic.ts'
@@ -649,5 +649,58 @@ describe('hours and delivery change only for a while', () => {
     const paused = at({ records: records.map(record => record.code === 'S' ? { ...record, row: { ...record.row, delivery_paused_until: '2026-11-08T11:00:00Z' } } : record) })
     assert.ok(shopUpdate({ delivery_paused_until: null }, paused).step, 'it can be brought back at once')
     assert.ok(noticeLines(paused, now).some(note => /Delivery is paused until 2026-11-08 14:00/.test(note)))
+  })
+})
+
+describe('the admin moving between shops', () => {
+  const shops = [
+    { code: 'A1', id: 'karam', name: 'بيت الكرم', slug: 'bayt-alkarm' },
+    { code: 'A2', id: 'jabal', name: 'حلويات جبل', slug: 'jabal-alhalwiat' },
+    { code: 'A3', id: 'muna', name: 'بيت المونة', slug: 'bayt-almuna' },
+  ]
+
+  test('finds the shop the words name, with or without ال and a joined letter', () => {
+    assert.equal(namedStore(shops, 'بالنسبة لمحل حلويات الجبل، رتب لي الكيكات')?.id, 'jabal')
+    assert.equal(namedStore(shops, 'ضيف هالمنتج لبيت الكرم')?.id, 'karam')
+    assert.equal(namedStore(shops, 'حلويات جبل 🎂')?.id, 'jabal')
+  })
+
+  test('names nothing when no shop is named', () => {
+    assert.equal(namedStore(shops, 'رتب الكيكات بأقسام'), null)
+    assert.equal(namedStore(shops, 'بيت'), null)
+  })
+
+  test('the model can name the shop by code, link or name', () => {
+    const admin = ctx({ isAdmin: true, stores: shops })
+    assert.equal(readSwitchStore(admin, 'A2')?.id, 'jabal')
+    assert.equal(readSwitchStore(admin, 'jabal-alhalwiat')?.id, 'jabal')
+    assert.equal(readSwitchStore(admin, 'حلويات الجبل')?.id, 'jabal')
+    assert.equal(readSwitchStore(ctx({ stores: shops }), 'A2'), null, 'only the admin moves')
+  })
+})
+
+describe('jobs done once and now', () => {
+  test('a category that already exists is not added again', () => {
+    const { problem } = checkAction(ctx(), { op: 'add', table: 'categories', fields: { name: 'الخضار' } })
+    assert.match(problem!, /already exists as C1/)
+    assert.ok(checkAction(ctx(), { op: 'add', table: 'categories', fields: { name: 'فواكه' } }).step)
+  })
+
+  test('a category added earlier in the same message counts too', () => {
+    const shop = ctx()
+    const step = checkAction(shop, { op: 'add', table: 'categories', ref: 'N1', fields: { name: 'كيك أعياد الميلاد 🎂' } }).step!
+    applyToContext(shop, step, { id: 'new-cat', name: 'كيك أعياد الميلاد 🎂' })
+    assert.match(checkAction(shop, { op: 'add', table: 'categories', fields: { name: 'كيك أعياد الميلاد' } }).problem!, /already exists as N1/)
+  })
+
+  test('catches work promised for later', () => {
+    assert.ok(promisesLater('تكرم عينك، شغّال عليهن هلق، ثواني وبتكون الأمور جاهزة'))
+    assert.ok(promisesLater('بلّشت بتجهيز الأقسام'))
+    assert.ok(!promisesLater('تمام، رتبت الكيكات بأربع أقسام'))
+  })
+
+  test('catches a claimed move', () => {
+    assert.ok(claimsMove('تمام، انتقلت لمحل حلويات جبل'))
+    assert.ok(!claimsMove('رتبت الأقسام بحلويات جبل'))
   })
 })

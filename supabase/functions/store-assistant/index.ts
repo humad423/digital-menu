@@ -2,8 +2,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import {
   HISTORY_SAVED, MAX_ROUNDS, NO_STORE, PHOTO_MINUTES, SYSTEM_INSTRUCTION,
-  allowedStoreIds, applyToContext, buildInput, checkAction, claimsSave, describeForMemory, describePieces, isOngoing, normalizeName, photosUsed,
-  pickStore, pieceKind, readActions, readLooks, readMessage, readSwitchStore, replyDelay, safeReply, shopLinks, storeLocalTime, storeZone, toLocalTime,
+  allowedStoreIds, applyToContext, buildInput, checkAction, claimsMove, claimsSave, describeForMemory, describePieces, isOngoing, namedStore, normalizeName, photosUsed,
+  pickStore, pieceKind, promisesLater, readActions, readLooks, readMessage, readSwitchStore, replyDelay, safeReply, shopLinks, storeLocalTime, storeZone, toLocalTime,
   withFacts, withPhoto, withPhotoQuestion,
   type Context, type HistoryEntry, type Look, type Parsed, type Piece, type Step, type Store, type StorePick, type StoreRecord,
 } from './logic.ts'
@@ -32,6 +32,13 @@ const ADMIN_ROUNDS = 6
 const ADMIN_REPLY_LENGTH = 4000
 const REPLY_TOKENS = 8000
 const ADMIN_REPLY_TOKENS = 30000
+// Supabase stops a request after 150 seconds and the owner then hears nothing, so the answer is
+// worked out within this, from when the message arrived, leaving time to save and reply
+const ANSWER_WITHIN_MS = 120_000
+// A new round only starts with at least this long left, since one can take that long
+const ROUND_NEEDS_MS = 20_000
+// One answer from Google never waits longer than this
+const GEMINI_TIMEOUT_MS = 45_000
 
 const env = (name: string, fallback = '') => Deno.env.get(name) || fallback
 const WAHA_URL = env('WAHA_URL').replace(/\/+$/, '')
@@ -117,12 +124,15 @@ async function uploadImage(base64: string, mimeType: string): Promise<string | n
   return (await response.json()).secure_url || null
 }
 
-async function askGemini(input: unknown, maxTokens: number): Promise<{ parsed?: Parsed; busy?: boolean }> {
-  // Google's busy spells pass quickly, and a slow answer is fine, so it waits and asks again
+async function askGemini(input: unknown, maxTokens: number, deadline: number): Promise<{ parsed?: Parsed; busy?: boolean }> {
+  // Google's busy spells pass quickly, and a slow answer is fine, so it waits and asks again while there's time
   for (let attempt = 0; attempt <= RETRY_WAITS.length; attempt++) {
     const started = Date.now()
+    const timeLeft = deadline - started
+    if (timeLeft < 5000) return { busy: true }
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
+      signal: AbortSignal.timeout(Math.min(GEMINI_TIMEOUT_MS, timeLeft)),
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY'), 'Api-Revision': '2026-05-20' },
       body: JSON.stringify({
         model: MODEL,
@@ -135,14 +145,18 @@ async function askGemini(input: unknown, maxTokens: number): Promise<{ parsed?: 
     }).catch(error => { console.error('Gemini unreachable', error); return null })
     console.log(`Gemini ${response?.status ?? 'unreachable'} in ${Date.now() - started} ms`)
     if (!response || response.status === 429 || response.status >= 500) {
-      if (attempt < RETRY_WAITS.length) { await sleep(RETRY_WAITS[attempt]); continue }
+      // Waiting only helps if there's still time to ask again after it
+      const wait = RETRY_WAITS[attempt]
+      if (wait !== undefined && Date.now() + wait + 10_000 < deadline) { await sleep(wait); continue }
       return { busy: true }
     }
     if (!response.ok) {
       console.error('Gemini error', response.status, (await response.text()).slice(0, 500))
       return {}
     }
-    const data = await response.json()
+    // The time limit can also cut the answer off while it's being read
+    const data = await response.json().catch(error => { console.error('Gemini answer cut off', error); return null })
+    if (!data) return { busy: true }
     const steps = Array.isArray(data.steps) ? data.steps : []
     const output = steps.filter((step: any) => step.type === 'model_output').at(-1)
     const text = typeof data.output_text === 'string'
@@ -403,7 +417,7 @@ async function gather(message: { id: string; sentAt: number; text: string; media
   return taken.sort((a, b) => (a.sent_at ?? 0) - (b.sent_at ?? 0) || String(a.received_at).localeCompare(String(b.received_at)) || a.message_id.localeCompare(b.message_id))
 }
 
-async function handleMessage(body: unknown) {
+async function handleMessage(body: unknown, deadline: number) {
   const message = readMessage(body, Math.floor(Date.now() / 1000))
   if ('ignored' in message) return { reply: null, ignored: message.ignored }
 
@@ -436,7 +450,7 @@ async function handleMessage(body: unknown) {
   if (!batch) return { reply: null, ignored: 'answered together with a later message' }
 
   try {
-    return await answer(message.session, phone, storeIds, batch, isAdmin)
+    return await answer(message.session, phone, storeIds, batch, isAdmin, deadline)
   } finally {
     await db.from('assistant_inbox').update({ done_at: new Date().toISOString() }).in('message_id', batch.map(row => row.message_id))
     // Old rows are only needed for a few minutes
@@ -445,7 +459,7 @@ async function handleMessage(body: unknown) {
 }
 
 /** Reads everything the owner just sent, looks at the shop, acts and answers once. */
-async function answer(session: string, phone: string, storeIds: string[], batch: InboxRow[], isAdmin: boolean) {
+async function answer(session: string, phone: string, storeIds: string[], batch: InboxRow[], isAdmin: boolean, deadline: number) {
   const to = `${phone}@c.us`
   let ongoing = false
   const reply = (text: string) => ({ reply: text, chatId: to, session, wait_seconds: replyDelay(text, ongoing) })
@@ -470,9 +484,12 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
 
   // The words, all together, are what a store is picked by; a voice note or photo alone has none
   const words = batch.map(row => row.text).filter(Boolean).join('\n')
-  // The admin stays on the last shop they worked on, and the model moves between shops itself
+  // The admin goes to a shop their words name, and otherwise stays on the last one they worked on.
+  // The model can also move between shops itself.
+  const named = isAdmin && words ? namedStore(stores, words) : null
+  if (named && named.id !== chat?.store_id) console.log(`Admin named ${named.slug}`)
   const pick: StorePick = isAdmin
-    ? { storeId: stores.some(store => store.id === chat?.store_id) ? chat.store_id : null, text: words || '(media)', held: null, reply: null, switched: false }
+    ? { storeId: named?.id ?? (stores.some(store => store.id === chat?.store_id) ? chat.store_id : null), text: words || '(media)', held: null, reply: null, switched: false }
     : pickStore(stores, chat?.store_id ?? null, held, words || '(media)')
   const keptPhotos = pick.switched && stores.length > 1 ? [] : savedPhotos
   if (!isAdmin && (!pick.storeId || pick.reply)) {
@@ -575,9 +592,12 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
   const changed = new Map<string, string>()
 
   // The agent looks, acts, hears what really happened, and can put it right before answering
+  // Set once there's only time for one more round, which is then only for answering
+  let finalTry = false
   for (let round = 0; round < rounds; round++) {
+    if (round > 0 && Date.now() + ROUND_NEEDS_MS > deadline) { console.log(`Out of time after ${round} rounds`); break }
     if (round > 0 && !await countCall()) break
-    const result = await askGemini(request(note), isAdmin ? ADMIN_REPLY_TOKENS : REPLY_TOKENS)
+    const result = await askGemini(request(note), isAdmin ? ADMIN_REPLY_TOKENS : REPLY_TOKENS, deadline)
     if (!result.parsed) { busy = !!result.busy; break }
 
     // A voice note it wrote nothing down for wasn't really heard, so it isn't acted on
@@ -597,8 +617,14 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
       heard = [shows && `صورة: ${shows}`, String(result.parsed.heard ?? '')].filter(Boolean).join(' - ')
     }
 
-    // Moving comes before anything else it sent, so nothing lands on the shop it's leaving
-    const target = round < rounds - 2 ? readSwitchStore(ctx, result.parsed.switch_store) : null
+    // Moving comes before anything else it sent, so nothing lands on the shop it's leaving.
+    // A voice note naming another shop moves there too, since the model doesn't always ask to.
+    const canMove = round < rounds - 2 && !finalTry
+    const target = canMove
+      ? readSwitchStore(ctx, result.parsed.switch_store)
+        ?? (isAdmin && round === 0 && voices.length ? readSwitchStore(ctx, namedStore(ctx.stores ?? [], String(result.parsed.heard ?? ''))?.code ?? '') : null)
+      : null
+    if (result.parsed.switch_store && !target && canMove) console.log(`Could not move to ${String(result.parsed.switch_store).slice(0, 60)}`)
     if (target) {
       const next = stores.find(candidate => candidate.id === target.id) ?? ctx.store
       const loaded = await loadShop(next)
@@ -623,7 +649,7 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
     }
 
     // Its last try is only for answering, so the owner always hears something real
-    const lastRound = round === rounds - 1
+    const lastRound = round === rounds - 1 || finalTry
     const actions = lastRound ? [] : readActions(result.parsed.actions)
     const problems: string[] = []
     for (const action of actions) {
@@ -641,12 +667,22 @@ async function answer(session: string, phone: string, storeIds: string[], batch:
 
     draft = safeReply(result.parsed.reply, shopLinks(ctx.store), isAdmin ? ADMIN_REPLY_LENGTH : undefined)
     const emptyClaim = actions.length === 0 && done.length === 0 && claimsSave(draft)
-    if (problems.length === 0 && draft && !emptyClaim) { answered = true; break }
+    // Nothing runs once the reply is sent, so work promised for later would never happen
+    const promise = !lastRound && promisesLater(draft)
+    // Saying it moved to another shop when it didn't would send the next changes to the wrong one
+    const falseMove = isAdmin && !lastRound && claimsMove(draft) && ctx.store.id === store.id && !named
+    if (problems.length) console.log(`Round ${round + 1} problems: ${problems.join(' | ').slice(0, 800)}`)
+    if (promise) console.log('Reply promised work for later')
+    if (falseMove) console.log('Reply said it moved without moving')
+    if (problems.length === 0 && draft && !emptyClaim && !promise && !falseMove) { answered = true; break }
 
+    finalTry = round === rounds - 2 || Date.now() + 2 * ROUND_NEEDS_MS > deadline
     note = `System note: your draft reply was not sent. Saved so far: ${describeForMemory(done) || 'nothing'}. ${
       emptyClaim ? 'Your draft said something changed, but you sent no actions, so nothing did.' : ''
+    }${promise ? ' Your draft promised to do something later, but nothing runs after your reply: do all of it now, in this one list of actions, or tell them plainly what you could not do.' : ''
+    }${falseMove ? ' Your draft said you moved to another shop, but you did not: to move, send switch_store with its code.' : ''
     }${problems.length ? ` These did not go through:\n${problems.join('\n')}` : ''}${!draft && !problems.length ? ' Your reply was empty or held a link other than the ones you may share.' : ''}
-${round === rounds - 2 ? 'This is your last try, so nothing more can be saved: leave actions empty and tell the owner honestly what was saved, what was not, and ask for whatever is missing.' : 'Fix what you can with new actions, without repeating what was saved, or tell the owner honestly, asking for whatever is missing. Then write your reply.'}`
+${finalTry ? 'This is your last try, so nothing more can be saved: leave actions empty and tell the owner honestly what was saved, what was not, and ask for whatever is missing.' : 'Fix what you can with new actions, without repeating what was saved, or tell the owner honestly, asking for whatever is missing. Then write your reply.'}`
   }
 
   const unheard = voices.length ? '(رسالة صوتية ما انفهمت)' : images.length ? '(صورة)' : ''
@@ -683,11 +719,12 @@ ${round === rounds - 2 ? 'This is your last try, so nothing more can be saved: l
 }
 
 Deno.serve(async request => {
+  const deadline = Date.now() + ANSWER_WITHIN_MS
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405)
   if (!sameSecret(request.headers.get('x-assistant-secret'), env('ASSISTANT_SECRET'))) return json({ error: 'unauthorized' }, 401)
 
   try {
-    const result = await handleMessage(await request.json())
+    const result = await handleMessage(await request.json(), deadline)
     return json(result)
   } catch (error) {
     console.error(error)

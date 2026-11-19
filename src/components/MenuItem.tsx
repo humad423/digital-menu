@@ -43,7 +43,28 @@ function QuantityStepper({ quantity, onDecrease, onIncrease }: { quantity: numbe
   )
 }
 
+// Short choices like S, M, L fit side by side as buttons. Many choices, or long ones like
+// "14 سم (4 - 6 أشخاص)", become one dropdown, so the card stays short however many there are.
+const MAX_BUTTONS = 4
+const MAX_BUTTON_LABEL = 8
+
 function ChoiceRow({ label, options, value, onChange, prices }: { label: string; options: string[]; value: string; onChange: (option: string) => void; prices?: Record<string, number> }) {
+  const priced = (option: string) => (prices?.[option] !== undefined ? `${option} · ${prices[option]} ${CURRENCY_SYMBOL}` : option)
+  // Nothing to choose between, so it's just said
+  if (options.length === 1) return <p className="mt-2 font-bold">{label} <span className="font-medium">{options[0]}</span></p>
+  const asList = options.length > MAX_BUTTONS || options.some(option => option.length > MAX_BUTTON_LABEL)
+  if (asList) {
+    return (
+      <label className="mt-2 block">
+        <span className="block font-bold mb-1">{label}</span>
+        <select value={value} onChange={event => onChange(event.target.value)} className="field font-bold">
+          {options.map(option => (
+            <option key={option} value={option}>{priced(option)}</option>
+          ))}
+        </select>
+      </label>
+    )
+  }
   return (
     <div className="mt-2">
       <p className="font-bold mb-1">{label}</p>
