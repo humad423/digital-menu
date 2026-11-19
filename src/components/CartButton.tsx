@@ -82,11 +82,11 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
         restaurant.delivery_tiers,
         restaurant.delivery_radius_km
       )
-      // Fees set only for nearer distances leave this one's fee unknown, not the store out of reach
+      // The admin's reach says whether it's out of range; the store's fee tiers only give the expected fee
       setEstimate({
-        fee: info.available && info.hasTiers ? info.fee : null,
-        outOfRange: !info.available && !info.hasTiers,
-        unknown: !info.available && info.hasTiers,
+        fee: info.available && info.feeKnown ? info.fee : null,
+        outOfRange: !info.available,
+        unknown: info.available && info.hasTiers && !info.feeKnown,
       })
     }
   }, [isOpen, isPickup, restaurant, position])

@@ -17,65 +17,42 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
   return R * c
 }
 
+/** How far a store reaches when the admin hasn't set it. */
+export const DEFAULT_REACH_KM = 10
+
+/** How far a store is shown, as the Alfsouq admin set it. The store itself can't change this. */
+export const storeReachKm = (reachKm?: number | null): number => (Number(reachKm) > 0 ? Number(reachKm) : DEFAULT_REACH_KM)
+
+/**
+ * Whether a customer this far away is within the store's reach, and what delivery is expected to cost them.
+ * Only the admin's reach decides where a store shows. The store's own fee tiers only say what delivery
+ * costs at a distance; when none covers it, the fee is unknown, but the store still reaches them.
+ */
 export function getDeliveryFeeForDistance(
   distanceKm: number,
   tiers?: DeliveryTier[],
-  deliveryRadiusKm?: number
+  reachKm?: number | null
 ): {
   available: boolean
   fee: number
   hasTiers: boolean
+  feeKnown: boolean
   tierName?: string
-  reason?: string
 } {
   const activeTiers = Array.isArray(tiers) ? tiers.filter(t => t && t.is_active !== false) : []
-
-  if (activeTiers.length === 0) {
-    // No tiers configured by store -> general delivery available without distance fee breakdown
-    const maxRadius = deliveryRadiusKm && deliveryRadiusKm > 0 ? deliveryRadiusKm : 50
-    if (distanceKm <= maxRadius) {
-      return { available: true, fee: 0, hasTiers: false, tierName: 'يوجد توصيل' }
-    } else {
-      return { available: false, fee: 0, hasTiers: false, reason: 'خارج نطاق التوصيل' }
-    }
-  }
-
-  // Find matching distance tier
-  const matchedTier = activeTiers.find(t => distanceKm >= t.min_km && distanceKm <= t.max_km)
-
-  if (!matchedTier) {
-    return { available: false, fee: 0, hasTiers: true, reason: 'خارج مسافة التوصيل المتاحة' }
-  }
-
+  const tier = activeTiers.find(t => distanceKm >= t.min_km && distanceKm <= t.max_km)
   return {
-    available: true,
-    fee: matchedTier.fee,
-    hasTiers: true,
-    tierName: `${matchedTier.min_km} - ${matchedTier.max_km} كم`
+    available: distanceKm <= storeReachKm(reachKm),
+    fee: tier?.fee ?? 0,
+    hasTiers: activeTiers.length > 0,
+    feeKnown: Boolean(tier),
+    tierName: tier ? `${tier.min_km} - ${tier.max_km} كم` : undefined,
   }
 }
 
-/**
- * Checks if a restaurant is within delivery range of the given user coordinates.
- * Returns true if the restaurant should be shown on the homepage.
- */
-export function isStoreWithinRange(
-  userLat: number,
-  userLng: number,
-  restaurant: any
-): boolean {
+/** Whether a store shows to a customer here: within the reach the admin set for it. */
+export function isStoreWithinRange(userLat: number, userLng: number, restaurant: any): boolean {
   // Without a position on the map we can't say it reaches anyone
   if (!restaurant.latitude || !restaurant.longitude) return false
-
-  const dist = calculateDistance(userLat, userLng, restaurant.latitude, restaurant.longitude)
-
-  // Pick-up only stores: use delivery_radius_km to decide visibility on map/list
-  if (restaurant.has_delivery === false) {
-    const radius = restaurant.delivery_radius_km || 50
-    return dist <= radius
-  }
-
-  // Delivery stores with tiers
-  const result = getDeliveryFeeForDistance(dist, restaurant.delivery_tiers, restaurant.delivery_radius_km)
-  return result.available
+  return calculateDistance(userLat, userLng, restaurant.latitude, restaurant.longitude) <= storeReachKm(restaurant.delivery_radius_km)
 }

@@ -31,6 +31,8 @@ type Row = Record<string, unknown>
 const ADMIN_ONLY = new Set([
   'slug', 'is_subscription_active', 'is_menu_active', 'subscription_notes', 'max_offers_limit', 'show_on_home', 'show_stores_button',
   'name', 'phone', 'whatsapp_number', 'latitude', 'longitude', 'store_type', 'timezone', 'hide_location', 'size_prices',
+  // How far the shop shows to customers; its own delivery fees don't change that
+  'delivery_radius_km',
 ])
 /**
  * Settings an owner could change and then forget to change back, like the hours or switching delivery off.

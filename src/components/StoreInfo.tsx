@@ -45,14 +45,14 @@ export default function StoreInfo({ restaurant }: { restaurant: any }) {
     const info = getDeliveryFeeForDistance(distance, restaurant.delivery_tiers, restaurant.delivery_radius_km)
     const away = `يبعد عنك ${distance.toFixed(1)} كم`
 
-    if (!info.available && info.hasTiers) {
-      // The store set fees for nearer distances only; that says nothing about whether it delivers this far
-      setDelivery(`رسوم التوصيل غير معروفة · ${away}${hours}`)
-    } else if (!info.available) {
+    // Where the store reaches is the admin's call; its fee tiers only tell the expected fee
+    if (!info.available) {
       setOutOfRange(true)
       setDelivery(away)
     } else if (!info.hasTiers) {
       setDelivery(`يوجد توصيل · ${away}${hours}`)
+    } else if (!info.feeKnown) {
+      setDelivery(`رسوم التوصيل غير معروفة · ${away}${hours}`)
     } else {
       setDelivery(`${info.fee === 0 ? 'توصيل مجاني' : `التوصيل ${info.fee} ${CURRENCY_SYMBOL}`} · ${away}${hours}`)
     }

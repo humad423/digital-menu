@@ -612,9 +612,13 @@ describe('hours and delivery change only for a while', () => {
     assert.ok(noticeLines(closed, now).some(note => /closed for a while, until 2026-11-08 13:30/.test(note)))
   })
 
-  test('delivery fees and distance are changed as usual, like any price', () => {
+  test('delivery fees are changed as usual, like any price', () => {
     const fees = [{ min_km: 0, max_km: 3, fee: 20, is_active: true }]
-    assert.deepEqual((shopUpdate({ delivery_tiers: fees, delivery_radius_km: 6 }).step as any).fields, { delivery_tiers: fees, delivery_radius_km: 6 })
+    assert.deepEqual((shopUpdate({ delivery_tiers: fees }).step as any).fields, { delivery_tiers: fees })
+  })
+
+  test('how far the shop shows is the Alfsouq team\'s, so an owner can\'t change it', () => {
+    assert.match(shopUpdate({ delivery_radius_km: 6 }).problem!, /belongs to the Alfsouq team/)
   })
 
   test('a day can be changed, and the list is checked and tidied', () => {

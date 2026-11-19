@@ -3,12 +3,12 @@ import webpush from 'web-push'
 import { VAPID_PUBLIC_KEY, VAPID_SUBJECT } from '@/config/push'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
+import { storeReachKm } from '@/utils/distance'
 import { readAudience, readNotice, subscribersWithin, type Audience, type Reach, type Subscriber } from '@/utils/push'
 
 // Sending to every subscriber can take a while once there are many
 export const maxDuration = 60
 
-const DEFAULT_REACH_KM = 10
 
 type Db = ReturnType<typeof createAdminClient>
 
@@ -29,7 +29,7 @@ async function placesFor(db: Db, audience: Exclude<Audience, { kind: 'all' }>): 
     .map(store => ({
       lat: store.latitude,
       lng: store.longitude,
-      radiusKm: audience.kind === 'store' && audience.radiusKm ? audience.radiusKm : Number(store.delivery_radius_km) || DEFAULT_REACH_KM,
+      radiusKm: audience.kind === 'store' && audience.radiusKm ? audience.radiusKm : storeReachKm(store.delivery_radius_km),
     }))
 }
 

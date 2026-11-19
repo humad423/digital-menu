@@ -10,6 +10,7 @@ function deliveryText(store: any): string {
   const info = getDeliveryFeeForDistance(store.distance, store.delivery_tiers, store.delivery_radius_km)
   if (!info.available) return 'خارج نطاق التوصيل'
   if (!info.hasTiers) return 'يوجد توصيل'
+  if (!info.feeKnown) return 'رسوم التوصيل غير معروفة'
   return info.fee === 0 ? 'توصيل مجاني' : `التوصيل ${info.fee} ${CURRENCY_SYMBOL}`
 }
 

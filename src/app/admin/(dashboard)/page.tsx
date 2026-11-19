@@ -874,8 +874,8 @@ export default function AdminDashboard() {
                           )}
                         </div>
                         <div>
-                          {/* A store without delivery still uses this distance: it's who the store is shown to */}
-                          <label className="f-label">{resForm.has_delivery ? 'نطاق التوصيل (كم)' : 'يظهر للزبائن ضمن (كم)'}</label>
+                          {/* Only this decides who sees the store; its own delivery fees don't change it */}
+                          <label className="f-label">يظهر للزبائن ضمن (كم)</label>
                           <NumberInput min="1" max="100" required value={resForm.delivery_radius_km}
                             onChange={e => setResForm({ ...resForm, delivery_radius_km: e.target.value })}
                             className="f-input" />

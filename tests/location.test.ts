@@ -34,6 +34,13 @@ describe('isStoreWithinRange', () => {
     assert.equal(isStoreWithinRange(here.lat, here.lng, { ...store, delivery_radius_km: 2 }), false)
   })
 
+  test('fee tiers neither widen nor narrow where a store shows', () => {
+    const nearFees = [{ min_km: 0, max_km: 1, fee: 20, is_active: true }]
+    assert.equal(isStoreWithinRange(here.lat, here.lng, { ...store, delivery_tiers: nearFees }), true)
+    const farFees = [{ min_km: 0, max_km: 50, fee: 20, is_active: true }]
+    assert.equal(isStoreWithinRange(here.lat, here.lng, { ...store, delivery_radius_km: 2, delivery_tiers: farFees }), false)
+  })
+
   test('hides a store with no position on the map', () => {
     assert.equal(isStoreWithinRange(here.lat, here.lng, { ...store, latitude: null, longitude: null }), false)
   })

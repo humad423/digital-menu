@@ -38,7 +38,6 @@ export default function StoreSettingsModal({
   const [menuNote, setMenuNote] = useState(restaurant?.menu_note || '')
   const [enableWhatsappOrders, setEnableWhatsappOrders] = useState<boolean>(restaurant?.enable_whatsapp_orders !== false)
   const [hasDelivery, setHasDelivery] = useState<boolean>(restaurant?.has_delivery !== false)
-  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(Number(restaurant?.delivery_radius_km) || 15)
   const [deliveryTiers, setDeliveryTiers] = useState<any[]>(
     Array.isArray(restaurant?.delivery_tiers) ? restaurant.delivery_tiers : []
   )
@@ -60,7 +59,6 @@ export default function StoreSettingsModal({
       setMenuNote(restaurant.menu_note || '')
       setEnableWhatsappOrders(restaurant.enable_whatsapp_orders !== false)
       setHasDelivery(restaurant.has_delivery !== false)
-      setDeliveryRadiusKm(Number(restaurant.delivery_radius_km) || 15)
       setDeliveryTiers(Array.isArray(restaurant.delivery_tiers) ? restaurant.delivery_tiers : [])
       setErrorMsg('')
     }
@@ -116,10 +114,6 @@ export default function StoreSettingsModal({
       return setErrorMsg('⚠️ عذراً، اشتراك المتجر معلق حالياً. يرجى تجديد الاشتراك لتتمكن من تعديل الإعدادات.')
     }
 
-    if (hasDelivery && !(deliveryRadiusKm > 0)) {
-      return setErrorMsg('اكتب نطاق التوصيل بالكيلومتر.')
-    }
-
     setSaving(true)
     setErrorMsg('')
 
@@ -134,7 +128,6 @@ export default function StoreSettingsModal({
       menu_note: menuNote.trim() || null,
       enable_whatsapp_orders: enableWhatsappOrders,
       has_delivery: hasDelivery,
-      delivery_radius_km: deliveryRadiusKm,
       delivery_tiers: deliveryTiers
     }
 
@@ -173,8 +166,8 @@ export default function StoreSettingsModal({
               ⚙️
             </div>
             <div>
-              <h3 className="font-black text-lg text-ink">إعدادات المتجر ونطاقات التوصيل</h3>
-              <p className="text-sm text-muted font-medium">ساعات الدوام، العطلات، وشرايح التوصيل</p>
+              <h3 className="font-black text-lg text-ink">إعدادات المتجر والتوصيل</h3>
+              <p className="text-sm text-muted font-medium">ساعات الدوام، العطلات، وأسعار التوصيل</p>
             </div>
           </div>
 
@@ -306,19 +299,10 @@ export default function StoreSettingsModal({
 
             {hasDelivery && (
               <>
-                <div className="flex items-center justify-between pt-1">
-                  <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                    <span>شرائح ونطاق التغطية 🗺️</span>
-                  </h4>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-muted">أقصى نطاق:</span>
-                    <NumberInput
-                      value={deliveryRadiusKm}
-                      onChange={e => setDeliveryRadiusKm(Number(e.target.value))}
-                      className="w-16 p-1 text-center bg-white border border-slate-300 rounded-lg text-sm font-black text-brand outline-none"
-                    />
-                    <span className="text-sm font-bold text-slate-600">كم</span>
-                  </div>
+                {/* Where the store shows is set by the Alfsouq team; the store only sets what delivery costs */}
+                <div className="pt-1">
+                  <h4 className="font-black text-sm text-slate-900">أسعار التوصيل حسب المسافة</h4>
+                  <p className="text-sm text-muted font-medium">يراها الزبون كسعر توصيل متوقع.</p>
                 </div>
 
             {/* Add Tier Form */}

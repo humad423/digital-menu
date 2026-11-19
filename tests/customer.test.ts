@@ -61,8 +61,14 @@ describe('getDeliveryFeeForDistance', () => {
     )
   })
 
-  it('reports out of range past the last tier', () => {
-    assert.equal(getDeliveryFeeForDistance(9, tiers).available, false)
+  it('leaves the fee unknown past the last tier, while the store still reaches the customer', () => {
+    const info = getDeliveryFeeForDistance(9, tiers, 10)
+    assert.deepEqual([info.available, info.feeKnown], [true, false])
+  })
+
+  it('only the reach the admin set decides out of range, whatever the tiers say', () => {
+    assert.equal(getDeliveryFeeForDistance(12, tiers, 10).available, false)
+    assert.equal(getDeliveryFeeForDistance(4, tiers, 3).available, false, 'a tier covering 4 km does not stretch a 3 km reach')
   })
 
   it('marks a store without tiers as having no known fee', () => {
