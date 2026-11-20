@@ -13,7 +13,7 @@ export const LEGAL_TAG = 'legal'
 export const storeTag = (slugOrId: string) => `store:${slugOrId}`
 
 export const PROMOTION_COLUMNS =
-  'id, kind, title, prices, percent, category_ids, excluded_item_ids, starts_at, ends_at, days, from_time, until_time, is_active'
+  'id, kind, title, prices, percent, amount, category_ids, excluded_item_ids, starts_at, ends_at, days, from_time, until_time, is_active'
 
 const OFFER_COLUMNS =
   'id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, ' +

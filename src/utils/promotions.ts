@@ -3,7 +3,10 @@
 
 import { ARABIC_DAYS, inWindow, localClock, minutesOf, shiftDate } from './schedule.ts'
 
-export type PromotionKind = 'price_cut' | 'category_percent'
+export type PromotionKind = 'price_cut' | 'category_amount' | 'category_percent'
+
+/** A discount on whole categories, by an amount off each product or by a percent */
+export const isCategoryKind = (kind: unknown) => kind === 'category_amount' || kind === 'category_percent'
 
 /** A new price for one product, or for one of its sizes. */
 export interface PromotionPrice {
@@ -19,6 +22,8 @@ export interface Promotion {
   title?: string | null
   prices?: PromotionPrice[] | null
   percent?: number | null
+  /** Amount off each product, for category_amount */
+  amount?: number | null
   category_ids?: string[] | null
   excluded_item_ids?: string[] | null
   starts_at?: string | null
@@ -35,8 +40,10 @@ export interface Promotion {
 export interface Deal {
   price: number
   was: number
-  /** Whole percent saved, for "خصم 15%" */
+  /** Whole percent saved, for sorting by the biggest discount */
   percent: number
+  /** How much is saved */
+  saved: number
   promotion: Promotion
 }
 
@@ -86,13 +93,14 @@ export function promotionPrice(promotion: Promotion, item: { id: string; categor
     const price = Number(entry?.price)
     return price > 0 && price < base ? price : null
   }
-  if (promotion.kind === 'category_percent') {
-    const percent = Number(promotion.percent)
-    if (!(percent > 0 && percent < 100)) return null
+  if (isCategoryKind(promotion.kind)) {
     if (!item.category_id || !(promotion.category_ids ?? []).includes(item.category_id)) return null
     if ((promotion.excluded_item_ids ?? []).includes(item.id)) return null
-    const price = Math.round(base * (1 - percent / 100))
-    return price > 0 && price < base ? price : null
+    const price = promotion.kind === 'category_amount'
+      ? base - Number(promotion.amount)
+      : Number(promotion.percent) > 0 && Number(promotion.percent) < 100 ? Math.round(base * (1 - Number(promotion.percent) / 100)) : NaN
+    // An amount as big as the price would make it free, so it leaves that product out
+    return price > 0 && price < base ? Math.round(price * 100) / 100 : null
   }
   return null
 }
@@ -114,10 +122,17 @@ export function bestDeal(
     if (!isPromotionLive(promotion, now, timeZone)) continue
     const price = promotionPrice(promotion, item, size, base)
     if (price === null || (best && price >= best.price)) continue
-    best = { price, was: base, percent: Math.round(((base - price) / base) * 100), promotion }
+    best = { price, was: base, percent: Math.round(((base - price) / base) * 100), saved: Math.round((base - price) * 100) / 100, promotion }
   }
   return best
 }
+
+/**
+ * The discount as customers read it: a percent only when the store set one, like "خصم 20%",
+ * and otherwise the amount saved, like "خصم 100 ₺".
+ */
+export const dealLabel = (deal: Pick<Deal, 'saved' | 'promotion'>, currency: string) =>
+  deal.promotion.kind === 'category_percent' ? `خصم ${Number(deal.promotion.percent)}%` : `خصم ${deal.saved} ${currency}`
 
 /** A short line telling customers how long an offer lasts, like "ينتهي اليوم 11:00 م", or null when it runs on. */
 export function dealEnds(promotion: Promotion, now: Date, timeZone?: string | null): string | null {

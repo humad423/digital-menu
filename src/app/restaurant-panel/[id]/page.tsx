@@ -62,7 +62,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         .order('created_at', { ascending: false }),
       supabase
         .from('promotions')
-        .select('id, kind, title, prices, percent, category_ids, excluded_item_ids, starts_at, ends_at, days, from_time, until_time, is_active, created_at')
+        .select('id, kind, title, prices, percent, amount, category_ids, excluded_item_ids, starts_at, ends_at, days, from_time, until_time, is_active, created_at')
         .eq('restaurant_id', id)
         .order('created_at', { ascending: false }),
     ])

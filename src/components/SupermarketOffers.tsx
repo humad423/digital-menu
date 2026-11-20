@@ -11,7 +11,7 @@ import { CURRENCY_SYMBOL } from '@/config/site'
 import { useDeals } from '@/components/PromotionsContext'
 
 /** What a product sells for now, and before, when it's on offer. */
-interface Price { price: number; was: number | null; percent: number | null; ends: string | null }
+interface Price { price: number; was: number | null; percent: number | null; label: string | null; ends: string | null }
 
 function DealCard({ item, deal, restaurantId, canOrder }: { item: any; deal: Price; restaurantId: string; canOrder: boolean }) {
   const addItem = useCartStore(s => s.addItem)
@@ -37,7 +37,7 @@ function DealCard({ item, deal, restaurantId, canOrder }: { item: any; deal: Pri
           <img src={getOptimizedImageUrl(item.image_url, 400)} alt="" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         )}
         {discount !== null && (
-          <span className="absolute top-2 right-2 bg-red-700 text-white font-black px-2 py-0.5 rounded-lg">خصم {discount}%</span>
+          <span className="absolute top-2 right-2 bg-red-700 text-white font-black px-2 py-0.5 rounded-lg">{deal.label}</span>
         )}
       </div>
 
@@ -100,10 +100,11 @@ export default function SupermarketOffers({
     const price = Number(item.price)
     if (item.is_offer) {
       const was = Number(item.original_price) > price ? Number(item.original_price) : null
-      return { price, was, percent: was ? Math.round(((was - price) / was) * 100) : null, ends: null }
+      // A bundle says what it saves in money, the way the store priced it
+      return { price, was, percent: was ? Math.round(((was - price) / was) * 100) : null, label: was ? `خصم ${Math.round((was - price) * 100) / 100} ${CURRENCY_SYMBOL}` : null, ends: null }
     }
     const deal = dealFor(item, '', price)
-    return deal ? { price: deal.price, was: deal.was, percent: deal.percent, ends: deal.ends } : { price, was: null, percent: null, ends: null }
+    return deal ? { price: deal.price, was: deal.was, percent: deal.percent, label: deal.label, ends: deal.ends } : { price, was: null, percent: null, label: null, ends: null }
   }
 
   const deals = useMemo(() => {

@@ -212,7 +212,7 @@ export default function MenuItem({
           {deal && (
             <p className="font-bold">
               <span className="text-muted font-medium line-through">{deal.was} {CURRENCY_SYMBOL}</span>
-              <span className="text-red-700"> · خصم {deal.percent}%</span>
+              <span className="text-red-700"> · {deal.label}</span>
               {deal.ends && <span className="block text-sm text-muted font-medium">{deal.ends}</span>}
             </p>
           )}

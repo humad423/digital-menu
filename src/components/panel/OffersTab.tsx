@@ -12,7 +12,7 @@ import { isRealDiscount } from '@/utils/productOptions'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
 import PromotionSheet from '@/components/panel/PromotionSheet'
-import { describeWhen, isPromotionOver, promotionStatus, type PromotionStatus } from '@/utils/promotions'
+import { describeWhen, isCategoryKind, isPromotionOver, promotionStatus, type PromotionStatus } from '@/utils/promotions'
 
 const STATUS: Record<PromotionStatus, { label: string; badge: string }> = {
   live: { label: 'شغّال الآن', badge: 'badge-green' },
@@ -24,10 +24,11 @@ const STATUS: Record<PromotionStatus, { label: string; badge: string }> = {
 
 /** What an offer does, in a line the store reads at a glance. */
 function describeWhat(promotion: any, menuItems: any[], categories: any[]): string {
-  if (promotion.kind === 'category_percent') {
+  if (isCategoryKind(promotion.kind)) {
     const names = categories.filter(category => (promotion.category_ids ?? []).includes(category.id)).map(category => category.name)
     const left = (promotion.excluded_item_ids ?? []).length
-    return `خصم ${promotion.percent}% على ${names.join(' و') || 'قسم محذوف'}${left ? `، ما عدا ${left} منتج` : ''}`
+    const off = promotion.kind === 'category_amount' ? `${promotion.amount} ${CURRENCY_SYMBOL} على كل منتج في` : `${promotion.percent}% على`
+    return `خصم ${off} ${names.join(' و') || 'قسم محذوف'}${left ? `، ما عدا ${left} منتج` : ''}`
   }
   return (promotion.prices ?? []).map((entry: any) => {
     const item = menuItems.find(candidate => candidate.id === entry.item_id)

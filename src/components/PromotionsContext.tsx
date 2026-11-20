@@ -1,10 +1,11 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { bestDeal, dealEnds, type Deal, type Promotion } from '@/utils/promotions'
+import { bestDeal, dealEnds, dealLabel, type Deal, type Promotion } from '@/utils/promotions'
+import { CURRENCY_SYMBOL } from '@/config/site'
 
-/** A product's deal right now, with a line on how long it lasts. */
-export type LiveDeal = Deal & { ends: string | null }
+/** A product's deal right now, as customers read it, like "خصم 100 ₺", with a line on how long it lasts. */
+export type LiveDeal = Deal & { label: string; ends: string | null }
 
 type DealFor = (item: { id: string; category_id?: string | null }, size: string, base: number) => LiveDeal | null
 
@@ -31,7 +32,7 @@ export function PromotionsProvider({ promotions, timeZone, children }: { promoti
   const dealFor: DealFor = (item, size, base) => {
     if (!now) return null
     const deal = bestDeal(promotions, item, size, base, now, timeZone)
-    return deal && { ...deal, ends: dealEnds(deal.promotion, now, timeZone) }
+    return deal && { ...deal, label: dealLabel(deal, CURRENCY_SYMBOL), ends: dealEnds(deal.promotion, now, timeZone) }
   }
 
   return <DealsContext.Provider value={promotions.length ? dealFor : NoDeals}>{children}</DealsContext.Provider>

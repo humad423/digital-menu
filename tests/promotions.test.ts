@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { bestDeal, dealEnds, isPromotionLive, promotionPrice, storeDateTime, storeMoment, type Promotion } from '../src/utils/promotions.ts'
+import { bestDeal, dealEnds, dealLabel, isPromotionLive, promotionPrice, storeDateTime, storeMoment, type Promotion } from '../src/utils/promotions.ts'
 
 const zone = 'Europe/Istanbul'
 // Thursday 2026-11-19, 14:00 in Istanbul
@@ -54,6 +54,21 @@ describe('what a product costs under an offer', () => {
     assert.equal(promotionPrice(tenOff, cake, '', 550), 495)
     assert.equal(promotionPrice({ ...tenOff, excluded_item_ids: ['cake'] }, cake, '', 550), null)
     assert.equal(promotionPrice(tenOff, { id: 'tea', category_id: 'drinks' }, '', 20), null)
+  })
+
+  test('a category discount can be a fixed amount off each product', () => {
+    const twentyOff: Promotion = { id: 'p3', kind: 'category_amount', amount: 20, category_ids: ['cakes'] }
+    assert.equal(promotionPrice(twentyOff, cake, '', 550), 530)
+    assert.equal(promotionPrice(twentyOff, cake, '', 15), null, 'an amount as big as the price leaves that product out')
+  })
+
+  test('says the discount as an amount, or as a percent only when the store set one', () => {
+    const deal = bestDeal([cut()], cake, '', 550, thursday2pm, zone)!
+    assert.equal(dealLabel(deal, '₺'), 'خصم 100 ₺')
+    const tenOff: Promotion = { id: 'p2', kind: 'category_percent', percent: 10, category_ids: ['cakes'] }
+    assert.equal(dealLabel(bestDeal([tenOff], cake, '', 550, thursday2pm, zone)!, '₺'), 'خصم 10%')
+    const twentyOff: Promotion = { id: 'p3', kind: 'category_amount', amount: 20, category_ids: ['cakes'] }
+    assert.equal(dealLabel(bestDeal([twentyOff], cake, '', 550, thursday2pm, zone)!, '₺'), 'خصم 20 ₺')
   })
 
   test('offers never add up: the lowest one price wins', () => {

@@ -16,10 +16,44 @@ import { CURRENCY_SYMBOL } from '@/config/site'
 
 type When = 'always' | 'period' | 'weekly'
 
-/** Quick percentages a store can tap instead of working out prices */
-const QUICK_PERCENTS = [10, 15, 20, 25, 30]
+/** A discount is an amount off unless the store picks a percent */
+type By = 'amount' | 'percent'
 
-const off = (price: number, percent: number) => String(Math.round(price * (1 - percent / 100)))
+/** Quick discounts a store can tap instead of typing, by an amount or by a percent */
+const QUICK = { amount: [5, 10, 20, 50], percent: [10, 15, 20, 25] }
+
+/** A price after a discount; empty when the discount would make it free */
+function off(price: number, by: By, value: number): string {
+  const result = by === 'amount' ? price - value : Math.round(price * (1 - value / 100))
+  return result > 0 && result < price ? String(Math.round(result * 100) / 100) : ''
+}
+
+/** Choosing between an amount off and a percent off, amount first */
+function ByToggle({ by, onChange }: { by: By; onChange: (by: By) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <button type="button" aria-pressed={by === 'amount'} onClick={() => onChange('amount')} className="chip">مبلغ ثابت ({CURRENCY_SYMBOL})</button>
+      <button type="button" aria-pressed={by === 'percent'} onClick={() => onChange('percent')} className="chip">نسبة (%)</button>
+    </div>
+  )
+}
+
+/** How much off, by an amount or a percent, with quick choices to tap */
+function DiscountField({ id, label, by, onBy, value, onValue }: { id: string; label: string; by: By; onBy: (by: By) => void; value: string; onValue: (value: string) => void }) {
+  const unit = by === 'amount' ? CURRENCY_SYMBOL : '%'
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="field-label">{label}</label>
+      <ByToggle by={by} onChange={onBy} />
+      <div className="flex flex-wrap gap-2">
+        {QUICK[by].map(quick => (
+          <button key={quick} type="button" aria-pressed={value === String(quick)} onClick={() => onValue(String(quick))} className="chip">{quick} {unit}</button>
+        ))}
+      </div>
+      <NumberInput id={id} inputMode="decimal" min="0" max={by === 'percent' ? '99' : undefined} placeholder={`مثلاً ${QUICK[by][1]} ${unit}`} value={value} onChange={event => onValue(event.target.value)} className="field" />
+    </div>
+  )
+}
 
 /** A product's prices: one, or one per size when its sizes have their own. */
 function pricesOf(item: any): { size: string; price: number }[] {
@@ -57,7 +91,9 @@ export default function PromotionSheet({
   const [newPrices, setNewPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries((promotion?.prices ?? []).map((entry: any) => [entry.size || '', String(entry.price)])))
   const [categoryIds, setCategoryIds] = useState<string[]>(promotion?.category_ids ?? [])
-  const [percent, setPercent] = useState(promotion?.percent ? String(promotion.percent) : '')
+  // How much off: an amount, or a percent when the store picks one; for a category offer it's what's saved
+  const [by, setBy] = useState<By>(promotion?.kind === 'category_percent' ? 'percent' : 'amount')
+  const [discount, setDiscount] = useState(String(promotion?.kind === 'category_percent' ? promotion.percent ?? '' : promotion?.amount ?? ''))
   const [excluded, setExcluded] = useState<string[]>(promotion?.excluded_item_ids ?? [])
   const [when, setWhen] = useState<When>(
     promotion?.days?.length || promotion?.from_time ? 'weekly' : promotion?.ends_at || promotion?.starts_at ? 'period' : 'always')
@@ -79,8 +115,16 @@ export default function PromotionSheet({
     setChosenItem(id)
     setNewPrices({})
   }
-  const fillPercent = (value: number) =>
-    setNewPrices(Object.fromEntries(itemPrices.map(entry => [entry.size, off(entry.price, value)])))
+  // A discount typed once fills in the new price of every size, which can still be changed one by one
+  const applyDiscount = (value: string, discountBy: By = by) => {
+    setDiscount(value)
+    const amount = parseFloat(value)
+    if (kind === 'price_cut' && amount > 0) setNewPrices(Object.fromEntries(itemPrices.map(entry => [entry.size, off(entry.price, discountBy, amount)])))
+  }
+  const changeBy = (next: By) => {
+    setBy(next)
+    setDiscount('')
+  }
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter(other => other !== id) : [...list, id])
 
   const save = async (event: React.FormEvent) => {
@@ -108,14 +152,17 @@ export default function PromotionSheet({
       fields.prices = prices.map(({ was: _was, ...entry }) => entry)
       fields.title = title.trim() || item.name
     } else {
-      const value = parseFloat(percent)
+      const value = parseFloat(discount)
       if (!categoryIds.length) return notifyError('اختر قسماً واحداً على الأقل.')
-      if (!(value > 0 && value < 100)) return notifyError('اكتب نسبة الخصم بين 1 و 99.')
-      fields.percent = value
+      if (by === 'amount' && !(value > 0)) return notifyError('اكتب مبلغ الخصم.')
+      if (by === 'percent' && !(value > 0 && value < 100)) return notifyError('اكتب نسبة الخصم بين 1 و 99.')
+      fields.kind = by === 'amount' ? 'category_amount' : 'category_percent'
+      fields.amount = by === 'amount' ? value : null
+      fields.percent = by === 'percent' ? value : null
       fields.category_ids = categoryIds
       // Only products still in the chosen categories stay left out
       fields.excluded_item_ids = excluded.filter(id => inCategories.some(candidate => candidate.id === id))
-      fields.title = title.trim() || `خصم ${value}% على ${categories.filter(c => categoryIds.includes(c.id)).map(c => c.name).join(' و')}`
+      fields.title = title.trim() || `خصم ${value}${by === 'amount' ? ` ${CURRENCY_SYMBOL}` : '%'} على ${categories.filter(c => categoryIds.includes(c.id)).map(c => c.name).join(' و')}`
     }
 
     fields.starts_at = null
@@ -177,7 +224,7 @@ export default function PromotionSheet({
       <FormSheet title="اعمل عرض" onClose={onClose}>
         <p className="font-bold">شو نوع العرض؟</p>
         {choice(<Tag size={28} />, 'تخفيض سعر منتج', 'مثلاً الكيكة صارت بـ 450 بدل 550', () => setKind('price_cut'))}
-        {choice(<BadgePercent size={28} />, 'خصم على قسم كامل', 'مثلاً كل الحلويات خصم 10%', () => setKind('category_percent'))}
+        {choice(<BadgePercent size={28} />, 'خصم على قسم كامل', 'مثلاً كل الحلويات أرخص بـ 20 ' + CURRENCY_SYMBOL, () => setKind('category_amount'))}
         {onBundle && choice(<Package size={28} />, 'بكج أو وجبة', 'مثلاً 2 شاورما + بطاطا بـ 300', onBundle)}
       </FormSheet>
     )
@@ -213,12 +260,14 @@ export default function PromotionSheet({
 
             {item && (
               <>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="font-bold">خصم سريع:</span>
-                  {QUICK_PERCENTS.map(value => (
-                    <button key={value} type="button" onClick={() => fillPercent(value)} className="chip">{value}%</button>
-                  ))}
-                </div>
+                <DiscountField
+                  id="promotion-discount"
+                  label={itemPrices.length > 1 ? 'قديش الخصم؟ (بيعبّي سعر كل المقاسات)' : 'قديش الخصم؟'}
+                  by={by}
+                  onBy={changeBy}
+                  value={discount}
+                  onValue={value => applyDiscount(value)}
+                />
                 {itemPrices.map(entry => (
                   <div key={entry.size} className="grid grid-cols-[1fr_7rem] gap-2 items-center">
                     <span className="font-bold min-w-0">
@@ -246,15 +295,7 @@ export default function PromotionSheet({
             {categories.map(category => (
               <CheckRow key={category.id} label={category.name} checked={categoryIds.includes(category.id)} onChange={() => setCategoryIds(toggle(categoryIds, category.id))} />
             ))}
-            <div>
-              <label htmlFor="promotion-percent" className="field-label">نسبة الخصم (%)</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {QUICK_PERCENTS.map(value => (
-                  <button key={value} type="button" aria-pressed={percent === String(value)} onClick={() => setPercent(String(value))} className="chip">{value}%</button>
-                ))}
-              </div>
-              <NumberInput id="promotion-percent" inputMode="decimal" min="1" max="99" value={percent} onChange={event => setPercent(event.target.value)} className="field" />
-            </div>
+            <DiscountField id="promotion-discount" label="قديش الخصم على كل منتج؟" by={by} onBy={changeBy} value={discount} onValue={setDiscount} />
             {inCategories.length > 0 && (
               <details className="card p-3" open={excluded.length > 0}>
                 <summary className="font-bold cursor-pointer min-h-11 flex items-center">استثني منتجات من الخصم (اختياري)</summary>
