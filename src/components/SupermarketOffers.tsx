@@ -8,27 +8,25 @@ import { matchesSearch } from '@/utils/text'
 import { offerToMenuItem } from '@/utils/offerItems'
 import { trackEvent, trackGAAddToCart, usePageDurationTracker } from '@/utils/analytics'
 import { CURRENCY_SYMBOL } from '@/config/site'
+import { useDeals } from '@/components/PromotionsContext'
 
-function discountPercent(item: any): number | null {
-  const original = Number(item.original_price)
-  const price = Number(item.price)
-  return original > price ? Math.round(((original - price) / original) * 100) : null
-}
+/** What a product sells for now, and before, when it's on offer. */
+interface Price { price: number; was: number | null; percent: number | null; ends: string | null }
 
-function DealCard({ item, restaurantId, canOrder }: { item: any; restaurantId: string; canOrder: boolean }) {
+function DealCard({ item, deal, restaurantId, canOrder }: { item: any; deal: Price; restaurantId: string; canOrder: boolean }) {
   const addItem = useCartStore(s => s.addItem)
   const updateQuantity = useCartStore(s => s.updateQuantity)
   const quantity = useCartStore(s =>
     s.restaurantId === restaurantId ? s.items.find(i => i.id === item.id)?.quantity ?? 0 : 0
   )
-  const discount = discountPercent(item)
+  const discount = deal.percent
   const isKilo = item.unit === 'kg' || item.allow_custom_amount === true
   const isOutOfStock = item.is_available === false
 
   const add = () => {
     if (!confirmCartStoreSwitch(restaurantId)) return
-    addItem({ id: item.id, name: item.name, price: Number(item.price) }, restaurantId)
-    trackGAAddToCart(item.name, Number(item.price))
+    addItem({ id: item.id, name: item.name, price: deal.price, ...(deal.was ? { was: deal.was } : {}) }, restaurantId)
+    trackGAAddToCart(item.name, deal.price)
   }
 
   return (
@@ -48,12 +46,13 @@ function DealCard({ item, restaurantId, canOrder }: { item: any; restaurantId: s
         {item.description && <p className="text-sm text-muted font-medium leading-snug line-clamp-2">{item.description}</p>}
         <div className="mt-auto">
           {discount !== null && (
-            <p className="text-muted font-medium line-through">كان {item.original_price} {CURRENCY_SYMBOL}</p>
+            <p className="text-muted font-medium line-through">كان {deal.was} {CURRENCY_SYMBOL}</p>
           )}
           <p className="text-xl font-black text-brand leading-snug">
-            {item.price} {CURRENCY_SYMBOL}
+            {deal.price} {CURRENCY_SYMBOL}
             {isKilo && <span className="text-base text-muted font-medium"> للكيلو</span>}
           </p>
+          {deal.ends && <p className="text-sm text-muted font-medium">{deal.ends}</p>}
         </div>
 
         {isOutOfStock ? (
@@ -95,19 +94,32 @@ export default function SupermarketOffers({
   }, [restaurant.id])
   usePageDurationTracker({ store_id: restaurant.id, store_slug: restaurant.slug })
 
+  // A bundle carries its own price before; a product's comes from an offer running now
+  const dealFor = useDeals()
+  const priceOf = (item: any): Price => {
+    const price = Number(item.price)
+    if (item.is_offer) {
+      const was = Number(item.original_price) > price ? Number(item.original_price) : null
+      return { price, was, percent: was ? Math.round(((was - price) / was) * 100) : null, ends: null }
+    }
+    const deal = dealFor(item, '', price)
+    return deal ? { price: deal.price, was: deal.was, percent: deal.percent, ends: deal.ends } : { price, was: null, percent: null, ends: null }
+  }
+
   const deals = useMemo(() => {
     // Biggest discounts first, because that is what a flyer leads with
     const bundles = activeCategory ? [] : offers.map(offerToMenuItem)
     const items = activeCategory ? menuItems.filter(i => i.category_id === activeCategory) : menuItems
     return [...bundles, ...items]
       .filter(item => matchesSearch(query, item.name, item.description))
-      .sort((a, b) => (discountPercent(b) ?? 0) - (discountPercent(a) ?? 0))
-  }, [activeCategory, menuItems, offers, query])
+      .sort((a, b) => (priceOf(b).percent ?? 0) - (priceOf(a).percent ?? 0))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategory, menuItems, offers, query, dealFor])
 
   const categoriesWithDeals = categories.filter(c => menuItems.some(i => i.category_id === c.id))
   const canOrder = restaurant.enable_whatsapp_orders !== false
   // A shop with no discounts, like one selling home-made food, is a product list, not a flyer
-  const hasDeals = offers.length > 0 || menuItems.some(item => discountPercent(item) !== null)
+  const hasDeals = offers.length > 0 || menuItems.some(item => priceOf(item).percent !== null)
   const word = hasDeals ? 'العروض' : 'المنتجات'
   // With nothing searched or picked, a plain product list reads best category by category, in the shop's own order
   const sections = !hasDeals && !query && !activeCategory && categoriesWithDeals.length > 1
@@ -118,7 +130,7 @@ export default function SupermarketOffers({
     // Two in a row on any phone, even with the phone's text made larger, and more on wider screens
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
       {items.map(item => (
-        <DealCard key={item.id} item={item} restaurantId={restaurant.id} canOrder={canOrder} />
+        <DealCard key={item.id} item={item} deal={priceOf(item)} restaurantId={restaurant.id} canOrder={canOrder} />
       ))}
     </div>
   )

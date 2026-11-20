@@ -112,11 +112,13 @@ export default function CartButton({ restaurant }: { restaurant: any }) {
   const handleSend = () => {
     if (!status?.isOpen) return
 
-    const lines = items.map(i =>
-      i.quantity > 1
-        ? `• ${i.name} (عدد ${i.quantity}) - ${money(i.price * i.quantity)}`
-        : `• ${i.name} - ${money(i.price)}`
-    )
+    // An offer's price says what it was before, so the store can see the discount it agreed to
+    const lines = items.map(i => {
+      const offer = i.was && i.was > i.price ? ` (عرض، بدل ${money(i.was * i.quantity)})` : ''
+      return i.quantity > 1
+        ? `• ${i.name} (عدد ${i.quantity}) - ${money(i.price * i.quantity)}${offer}`
+        : `• ${i.name} - ${money(i.price)}${offer}`
+    })
     const message = buildOrderMessage({
       storeName: restaurant.name,
       lines,

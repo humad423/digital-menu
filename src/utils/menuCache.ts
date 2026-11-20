@@ -12,6 +12,9 @@ export const OFFERS_TAG = 'offers'
 export const LEGAL_TAG = 'legal'
 export const storeTag = (slugOrId: string) => `store:${slugOrId}`
 
+export const PROMOTION_COLUMNS =
+  'id, kind, title, prices, percent, category_ids, excluded_item_ids, starts_at, ends_at, days, from_time, until_time, is_active'
+
 const OFFER_COLUMNS =
   'id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, ' +
   'primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity'
@@ -54,16 +57,16 @@ export const getRestaurantBySlug = cache((slug: string): Promise<any> =>
 )
 
 export const getMenuByRestaurant = cache(
-  (restaurantId: string, slug: string): Promise<{ categories: any[]; menuItems: any[]; offers: any[] }> =>
+  (restaurantId: string, slug: string): Promise<{ categories: any[]; menuItems: any[]; offers: any[]; promotions: any[] }> =>
     unstable_cache(
       async () => {
         const supabase = createPublicClient()
-        const [categoriesResult, offersResult] = await Promise.all([
+        const [categoriesResult, offersResult, promotionsResult] = await Promise.all([
           supabase
             .from('categories')
             .select(
               'id, name, sort_order, restaurant_id, ' +
-              'menu_items(id, name, description, price, original_price, image_url, images, is_available, is_hidden, out_of_stock_until, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id)'
+              'menu_items(id, name, description, price, image_url, images, is_available, is_hidden, out_of_stock_until, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id)'
             )
             .eq('restaurant_id', restaurantId)
             .order('sort_order', { ascending: true }),
@@ -80,6 +83,14 @@ export const getMenuByRestaurant = cache(
             .eq('restaurant_id', restaurantId)
             .eq('is_active', true)
             .order('created_at', { ascending: false }),
+
+          // Ended ones are left out; when each runs is worked out in the browser, where the time is known
+          supabase
+            .from('promotions')
+            .select(PROMOTION_COLUMNS)
+            .eq('restaurant_id', restaurantId)
+            .eq('is_active', true)
+            .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`),
         ])
 
         const rawCategories = dataOrThrow(categoriesResult) as any[]
@@ -89,6 +100,7 @@ export const getMenuByRestaurant = cache(
             .flatMap(category => (category.menu_items || []) as any[])
             .filter(item => item.is_hidden !== true),
           offers: dataOrThrow(offersResult) as any[],
+          promotions: dataOrThrow(promotionsResult) as any[],
         }
       },
       ['menu', restaurantId],

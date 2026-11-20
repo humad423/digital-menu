@@ -6,6 +6,8 @@ export interface CartItem {
   id: string
   name: string
   price: number
+  /** The usual price, when an offer brought it down, so the store sees the discount in the order */
+  was?: number
   quantity: number
 }
 
@@ -35,7 +37,7 @@ export const useCartStore = create<CartState>()(
             restaurantId,
             items: existing
               ? currentItems.map((i) => (i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i))
-              : [...currentItems, { id: item.id, name: item.name, price: item.price, quantity: 1 }],
+              : [...currentItems, { id: item.id, name: item.name, price: item.price, ...(item.was ? { was: item.was } : {}), quantity: 1 }],
           };
         });
       },

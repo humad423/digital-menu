@@ -21,6 +21,8 @@ export type Look = (typeof LOOKS)[number]
 /** A new price this many times higher or lower than the old one is checked with the owner first. */
 const PRICE_JUMP = 3
 const MAX_PRODUCT_PHOTOS = 3
+/** Where discounts on products are made now, for the model to pass on. */
+const OFFERS_IN_PANEL = 'Discounts on products, like a lower price for a while or a percent off a category, are offers the owner makes in the store panel: the العروض tab, then اعمل عرض. Tell them that, and send the panel link.'
 /** How long a request passed to the Alfsouq team can be. */
 const MAX_TEAM_NOTE = 600
 
@@ -583,6 +585,11 @@ function readFields(ctx: Context, table: StoreTable, raw: unknown): { fields?: R
   const fields: Row = {}
   for (const [key, value] of Object.entries(raw as Row)) {
     if (LOCKED.has(key)) continue
+    // A product keeps only its usual price; a discount on it is an offer, which you can't make yet
+    if (table === 'menu_items' && key === 'original_price') {
+      if (value === null) continue
+      return { problem: `A product has no "before" price any more, so nothing was saved for this. ${OFFERS_IN_PANEL}` }
+    }
     if (table === 'restaurants' && !ctx.isAdmin && ADMIN_ONLY.has(key)) return { problem: `${key} belongs to the Alfsouq team. Nothing was saved for this.` }
     if (table === 'restaurants' && !ctx.isAdmin && PANEL_ONLY.has(key)) {
       return { problem: `${key} is one of the shop's lasting settings, which the owner changes in the store panel, so nothing was saved. You only make changes for a while: special_days for a day's hours or delivery, delivery_paused_until to stop delivery for a while, closed_until to close the shop for a while. If they meant it for good, tell them they can change it from the store panel and send its link.` }

@@ -32,13 +32,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
   const [categories, setCategories] = useState<any[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [offers, setOffers] = useState<any[]>([])
+  const [promotions, setPromotions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<PanelTab>('items')
   const [showSettings, setShowSettings] = useState(false)
   const [showQr, setShowQr] = useState(false)
 
   const refresh = useCallback(async () => {
-    const [restaurantResult, categoriesResult, offersResult] = await Promise.all([
+    const [restaurantResult, categoriesResult, offersResult, promotionsResult] = await Promise.all([
       supabase
         .from('restaurants')
         .select(
@@ -59,9 +60,14 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         .select('id, title, description, original_price, offer_price, image_url, images, is_active, sort_order, created_at, restaurant_id, primary_item_id, bonus_item_id, item3_id, item4_id, min_quantity, bonus_quantity, item3_quantity, item4_quantity')
         .eq('restaurant_id', id)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('promotions')
+        .select('id, kind, title, prices, percent, category_ids, excluded_item_ids, starts_at, ends_at, days, from_time, until_time, is_active, created_at')
+        .eq('restaurant_id', id)
+        .order('created_at', { ascending: false }),
     ])
 
-    if (restaurantResult.error || categoriesResult.error || offersResult.error) {
+    if (restaurantResult.error || categoriesResult.error || offersResult.error || promotionsResult.error) {
       notifyError('تعذر تحميل بيانات المتجر. تأكد من اتصالك وحاول مرة أخرى.')
       return
     }
@@ -70,7 +76,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     const { data: items } = categoryRows.length > 0
       ? await supabase
           .from('menu_items')
-          .select('id, name, description, price, original_price, image_url, images, is_available, is_hidden, out_of_stock_until, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id, created_at')
+          .select('id, name, description, price, image_url, images, is_available, is_hidden, out_of_stock_until, is_offer, offer_title, unit, sizes, colors, allow_custom_amount, category_id, created_at')
           .in('category_id', categoryRows.map(c => c.id))
           .order('created_at', { ascending: true })
       : { data: [] }
@@ -79,6 +85,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     setCategories(categoryRows)
     setMenuItems(items || [])
     setOffers(offersResult.data || [])
+    setPromotions(promotionsResult.data || [])
   }, [id])
 
   // Roles live in app_metadata, which only the server can write. RLS enforces the
@@ -127,11 +134,11 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
     )
   }
 
-  const store: PanelStore = { restaurantId: id, restaurant, categories, menuItems, offers, refresh, canEdit }
+  const store: PanelStore = { restaurantId: id, restaurant, categories, menuItems, offers, promotions, refresh, canEdit }
 
   const tabs: { key: PanelTab; label: string }[] = [
-    { key: 'items', label: isSupermarket ? 'العروض' : 'المنتجات' },
-    ...(isSupermarket ? [] : [{ key: 'offers' as const, label: 'البكجات' }]),
+    { key: 'items', label: 'المنتجات' },
+    { key: 'offers', label: 'العروض' },
     { key: 'categories', label: 'الأقسام' },
     { key: 'delivery', label: 'التوصيل' },
   ]
@@ -204,7 +211,7 @@ export default function RestaurantOwnerPanel({ params }: { params: Promise<{ id:
         </div>
 
         {tab === 'items' && <ItemsTab store={store} onGoToCategories={() => setTab('categories')} />}
-        {tab === 'offers' && !isSupermarket && <OffersTab store={store} />}
+        {tab === 'offers' && <OffersTab store={store} />}
         {tab === 'categories' && <CategoriesTab store={store} />}
         {tab === 'delivery' && <DeliveryTab store={store} />}
       </main>

@@ -12,7 +12,9 @@ import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { notifyError, reportWriteResult } from '@/utils/notify'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
-import { COLOR_OPTIONS, SIZE_OPTIONS, isRealDiscount, orderOptions } from '@/utils/productOptions'
+import { COLOR_OPTIONS, SIZE_OPTIONS, orderOptions } from '@/utils/productOptions'
+import PromotionSheet from '@/components/panel/PromotionSheet'
+import { isPromotionOver } from '@/utils/promotions'
 import { cleanSizeRows, lowestSizePrice, readPlainSizes, readSizePrices, type SizeRow } from '@/utils/sizePrices'
 
 const MAX_PHOTOS = 3
@@ -24,7 +26,6 @@ const EMPTY_FORM = {
   name: '',
   description: '',
   price: '',
-  original_price: '',
   images: [] as string[],
   sizes: [] as string[],
   sizeRows: [] as SizeRow[],
@@ -46,17 +47,26 @@ export default function ItemsTab({
   onGoToCategories: () => void
 }) {
   const { restaurantId, restaurant, categories, menuItems, offers, refresh, canEdit } = store
-  const isSupermarket = restaurant?.store_type === 'supermarket'
   const isClothing = restaurant?.store_type === 'clothing'
   // Switched on by the Alfsouq team for stores that sell one product in sizes at different prices, like cakes
   const sizePricesOn = restaurant?.size_prices === true && !isClothing
-  const noun = isSupermarket ? 'العرض' : 'المنتج'
+  // A product holds its own details and usual price; offers on it are made apart, from the offers tab or here
+  const noun = 'المنتج'
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingItem, setEditingItem] = useState<any | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [outOfStockItem, setOutOfStockItem] = useState<any | null>(null)
+  // The product a new offer is being made on
+  const [offerFor, setOfferFor] = useState<string | null>(null)
+
+  // Whether an offer that hasn't ended covers a product, to mark it in the list
+  const onOffer = (item: any) => store.promotions.some(promotion =>
+    promotion.is_active !== false && !isPromotionOver(promotion, new Date()) &&
+    (promotion.kind === 'price_cut'
+      ? (promotion.prices ?? []).some((entry: any) => entry.item_id === item.id)
+      : (promotion.category_ids ?? []).includes(item.category_id) && !(promotion.excluded_item_ids ?? []).includes(item.id)))
 
   // A product's photo and name also show in its store's offers on the home and offers pages
   const publish = () => {
@@ -80,7 +90,6 @@ export default function ItemsTab({
       name: item.name,
       description: item.description || '',
       price: String(item.price),
-      original_price: item.original_price ? String(item.original_price) : '',
       images,
       sizes: readPlainSizes(item.sizes),
       sizeRows: readSizePrices(item.sizes).map(size => ({ name: size.name, price: String(size.price) })),
@@ -104,14 +113,8 @@ export default function ItemsTab({
     // With sizes, the product's own price is its cheapest size, so lists and sorting still read right
     const bySize = sized.sizes.length > 0
     const price = bySize ? lowestSizePrice(sized.sizes) : parseFloat(form.price)
-    const originalPrice = bySize ? NaN : parseFloat(form.original_price)
     if (!form.category_id || !form.name.trim() || !(price >= 0)) {
       notifyError('اكتب الاسم والسعر واختر القسم.')
-      return
-    }
-    // The old price is only for a real discount; a product without one is fine as it is
-    if (originalPrice > 0 && !isRealDiscount(price, originalPrice)) {
-      notifyError('السعر قبل الخصم يجب أن يكون أكبر من سعر العرض.')
       return
     }
 
@@ -120,7 +123,6 @@ export default function ItemsTab({
       name: form.name.trim(),
       description: form.description.trim() || null,
       price,
-      original_price: originalPrice > 0 ? originalPrice : null,
       image_url: form.images[0] || null,
       images: form.images,
       sizes: isClothing
@@ -181,7 +183,7 @@ export default function ItemsTab({
   if (categories.length === 0) {
     return (
       <div className="notice notice-info space-y-3">
-        <p>ابدأ بإضافة قسم واحد على الأقل، مثل «وجبات» أو «مشروبات»، ثم أضف إليه {isSupermarket ? 'عروضك' : 'منتجاتك'}.</p>
+        <p>ابدأ بإضافة قسم واحد على الأقل، مثل «وجبات» أو «مشروبات»، ثم أضف إليه منتجاتك.</p>
         <button onClick={onGoToCategories} className="btn btn-primary btn-block">إضافة قسم</button>
       </div>
     )
@@ -191,7 +193,7 @@ export default function ItemsTab({
     <div className="space-y-5">
       <button onClick={openNew} className="btn btn-primary btn-lg btn-block">
         <Plus size={22} />
-        <span>{isSupermarket ? 'إضافة عرض جديد' : 'إضافة منتج جديد'}</span>
+        <span>إضافة منتج جديد</span>
       </button>
 
       {categories.map(category => {
@@ -216,13 +218,11 @@ export default function ItemsTab({
                     <h4 className="font-black leading-snug">{item.name}</h4>
                     <p className="font-black text-brand">
                       {readSizePrices(item.sizes).length > 0 && 'من '}{item.price} {CURRENCY_SYMBOL}
-                      {item.original_price > item.price && (
-                        <span className="text-muted font-medium line-through ms-2">{item.original_price} {CURRENCY_SYMBOL}</span>
-                      )}
                     </p>
                     <p className="flex flex-wrap gap-1 mt-1 empty:hidden">
                       {item.is_available === false && <span className="badge badge-red">غير متوفر</span>}
                       {item.is_hidden && <span className="badge badge-gray">مخفي عن الزبائن</span>}
+                      {onOffer(item) && <span className="badge badge-green">عليه عرض</span>}
                     </p>
                   </div>
                 </div>
@@ -242,13 +242,16 @@ export default function ItemsTab({
 
       {isFormOpen && (
         <FormSheet
-          title={editingItem ? `تعديل ${noun}` : isSupermarket ? 'عرض جديد' : 'منتج جديد'}
+          title={editingItem ? `تعديل ${noun}` : 'منتج جديد'}
           onClose={() => setIsFormOpen(false)}
           footer={
             <>
               <button type="submit" form="item-form" disabled={saving} className="btn btn-primary btn-lg btn-block">
                 {saving ? 'جاري الحفظ...' : 'حفظ'}
               </button>
+              {editingItem && (
+                <button type="button" onClick={() => { setIsFormOpen(false); setOfferFor(editingItem.id) }} className="btn btn-secondary btn-block">اعمل عرض على هالمنتج</button>
+              )}
               {editingItem && <button type="button" onClick={remove} className="btn btn-danger btn-block">حذف {noun}</button>}
             </>
           }
@@ -262,14 +265,10 @@ export default function ItemsTab({
             {sizePricesOn && form.sizeRows.some(row => row.name.trim()) ? (
               <p className="notice notice-info">السعر حسب المقاس. يختار الزبون المقاس ويرى سعره.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div>
                 <div>
-                  <label htmlFor="item-price" className="field-label">{isSupermarket ? 'سعر العرض' : 'السعر'} ({CURRENCY_SYMBOL})</label>
+                  <label htmlFor="item-price" className="field-label">السعر ({CURRENCY_SYMBOL})</label>
                   <NumberInput id="item-price" required inputMode="decimal" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="field" />
-                </div>
-                <div>
-                  <label htmlFor="item-original" className="field-label">قبل الخصم (اختياري)</label>
-                  <NumberInput id="item-original" inputMode="decimal" min="0" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })} className="field" />
                 </div>
               </div>
             )}
@@ -363,6 +362,8 @@ export default function ItemsTab({
           </form>
         </FormSheet>
       )}
+
+      {offerFor && <PromotionSheet store={store} itemId={offerFor} onClose={() => setOfferFor(null)} />}
 
       {outOfStockItem && (
         <FormSheet title={`متى يعود «${outOfStockItem.name}»؟`} onClose={() => setOutOfStockItem(null)}>

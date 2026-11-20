@@ -27,6 +27,11 @@ describe('cart', () => {
     assert.deepEqual(useCartStore.getState().items, [{ id: 'a', name: 'برجر', price: 10, quantity: 1 }])
   })
 
+  it('keeps the usual price of something on offer, for the order message', () => {
+    useCartStore.getState().addItem({ id: 'k', name: 'كنافة', price: 120, was: 150 }, 'store-1')
+    assert.deepEqual(useCartStore.getState().items, [{ id: 'k', name: 'كنافة', price: 120, was: 150, quantity: 1 }])
+  })
+
   it('keeps each size as its own line', () => {
     const { addItem } = useCartStore.getState()
     addItem({ id: 'shirt|M', name: 'قميص (مقاس M)', price: 5 }, 'store-1')

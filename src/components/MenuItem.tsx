@@ -10,6 +10,7 @@ import { getOptimizedImageUrl } from '@/utils/imageOptimizer'
 import { notifyError } from '@/utils/notify'
 import { CURRENCY_SYMBOL } from '@/config/site'
 import { readPlainSizes, readSizePrices } from '@/utils/sizePrices'
+import { useDeals } from '@/components/PromotionsContext'
 
 const WEIGHT_OPTIONS = [
   { label: 'ربع كيلو', kg: 0.25 },
@@ -48,8 +49,8 @@ function QuantityStepper({ quantity, onDecrease, onIncrease }: { quantity: numbe
 const MAX_BUTTONS = 4
 const MAX_BUTTON_LABEL = 8
 
-function ChoiceRow({ label, options, value, onChange, prices }: { label: string; options: string[]; value: string; onChange: (option: string) => void; prices?: Record<string, number> }) {
-  const priced = (option: string) => (prices?.[option] !== undefined ? `${option} · ${prices[option]} ${CURRENCY_SYMBOL}` : option)
+function ChoiceRow({ label, options, value, onChange, prices }: { label: string; options: string[]; value: string; onChange: (option: string) => void; prices?: Record<string, string> }) {
+  const priced = (option: string) => (prices?.[option] !== undefined ? `${option} · ${prices[option]}` : option)
   // Nothing to choose between, so it's just said
   if (options.length === 1) return <p className="mt-2 font-bold">{label} <span className="font-medium">{options[0]}</span></p>
   const asList = options.length > MAX_BUTTONS || options.some(option => option.length > MAX_BUTTON_LABEL)
@@ -72,7 +73,7 @@ function ChoiceRow({ label, options, value, onChange, prices }: { label: string;
         {options.map(option => (
           <button key={option} type="button" aria-pressed={value === option} onClick={() => onChange(option)} className="chip">
             {option}
-            {prices?.[option] !== undefined && <span className="font-black ms-2">{prices[option]} {CURRENCY_SYMBOL}</span>}
+            {prices?.[option] !== undefined && <span className="font-black ms-2">{prices[option]}</span>}
           </button>
         ))}
       </div>
@@ -134,10 +135,17 @@ export default function MenuItem({
   const restocked = now !== null && item.out_of_stock_until && new Date(item.out_of_stock_until).getTime() <= now
   const isOutOfStock = item.is_available === false && !restocked
 
-  const price = priceBySize?.[size] ?? Number(item.price)
+  // The store's usual price, and what an offer running now brings it down to
+  const dealFor = useDeals()
+  const basePrice = priceBySize?.[size] ?? Number(item.price)
+  const deal = dealFor(item, size, basePrice)
+  const price = deal?.price ?? basePrice
   const isByWeight = !priceBySize && (item.unit === 'kg' || item.allow_custom_amount === true)
-  const originalPrice = Number(item.original_price)
-  const discount = !priceBySize && originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : null
+  // Each size's price in the list, with its offer when it has one
+  const sizeLabels = priceBySize && Object.fromEntries(Object.entries(priceBySize).map(([name, sizePrice]) => {
+    const sizeDeal = dealFor(item, name, sizePrice)
+    return [name, sizeDeal ? `${sizeDeal.price} ${CURRENCY_SYMBOL} بدل ${sizePrice}` : `${sizePrice} ${CURRENCY_SYMBOL}`]
+  }))
 
   // Each size and color combination is its own line in the cart and the WhatsApp message
   const variant = [size && `مقاس ${size}`, color && `لون ${color}`].filter(Boolean).join('، ')
@@ -145,14 +153,14 @@ export default function MenuItem({
   const lineName = variant ? `${item.name} (${variant})` : item.name
   const quantity = cartStoreId === restaurantId ? cartItems.find(i => i.id === lineId)?.quantity ?? 0 : 0
 
-  const addLine = (id: string, name: string, linePrice: number) => {
+  const addLine = (id: string, name: string, linePrice: number, was?: number) => {
     if (!confirmCartStoreSwitch(restaurantId)) return
-    addItem({ id, name, price: linePrice }, restaurantId)
+    addItem({ id, name, price: linePrice, ...(was && was > linePrice ? { was } : {}) }, restaurantId)
     trackGAAddToCart(item.name, linePrice)
   }
 
   const addWeight = (kg: number, label: string) => {
-    addLine(`${item.id}|${kg}`, `${item.name} (${label})`, Math.round(kg * price))
+    addLine(`${item.id}|${kg}`, `${item.name} (${label})`, Math.round(kg * price), Math.round(kg * basePrice))
     setShowWeightSheet(false)
   }
 
@@ -201,16 +209,17 @@ export default function MenuItem({
             <span className="text-xl font-black text-brand">{price} {CURRENCY_SYMBOL}</span>
             {isByWeight && <span className="text-muted font-medium"> للكيلو</span>}
           </p>
-          {discount !== null && (
+          {deal && (
             <p className="font-bold">
-              <span className="text-muted font-medium line-through">{item.original_price} {CURRENCY_SYMBOL}</span>
-              <span className="text-red-700"> · خصم {discount}%</span>
+              <span className="text-muted font-medium line-through">{deal.was} {CURRENCY_SYMBOL}</span>
+              <span className="text-red-700"> · خصم {deal.percent}%</span>
+              {deal.ends && <span className="block text-sm text-muted font-medium">{deal.ends}</span>}
             </p>
           )}
         </div>
       </div>
 
-      {sizes.length > 0 && <ChoiceRow label="المقاس:" options={sizes} value={size} onChange={setSize} prices={priceBySize} />}
+      {sizes.length > 0 && <ChoiceRow label="المقاس:" options={sizes} value={size} onChange={setSize} prices={sizeLabels} />}
       {colors.length > 0 && <ChoiceRow label="اللون:" options={colors} value={color} onChange={setColor} />}
 
       <div className="mt-3">
@@ -219,7 +228,7 @@ export default function MenuItem({
         ) : !canOrder ? null : isByWeight ? (
           <button onClick={() => setShowWeightSheet(true)} className="btn btn-primary btn-block">اختر الكمية</button>
         ) : quantity === 0 ? (
-          <button onClick={() => addLine(lineId, lineName, price)} className="btn btn-primary btn-block">
+          <button onClick={() => addLine(lineId, lineName, price, basePrice)} className="btn btn-primary btn-block">
             <Plus size={20} />
             <span>أضف إلى السلة</span>
           </button>
@@ -227,7 +236,7 @@ export default function MenuItem({
           <QuantityStepper
             quantity={quantity}
             onDecrease={() => updateQuantity(lineId, quantity - 1)}
-            onIncrease={() => addLine(lineId, lineName, price)}
+            onIncrease={() => addLine(lineId, lineName, price, basePrice)}
           />
         )}
       </div>

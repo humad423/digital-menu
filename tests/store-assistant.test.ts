@@ -93,12 +93,10 @@ describe('keeping the agent inside its own shop', () => {
     assert.ok(checkAction(context, { op: 'update', record: 'O2', fields: { offer_price: 90 } }).step)
   })
 
-  test('a crossed-out price on a product must be above its price', () => {
-    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { original_price: 30 } }).problem!, /crossed-out/)
-    assert.ok(checkAction(ctx(), { op: 'update', record: 'P1', fields: { original_price: 40 } }).step)
-    const discounted = ctx({ records: [{ code: 'P1', table: 'menu_items', id: 'x', row: { name: 'y', price: 80, original_price: 100 } }] })
-    assert.match(checkAction(discounted, { op: 'update', record: 'P1', fields: { price: 120 } }).problem!, /crossed-out/)
-    assert.ok(checkAction(discounted, { op: 'update', record: 'P1', fields: { price: 120, original_price: null } }).step)
+  test('a product has no "before" price: discounts are offers made in the panel', () => {
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { original_price: 40 } }).problem!, /اعمل عرض/)
+    assert.match(checkAction(ctx(), { op: 'add', table: 'menu_items', fields: { name: 'x', price: 5, original_price: 8, category_id: 'C1' } }).problem!, /no "before" price/)
+    assert.ok(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 40, original_price: null } }).step, 'clearing an old one is fine')
   })
 
   test('a shop cannot be created or deleted', () => {

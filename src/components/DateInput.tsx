@@ -10,7 +10,13 @@ const YEARS_BACK = 3
  * Every date on the site, as lists of day, month and year.
  * A browser's own date box writes its digits in the browser's language. The value is "YYYY-MM-DD", or empty until it's complete.
  */
-export default function DateInput({ value, onChange, className = '' }: { value: string; onChange: (value: string) => void; className?: string }) {
+export default function DateInput({ value, onChange, className = '', upcoming = false }: {
+  value: string
+  onChange: (value: string) => void
+  className?: string
+  /** For a date ahead, like when an offer ends: this year and next, instead of the years before */
+  upcoming?: boolean
+}) {
   const [unfinished, setUnfinished] = useState({ year: '', month: '', day: '' })
   const [savedYear = '', savedMonth = '', savedDay = ''] = value ? value.split('-') : []
   const parts = value ? { year: savedYear, month: savedMonth, day: savedDay } : unfinished
@@ -35,7 +41,7 @@ export default function DateInput({ value, onChange, className = '' }: { value: 
     <div dir="ltr" className="flex items-center gap-1">
       {list('اليوم', parts.day, range(1, lastDay).map(pad), day => change({ ...parts, day }))}
       {list('الشهر', parts.month, range(1, 12).map(pad), month => change({ ...parts, month }))}
-      {list('السنة', parts.year, range(thisYear - YEARS_BACK, thisYear).map(String), year => change({ ...parts, year }))}
+      {list('السنة', parts.year, (upcoming ? range(thisYear, thisYear + 1) : range(thisYear - YEARS_BACK, thisYear)).map(String), year => change({ ...parts, year }))}
     </div>
   )
 }

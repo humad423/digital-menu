@@ -9,7 +9,10 @@ export interface PanelStore {
   restaurant: any
   categories: any[]
   menuItems: any[]
+  /** Bundles: several products for one price */
   offers: any[]
+  /** Offers on the store's own products, like a new price or a percent off a category */
+  promotions: any[]
   /** Reloads everything from the database after a change. */
   refresh: () => Promise<void>
   /** False, with a message, when a suspended store tries to change something. */

@@ -11,6 +11,29 @@ import { duplicateBundleMessage } from '@/utils/offerDuplicates'
 import { isRealDiscount } from '@/utils/productOptions'
 import { triggerRevalidate } from '@/utils/revalidate'
 import { CURRENCY_SYMBOL } from '@/config/site'
+import PromotionSheet from '@/components/panel/PromotionSheet'
+import { describeWhen, isPromotionOver, promotionStatus, type PromotionStatus } from '@/utils/promotions'
+
+const STATUS: Record<PromotionStatus, { label: string; badge: string }> = {
+  live: { label: 'شغّال الآن', badge: 'badge-green' },
+  waiting: { label: 'بأوقاته فقط', badge: 'badge-gray' },
+  upcoming: { label: 'لم يبدأ بعد', badge: 'badge-gray' },
+  over: { label: 'انتهى', badge: 'badge-red' },
+  off: { label: 'موقوف', badge: 'badge-gray' },
+}
+
+/** What an offer does, in a line the store reads at a glance. */
+function describeWhat(promotion: any, menuItems: any[], categories: any[]): string {
+  if (promotion.kind === 'category_percent') {
+    const names = categories.filter(category => (promotion.category_ids ?? []).includes(category.id)).map(category => category.name)
+    const left = (promotion.excluded_item_ids ?? []).length
+    return `خصم ${promotion.percent}% على ${names.join(' و') || 'قسم محذوف'}${left ? `، ما عدا ${left} منتج` : ''}`
+  }
+  return (promotion.prices ?? []).map((entry: any) => {
+    const item = menuItems.find(candidate => candidate.id === entry.item_id)
+    return `${item?.name ?? 'منتج محذوف'}${entry.size ? ` (${entry.size})` : ''}: ${entry.price} ${CURRENCY_SYMBOL}`
+  }).join('، ')
+}
 
 // The four products a bundle can hold, in the columns that store them
 const SLOTS = [
@@ -34,8 +57,15 @@ const EMPTY_FORM = {
 }
 
 export default function OffersTab({ store }: { store: PanelStore }) {
-  const { restaurantId, restaurant, menuItems, offers, refresh, canEdit } = store
+  const { restaurantId, restaurant, categories, menuItems, offers, promotions, refresh, canEdit } = store
   const limit = restaurant?.max_offers_limit || 5
+  // A supermarket's page is a list of products and their offers, without bundles
+  const bundlesOn = restaurant?.store_type !== 'supermarket'
+  const now = new Date()
+  const used = offers.length + promotions.filter(promotion => !isPromotionOver(promotion, now)).length
+
+  // The offer being made or changed: null when closed, 'new' to start at choosing its kind
+  const [promotionOpen, setPromotionOpen] = useState<any | 'new' | null>(null)
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingOffer, setEditingOffer] = useState<any | null>(null)
@@ -71,7 +101,7 @@ export default function OffersTab({ store }: { store: PanelStore }) {
 
   const openNew = () => {
     if (!canEdit()) return
-    if (offers.length >= limit) {
+    if (used >= limit) {
       notifyError(`وصلت إلى الحد المسموح (${limit}). تواصل مع الإدارة لزيادته.`)
       return
     }
@@ -159,6 +189,13 @@ export default function OffersTab({ store }: { store: PanelStore }) {
     }
   }
 
+  const togglePromotion = async (promotion: any) => {
+    if (!canEdit()) return
+    if (reportWriteResult(await supabase.from('promotions').update({ is_active: promotion.is_active === false }).eq('id', promotion.id))) {
+      await publish()
+    }
+  }
+
   const toggleActive = async (offer: any) => {
     if (!canEdit()) return
     if (reportWriteResult(await supabase.from('offers').update({ is_active: offer.is_active === false }).eq('id', offer.id))) {
@@ -176,16 +213,38 @@ export default function OffersTab({ store }: { store: PanelStore }) {
 
   return (
     <div className="space-y-4">
-      <button onClick={openNew} className="btn btn-primary btn-lg btn-block">
+      <button onClick={() => canEdit() && setPromotionOpen('new')} className="btn btn-primary btn-lg btn-block">
         <Plus size={22} />
-        <span>إضافة بكج جديد</span>
+        <span>اعمل عرض</span>
       </button>
 
-      <p className="text-muted font-medium">
-        البكج عرض يجمع منتجاً أو أكثر بسعر واحد. لديك {offers.length} من {limit} مسموحة.
-      </p>
+      <p className="text-muted font-medium">لديك {used} من {limit} عروض مسموحة.</p>
 
-      {offers.length === 0 && <p className="notice notice-info">لا توجد بكجات بعد.</p>}
+      {promotions.length === 0 && (!bundlesOn || offers.length === 0) && <p className="notice notice-info">لا توجد عروض بعد.</p>}
+
+      {promotions.map(promotion => {
+        const status = promotionStatus(promotion, now, restaurant?.timezone)
+        return (
+          <article key={promotion.id} className="card p-3 space-y-3">
+            <div className="space-y-1">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-black leading-snug min-w-0">{promotion.title}</h3>
+                <span className={`badge shrink-0 ${STATUS[status].badge}`}>{STATUS[status].label}</span>
+              </div>
+              <p className="font-bold text-brand">{describeWhat(promotion, menuItems, categories)}</p>
+              <p className="text-muted font-medium">{describeWhen(promotion, restaurant?.timezone)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => canEdit() && setPromotionOpen(promotion)} className="btn btn-secondary btn-sm">تعديل</button>
+              {status !== 'over' && (
+                <button onClick={() => togglePromotion(promotion)} className="btn btn-secondary btn-sm">{promotion.is_active === false ? 'تشغيل' : 'إيقاف'}</button>
+              )}
+            </div>
+          </article>
+        )
+      })}
+
+      {bundlesOn && offers.length > 0 && <h3 className="section-title pt-2">البكجات</h3>}
 
       {offers.map(offer => (
         <article key={offer.id} className="card p-3 space-y-3">
@@ -205,6 +264,15 @@ export default function OffersTab({ store }: { store: PanelStore }) {
           </div>
         </article>
       ))}
+
+      {promotionOpen && (
+        <PromotionSheet
+          store={store}
+          promotion={promotionOpen === 'new' ? undefined : promotionOpen}
+          onClose={() => setPromotionOpen(null)}
+          onBundle={bundlesOn ? () => { setPromotionOpen(null); openNew() } : undefined}
+        />
+      )}
 
       {isFormOpen && (
         <FormSheet
