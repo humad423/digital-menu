@@ -141,10 +141,11 @@ export default function MenuItem({
   const deal = dealFor(item, size, basePrice)
   const price = deal?.price ?? basePrice
   const isByWeight = !priceBySize && (item.unit === 'kg' || item.allow_custom_amount === true)
-  // Each size's price in the list, with its offer when it has one
+  // Each size's price in the list: only the price the customer pays, marked as an offer when it is one.
+  // The old price is shown crossed out above for the chosen size, where it can't be mistaken for the price.
   const sizeLabels = priceBySize && Object.fromEntries(Object.entries(priceBySize).map(([name, sizePrice]) => {
     const sizeDeal = dealFor(item, name, sizePrice)
-    return [name, sizeDeal ? `${sizeDeal.price} ${CURRENCY_SYMBOL} بدل ${sizePrice}` : `${sizePrice} ${CURRENCY_SYMBOL}`]
+    return [name, sizeDeal ? `${sizeDeal.price} ${CURRENCY_SYMBOL} · عرض` : `${sizePrice} ${CURRENCY_SYMBOL}`]
   }))
 
   // Each size and color combination is its own line in the cart and the WhatsApp message
