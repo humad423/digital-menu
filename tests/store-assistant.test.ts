@@ -93,8 +93,8 @@ describe('keeping the agent inside its own shop', () => {
     assert.ok(checkAction(context, { op: 'update', record: 'O2', fields: { offer_price: 90 } }).step)
   })
 
-  test('a product has no "before" price: discounts are offers made in the panel', () => {
-    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { original_price: 40 } }).problem!, /اعمل عرض/)
+  test('a product has no "before" price: a discount is added to promotions', () => {
+    assert.match(checkAction(ctx(), { op: 'update', record: 'P1', fields: { original_price: 40 } }).problem!, /add one to promotions/)
     assert.match(checkAction(ctx(), { op: 'add', table: 'menu_items', fields: { name: 'x', price: 5, original_price: 8, category_id: 'C1' } }).problem!, /no "before" price/)
     assert.ok(checkAction(ctx(), { op: 'update', record: 'P1', fields: { price: 40, original_price: null } }).step, 'clearing an old one is fine')
   })
@@ -704,5 +704,57 @@ describe('jobs done once and now', () => {
   test('catches a claimed move', () => {
     assert.ok(claimsMove('تمام، انتقلت لمحل حلويات جبل'))
     assert.ok(!claimsMove('رتبت الأقسام بحلويات جبل'))
+  })
+})
+
+describe('discounts the assistant makes', () => {
+  const cakeSizes = [{ name: 'صغير', price: 600 }, { name: 'كبير', price: 1000 }]
+  const shop = (extra: StoreRecord[] = []) => ctx({ records: [...records, { code: 'P4', table: 'menu_items', id: 'cake', row: { name: 'كيكة', price: 600, sizes: cakeSizes, category_id: 'cat-2' } }, ...extra] })
+  const add = (fields: Record<string, unknown>, context = shop()) => checkAction(context, { op: 'add', table: 'promotions', fields })
+
+  test('a price cut on a product keeps its usual price and must be a real saving', () => {
+    const step = add({ kind: 'price_cut', prices: [{ item: 'P1', price: 30 }] }).step as any
+    assert.deepEqual(step.fields.prices, [{ item_id: 'item-1', size: null, price: 30 }])
+    assert.equal(step.fields.title, 'بندورة حمرا')
+    assert.match(add({ kind: 'price_cut', prices: [{ item: 'P1', price: 40 }] }).problem!, /below its usual price 35/)
+  })
+
+  test('a product in sizes gets one price per size, by its exact name', () => {
+    const step = add({ kind: 'price_cut', prices: [{ item: 'P4', size: 'صغير', price: 550 }, { item: 'P4', size: 'كبير', price: 950 }] }).step as any
+    assert.equal(step.fields.prices.length, 2)
+    assert.match(add({ kind: 'price_cut', prices: [{ item: 'P4', price: 550 }] }).problem!, /sold in sizes/)
+  })
+
+  test('an amount off whole categories, with its own title', () => {
+    const step = add({ kind: 'category_amount', amount: 50, category_ids: ['C1', 'C2'] }).step as any
+    assert.deepEqual(step.fields.category_ids, ['cat-1', 'cat-2'])
+    assert.equal(step.fields.title, 'خصم 50 ₺ على خضار ومخبوزات')
+    assert.match(add({ kind: 'category_amount', category_ids: ['C1'] }).problem!, /needs amount/)
+  })
+
+  test('times are read on the shop clock, and an end that passed is refused', () => {
+    const at = ctx({ now: Date.parse('2026-11-20T10:00:00Z') })
+    const step = add({ kind: 'category_percent', percent: 10, category_ids: ['C1'], ends_at: '2026-11-27 23:59', days: [5, 4], from_time: '15:00', until_time: '18:00' }, at).step as any
+    assert.equal(step.fields.ends_at, '2026-11-27T20:59:00.000Z')
+    assert.deepEqual(step.fields.days, [4, 5])
+    assert.match(add({ kind: 'category_percent', percent: 10, category_ids: ['C1'], ends_at: '2026-11-19 10:00' }, at).problem!, /already passed/)
+  })
+
+  test('a product already discounted gets that discount changed, not a second one', () => {
+    const running: StoreRecord = { code: 'D1', table: 'promotions', id: 'd1', row: { kind: 'price_cut', title: 'بندورة', prices: [{ item_id: 'item-1', size: null, price: 30 }] } }
+    assert.match(add({ kind: 'price_cut', prices: [{ item: 'P1', price: 25 }] }, shop([running])).problem!, /Change D1/)
+    const changed = checkAction(shop([running]), { op: 'update', record: 'D1', fields: { prices: [{ item: 'P1', price: 25 }] } }).step as any
+    assert.deepEqual(changed.fields.prices, [{ item_id: 'item-1', size: null, price: 25 }])
+    assert.deepEqual((checkAction(shop([running]), { op: 'update', record: 'D1', fields: { is_active: false } }).step as any).fields, { is_active: false })
+  })
+
+  test('discounts and bundles share the shop limit', () => {
+    const full = Array.from({ length: 5 }, (_, index): StoreRecord => ({ code: `D${index + 1}`, table: 'promotions', id: `d${index}`, row: { kind: 'category_amount', amount: 5, category_ids: ['cat-1'] } }))
+    assert.match(add({ kind: 'category_amount', amount: 5, category_ids: ['C2'] }, shop(full)).problem!, /limit of 5/)
+  })
+
+  test('a lower usual price that cancels a discount is noticed', () => {
+    const running: StoreRecord = { code: 'D1', table: 'promotions', id: 'd1', row: { kind: 'price_cut', prices: [{ item_id: 'item-1', size: null, price: 40 }] } }
+    assert.ok(noticeLines(shop([running])).some(note => /D1 sets P1 بندورة حمرا at 40, but its usual price is now 35/.test(note)))
   })
 })

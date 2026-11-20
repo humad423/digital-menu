@@ -248,11 +248,12 @@ async function runStep(step: Step, ctx: Context, phone: string, batch: string, g
 /** A shop's records, each under the short code the model calls it by, and the other names its owner uses. */
 async function loadShop(store: Store): Promise<{ records: StoreRecord[]; aliases: { said: string; menu_item_id: string }[] }> {
   if (!store.id) return { records: [], aliases: [] }
-  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }] = await Promise.all([
+  const [{ data: rawCategories }, { data: rawItems }, { data: aliases }, { data: rawOffers }, { data: rawPromotions }] = await Promise.all([
     db.from('categories').select('*').eq('restaurant_id', store.id).order('sort_order'),
     db.from('menu_items').select('*, categories!inner(restaurant_id)').eq('categories.restaurant_id', store.id).limit(500),
     db.from('assistant_aliases').select('said, menu_item_id').eq('store_id', store.id),
     db.from('offers').select('*').eq('restaurant_id', store.id).order('sort_order'),
+    db.from('promotions').select('*').eq('restaurant_id', store.id).order('created_at'),
   ])
 
   const coded = (table: StoreRecord['table'], prefix: string, rows: any[] | null): StoreRecord[] =>
@@ -267,6 +268,7 @@ async function loadShop(store: Store): Promise<{ records: StoreRecord[]; aliases
       ...coded('categories', 'C', rawCategories),
       ...coded('menu_items', 'P', rawItems),
       ...coded('offers', 'O', rawOffers),
+      ...coded('promotions', 'D', rawPromotions),
     ],
     aliases: aliases || [],
   }

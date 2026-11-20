@@ -22,11 +22,12 @@ export type Look = (typeof LOOKS)[number]
 const PRICE_JUMP = 3
 const MAX_PRODUCT_PHOTOS = 3
 /** Where discounts on products are made now, for the model to pass on. */
-const OFFERS_IN_PANEL = 'Discounts on products, like a lower price for a while or a percent off a category, are offers the owner makes in the store panel: the العروض tab, then اعمل عرض. Tell them that, and send the panel link.'
+const OFFERS_IN_PANEL = 'A discount is an offer: add one to promotions, as your instructions say under Discounts.'
 /** How long a request passed to the Alfsouq team can be. */
 const MAX_TEAM_NOTE = 600
 
-export type StoreTable = 'restaurants' | 'categories' | 'menu_items' | 'offers'
+/** offers are bundles, several products for one price; promotions are discounts on the shop's own products */
+export type StoreTable = 'restaurants' | 'categories' | 'menu_items' | 'offers' | 'promotions'
 type Row = Record<string, unknown>
 
 /** The same settings the store panel refuses to let an owner change. */
@@ -301,6 +302,7 @@ const STOCK_PHOTO = /^ST\d+$/
  * and its photos named like P3#1, so it can keep them when adding more.
  */
 function showRecord(ctx: Context, record: StoreRecord): string {
+  if (record.table === 'promotions') return JSON.stringify(showPromotion(ctx, record.row))
   const shown: Row = {}
   const photos = savedPhotos(record.row)
   for (const [key, value] of Object.entries(record.row)) {
@@ -313,6 +315,28 @@ function showRecord(ctx: Context, record: StoreRecord): string {
   }
   if (photos.length && record.table !== 'restaurants') shown.images = photos.map((_, index) => `${record.code}#${index + 1}`)
   return JSON.stringify(shown)
+}
+
+/** A discount as the model reads it: products and categories by their codes, times on the shop's clock, and where it stands now. */
+function showPromotion(ctx: Context, row: Row): Row {
+  const zone = storeZone(ctx.store)
+  const now = ctx.now ?? Date.now()
+  const code = (id: unknown) => ctx.records.find(record => record.id === id)?.code ?? 'deleted'
+  const shown: Row = { kind: row.kind, title: row.title }
+  if (row.kind === 'price_cut') shown.prices = (Array.isArray(row.prices) ? row.prices as Row[] : []).map(entry => ({ item: code(entry.item_id), ...(entry.size ? { size: entry.size } : {}), price: entry.price }))
+  if (row.kind === 'category_amount') shown.amount = row.amount
+  if (row.kind === 'category_percent') shown.percent = row.percent
+  if (row.kind !== 'price_cut') shown.category_ids = (Array.isArray(row.category_ids) ? row.category_ids : []).map(code)
+  if (Array.isArray(row.excluded_item_ids) && row.excluded_item_ids.length) shown.excluded_item_ids = row.excluded_item_ids.map(code)
+  for (const key of ['starts_at', 'ends_at']) if (row[key]) shown[key] = toLocalTime(row[key], zone)
+  if (Array.isArray(row.days) && row.days.length) shown.days = row.days
+  if (row.from_time) shown.from_time = row.from_time
+  if (row.until_time) shown.until_time = row.until_time
+  shown.status = row.is_active === false ? 'stopped'
+    : Date.parse(String(row.ends_at ?? '')) <= now ? 'over'
+    : Date.parse(String(row.starts_at ?? '')) > now ? 'not started yet'
+    : 'on'
+  return shown
 }
 
 /** Turns names like P3#1 back into the photos they stand for, or says which one doesn't exist. */
@@ -445,6 +469,18 @@ export function noticeLines(ctx: Context, now: number = Date.now()): string[] {
     if (blocked.length) notes.push(`Offer ${offer.code} "${labelOf(offer.row)}" includes ${blocked.map(record => name(record!)).join(', ')}, which customers can't get right now.`)
   }
 
+  // A price cut only shows while it's below the usual price, so lowering the usual price can quietly undo it
+  for (const promotion of ctx.records.filter(record => record.table === 'promotions' && record.row.is_active !== false && !(Date.parse(String(record.row.ends_at ?? '')) <= now))) {
+    for (const entry of Array.isArray(promotion.row.prices) ? promotion.row.prices as Row[] : []) {
+      const item = ctx.records.find(record => record.id === entry.item_id)
+      if (!item) continue
+      const usual = entry.size ? sizePricesOf(item.row.sizes).find(size => size.name === entry.size)?.price : Number(item.row.price)
+      if (usual !== undefined && Number(entry.price) >= usual) {
+        notes.push(`Discount ${promotion.code} sets ${name(item)}${entry.size ? ` (${entry.size})` : ''} at ${String(entry.price)}, but its usual price is now ${usual}, so customers don't see that discount.`)
+      }
+    }
+  }
+
   const byName = new Map<string, StoreRecord[]>()
   for (const product of products) {
     const key = normalizeName(product.row.name)
@@ -507,7 +543,8 @@ export function buildInput(ctx: Context, aliases: { said: string; menu_item_id: 
     `Shop:\n${section('restaurants')}`,
     `Categories:\n${section('categories')}`,
     `Products:\n${section('menu_items')}`,
-    `Offers:\n${section('offers')}`,
+    `Bundles:\n${section('offers')}`,
+    `Discounts:\n${section('promotions')}`,
     `Other names the owner uses:\n${known.join('\n') || 'none'}`,
     `Links you may share:\n${shopLinkLines(ctx.store, history)}`,
     `Photos you can use: ${photoLine(ctx)}`,
@@ -757,6 +794,129 @@ function priceJumpProblem(label: string, before: unknown, after: unknown, lastRe
   return `${label}: the new price ${next} is far from the current ${old}, so it was NOT saved yet. Ask the owner if they really mean ${next}, and save it once they say yes.`
 }
 
+const PROMOTION_KINDS = new Set(['price_cut', 'category_amount', 'category_percent'])
+
+/** Offers and bundles that still count against the shop's limit: every one that hasn't ended. */
+function offersInUse(ctx: Context): number {
+  const now = ctx.now ?? Date.now()
+  return ctx.records.filter(record => record.table === 'offers'
+    || (record.table === 'promotions' && !(Date.parse(String(record.row.ends_at ?? '')) <= now))).length
+}
+
+/**
+ * A discount as the model wrote it, checked: products and categories of this shop, a real saving on each,
+ * and times on the shop's clock. With the offer being changed, only what's given changes.
+ */
+function readPromotion(ctx: Context, raw: unknown, current?: Row): { fields?: Row; problem?: string } {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { problem: 'fields must be an object of the values to save.' }
+  const given = raw as Row
+  const now = ctx.now ?? Date.now()
+  const fields: Row = {}
+  const kind = String(given.kind ?? current?.kind ?? '')
+  if (!PROMOTION_KINDS.has(kind)) return { problem: 'A discount\'s kind is price_cut, category_amount or category_percent. Nothing was saved.' }
+  if (given.kind !== undefined) fields.kind = kind
+  const find = (table: StoreTable, value: unknown) => ctx.records.find(record => record.table === table && (record.code === value || record.id === value))
+
+  if (given.prices !== undefined) {
+    if (!Array.isArray(given.prices) || given.prices.length === 0) return { problem: 'prices is a list of {"item":"P3","price":450}, with "size" for each size of a product sold in sizes. Nothing was saved.' }
+    const list: Row[] = []
+    for (const raw of given.prices) {
+      const entry = (raw && typeof raw === 'object' ? raw : {}) as Row
+      const item = find('menu_items', entry.item ?? entry.item_id)
+      if (!item) return { problem: `${String(entry.item ?? entry.item_id)} is not a product in this shop. Nothing was saved.` }
+      const sized = sizePricesOf(item.row.sizes)
+      const size = clean(entry.size, 60) || null
+      let usual = Number(item.row.price)
+      if (sized.length) {
+        const match = sized.find(option => option.name === size)
+        if (!match) return { problem: `${labelOf(item.row)} is sold in sizes (${sized.map(option => option.name).join('، ')}), so give each size you discount its own entry, with "size" written exactly as listed. Nothing was saved.` }
+        usual = match.price
+      }
+      const price = Number(latinDigits(String(entry.price ?? '')))
+      if (!(price > 0) || price >= usual) {
+        return { problem: `${labelOf(item.row)}${size ? ` (${size})` : ''}: the offer price ${String(entry.price)} has to be above 0 and below its usual price ${usual}, so nothing was saved. To raise or lower its usual price for good, update the product instead.` }
+      }
+      list.push({ item_id: item.id, size: sized.length ? size : null, price })
+    }
+    fields.prices = list
+  }
+
+  for (const [key, table] of [['category_ids', 'categories'], ['excluded_item_ids', 'menu_items']] as const) {
+    if (given[key] === undefined) continue
+    if (!Array.isArray(given[key])) return { problem: `${key} is a list of codes, like ["C1","C2"]. Nothing was saved.` }
+    const ids: string[] = []
+    for (const value of given[key] as unknown[]) {
+      const record = find(table, value)
+      if (!record) return { problem: `${key}: ${String(value)} is not part of this shop. Nothing was saved.` }
+      ids.push(record.id)
+    }
+    fields[key] = [...new Set(ids)]
+  }
+
+  if (given.amount !== undefined) {
+    const amount = given.amount === null ? null : Number(latinDigits(String(given.amount)))
+    if (amount !== null && !(amount > 0)) return { problem: `${String(given.amount)} is not an amount off. Nothing was saved.` }
+    fields.amount = amount
+  }
+  if (given.percent !== undefined) {
+    const percent = given.percent === null ? null : Number(latinDigits(String(given.percent)))
+    if (percent !== null && !(percent > 0 && percent < 100)) return { problem: `A percent off is between 1 and 99, not ${String(given.percent)}. Nothing was saved.` }
+    fields.percent = percent
+  }
+  for (const key of ['starts_at', 'ends_at']) {
+    if (given[key] === undefined) continue
+    if (given[key] === null) { fields[key] = null; continue }
+    const moment = fromLocalTime(given[key], storeZone(ctx.store))
+    if (!moment) return { problem: `${key}: "${String(given[key])}" is not a time. Write it in the shop's local time as "YYYY-MM-DD HH:MM". Nothing was saved.` }
+    if (key === 'ends_at' && Date.parse(moment) <= now) return { problem: `ends_at: ${String(given[key])} has already passed on the shop's clock, so nothing was saved. Check the date and time.` }
+    fields[key] = moment
+  }
+  if (given.days !== undefined) {
+    const days = Array.isArray(given.days) ? given.days.map(day => Number(day)) : null
+    if (!days || days.some(day => !Number.isInteger(day) || day < 0 || day > 6)) return { problem: 'days is a list of weekdays, 0 for Sunday to 6 for Saturday, or [] for every day. Nothing was saved.' }
+    fields.days = [...new Set(days)].sort()
+  }
+  for (const key of ['from_time', 'until_time']) {
+    if (given[key] === undefined) continue
+    if (given[key] === null || given[key] === '') { fields[key] = null; continue }
+    const hour = latinDigits(String(given[key]).trim()).match(HOUR)
+    if (!hour) return { problem: `${key}: "${String(given[key])}" is not a time written as HH:MM. Nothing was saved.` }
+    fields[key] = `${hour[1].padStart(2, '0')}:${hour[2]}`
+  }
+  if (given.is_active !== undefined) fields.is_active = given.is_active !== false
+  if (given.title !== undefined) fields.title = clean(given.title, 80) || null
+
+  // The whole offer, once changed, has to hold together
+  const offer: Row = { ...current, ...fields, kind }
+  if (kind === 'price_cut' && !(Array.isArray(offer.prices) && offer.prices.length)) return { problem: 'A price cut needs prices: the products, sizes and their offer prices. Nothing was saved.' }
+  if (kind !== 'price_cut' && !(Array.isArray(offer.category_ids) && offer.category_ids.length)) return { problem: 'A category discount needs category_ids: which categories, or all of them for the whole shop. Nothing was saved.' }
+  if (kind === 'category_amount' && !(Number(offer.amount) > 0)) return { problem: 'A category_amount discount needs amount, the amount off each product. Nothing was saved.' }
+  if (kind === 'category_percent' && !(Number(offer.percent) > 0)) return { problem: 'A category_percent discount needs percent. Nothing was saved.' }
+  if (offer.starts_at && offer.ends_at && Date.parse(String(offer.ends_at)) <= Date.parse(String(offer.starts_at))) return { problem: 'An offer has to end after it starts. Nothing was saved.' }
+  if (Boolean(offer.from_time) !== Boolean(offer.until_time)) return { problem: 'Give from_time and until_time together, or neither for all day. Nothing was saved.' }
+
+  if (!current && !fields.title) {
+    const names = (ids: unknown) => (Array.isArray(ids) ? ids : []).map(id => labelOf(find('categories', id)?.row ?? {})).join(' و')
+    fields.title = kind === 'price_cut'
+      ? labelOf(find('menu_items', (fields.prices as Row[])[0].item_id)?.row ?? {})
+      : `خصم ${kind === 'category_amount' ? money(offer.amount) : `${offer.percent}%`} على ${names(offer.category_ids)}`
+  }
+  return { fields }
+}
+
+/** A price cut on a product another running one already covers, which customers would see twice. */
+function duplicatePromotionProblem(ctx: Context, fields: Row, selfId?: string): string | null {
+  if (fields.prices === undefined) return null
+  const now = ctx.now ?? Date.now()
+  for (const entry of fields.prices as Row[]) {
+    const other = ctx.records.find(record => record.table === 'promotions' && record.id !== selfId && record.row.is_active !== false
+      && !(Date.parse(String(record.row.ends_at ?? '')) <= now)
+      && Array.isArray(record.row.prices) && (record.row.prices as Row[]).some(price => price.item_id === entry.item_id && (price.size ?? null) === (entry.size ?? null)))
+    if (other) return `${other.code} "${labelOf(other.row)}" already discounts that product, so nothing was saved. Change ${other.code} instead of adding a second one.`
+  }
+  return null
+}
+
 const NEW_STORE_FIELDS = ['store_type', 'whatsapp_number', 'latitude', 'longitude', 'opening_time', 'closing_time', 'delivery_radius_km', 'menu_note']
 
 /**
@@ -809,7 +969,7 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
 
   if (op === 'update') {
     if (!record) return { problem: `${String(action.record)} is not a record in this shop.` }
-    const { fields, problem } = readFields(ctx, record.table, action.fields)
+    const { fields, problem } = record.table === 'promotions' ? readPromotion(ctx, action.fields, record.row) : readFields(ctx, record.table, action.fields)
     if (!fields) return { problem }
     // Its price follows its sizes, so changing the price alone would leave customers seeing the old size prices
     if (record.table === 'menu_items' && 'price' in fields && !('sizes' in fields) && sizePricesOf(record.row.sizes).length) {
@@ -836,13 +996,26 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
       const duplicate = duplicateOfferProblem(ctx, { ...record.row, ...fields }, Object.keys(fields), record.id)
       if (duplicate) return { problem: duplicate }
     }
+    if (record.table === 'promotions') {
+      const duplicate = duplicatePromotionProblem(ctx, fields, record.id)
+      if (duplicate) return { problem: duplicate }
+    }
     return { step: { op: 'update', table: record.table, id: record.id, code: record.code, label: labelOf(record.row), said: clean(action.said_name, 60), fields, before } }
   }
 
   if (op === 'add') {
     const table = String(action.table ?? '')
     if (table === 'restaurants') return { problem: 'You cannot create a shop. Only the Alfsouq team can.' }
-    if (table !== 'categories' && table !== 'menu_items' && table !== 'offers') return { problem: `"${clean(table, 30)}" is not something you can add to.` }
+    if (table !== 'categories' && table !== 'menu_items' && table !== 'offers' && table !== 'promotions') return { problem: `"${clean(table, 30)}" is not something you can add to.` }
+    if (table === 'promotions') {
+      const { fields, problem } = readPromotion(ctx, action.fields)
+      if (!fields) return { problem }
+      const limit = ctx.store.max_offers_limit || 5
+      if (offersInUse(ctx) >= limit) return { problem: `This shop has reached its limit of ${limit} offers and bundles together, which belongs to the Alfsouq team. Nothing was added. Stop an old one first (is_active false), or ask the team for more.` }
+      const duplicate = duplicatePromotionProblem(ctx, fields)
+      if (duplicate) return { problem: duplicate }
+      return { step: { op: 'add', table, label: labelOf(fields), ref: action.ref ? clean(action.ref, 10) : null, fields } }
+    }
     const { fields, problem } = readFields(ctx, table, action.fields)
     if (!fields) return { problem }
     // A category is only made once, so trying again after a problem never leaves copies behind
@@ -860,7 +1033,7 @@ export function checkAction(ctx: Context, raw: unknown): { step?: Step; problem?
     if (discount) return { problem: discount }
     if (table === 'offers') {
       const limit = ctx.store.max_offers_limit || 5
-      const count = ctx.records.filter(candidate => candidate.table === 'offers').length
+      const count = offersInUse(ctx)
       if (count >= limit) return { problem: `This shop has reached its limit of ${limit} offers, which belongs to the Alfsouq team. Nothing was added. They can remove an old offer from their store panel, or ask the team for more.` }
       const duplicate = duplicateOfferProblem(ctx, fields, Object.keys(fields))
       if (duplicate) return { problem: duplicate }
@@ -920,7 +1093,7 @@ export function applyToContext(ctx: Context, step: Step, saved?: Row): void {
     ctx.records = [{ code: 'S', table: 'restaurants', id: opened.id, row: opened }]
     ctx.stores = [...(ctx.stores ?? []), { code: `A${(ctx.stores?.length ?? 0) + 1}`, id: opened.id, name: opened.name, slug: opened.slug }]
   } else if (step.op === 'add' && saved) {
-    const prefix = { categories: 'C', menu_items: 'P', offers: 'O' }[step.table]
+    const prefix = { categories: 'C', menu_items: 'P', offers: 'O', promotions: 'D' }[step.table]
     const code = step.ref || `${prefix}${ctx.records.filter(record => record.table === step.table).length + 1}`
     ctx.records.push({ code, table: step.table, id: String(saved.id), row: saved })
   }
