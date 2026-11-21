@@ -1,7 +1,7 @@
 'use client'
 
 import NumberInput from '@/components/NumberInput'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react'
 import SmartOfferImage from '@/components/SmartOfferImage'
 import { confirmCartStoreSwitch, useCartStore } from '@/store/cartStore'
@@ -28,6 +28,37 @@ function stringList(value: unknown): string[] {
     } catch {}
   }
   return []
+}
+
+/**
+ * A product's description in two lines, so a long one doesn't stretch the card.
+ * When it's cut, "المزيد" shows the rest.
+ */
+function Description({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null)
+  const [open, setOpen] = useState(false)
+  const [cut, setCut] = useState(false)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element || open) return
+    const measure = () => setCut(element.scrollHeight > element.clientHeight + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [text, open])
+
+  return (
+    <div className="mt-0.5">
+      <p ref={ref} className={`text-muted font-medium leading-snug ${open ? '' : 'line-clamp-2'}`}>{text}</p>
+      {(cut || open) && (
+        <button onClick={() => setOpen(!open)} className="text-brand font-bold text-sm mt-0.5">
+          {open ? 'أقل' : 'المزيد'}
+        </button>
+      )}
+    </div>
+  )
 }
 
 function QuantityStepper({ quantity, onDecrease, onIncrease }: { quantity: number; onDecrease: () => void; onIncrease: () => void }) {
@@ -205,7 +236,7 @@ export default function MenuItem({
 
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-black leading-snug">{item.name}</h3>
-          {item.description && <p className="text-muted font-medium leading-snug mt-0.5">{item.description}</p>}
+          {item.description && <Description text={item.description} />}
           <p className="mt-1">
             <span className="text-xl font-black text-brand">{price} {CURRENCY_SYMBOL}</span>
             {isByWeight && <span className="text-muted font-medium"> للكيلو</span>}
